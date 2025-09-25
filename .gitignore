@@ -1,5 +1,5 @@
 # Compiled class files
-*.class
+# *.class  # Commented out to include compiled files
 
 # Package Files
 *.jar
@@ -56,7 +56,7 @@ Thumbs.db
 *.backup
 
 # Build directories
-bin/
+# bin/  # Commented out to include compiled files
 target/
 out/
 
