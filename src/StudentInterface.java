@@ -4,14 +4,14 @@ import java.util.List;
 public class StudentInterface {
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
-    private Scanner scanner;
+    private InputValidator validator;
     private Student student;
     
     public StudentInterface(InventoryManager inventoryManager, ReservationManager reservationManager, 
-                           Scanner scanner, Student student) {
+                           InputValidator validator, Student student) {
         this.inventoryManager = inventoryManager;
         this.reservationManager = reservationManager;
-        this.scanner = scanner;
+        this.validator = validator;
         this.student = student;
     }
     
@@ -20,19 +20,21 @@ public class StudentInterface {
             System.out.println("\n=================================");
             System.out.println("       STUDENT HOMEPAGE");
             System.out.println("   Welcome, " + student.getUsername() + "!");
+            System.out.println("   Course: " + student.getCourse());
             System.out.println("=================================");
             System.out.println("[1] Help");
             System.out.println("[2] Reserve a Item");
             System.out.println("[3] Stock Page");
             System.out.println("[4] Your Reservations");
-            System.out.println("[0] Back to Main Menu");
+            System.out.println("[5] Logout");
+            System.out.println("[0] Exit System");
             System.out.print("Enter your choice: ");
             
-            int choice = getChoice();
+            int choice = validator.getValidInteger("", 0, 5);
             
             switch (choice) {
                 case 1:
-                    showHelp();
+                    showStudentHelp();
                     break;
                 case 2:
                     reserveItem();
@@ -43,50 +45,83 @@ public class StudentInterface {
                 case 4:
                     showYourReservations();
                     break;
-                case 0:
+                case 5:
+                    System.out.println("👋 Logged out successfully!");
                     return;
+                case 0:
+                    System.out.println("🔚 Exiting system...");
+                    System.exit(0);
+                    break;
                 default:
-                    System.out.println("Invalid choice. Please try again.");
+                    System.out.println("❌ Invalid choice. Please try again.");
             }
         }
     }
     
-    private void showHelp() {
+    private void showStudentHelp() {
         System.out.println("\n=================================");
-        System.out.println("             HELP");
+        System.out.println("        STUDENT HELP DESK");
         System.out.println("=================================");
-        System.out.println("\n--- SYSTEM DESCRIPTION ---");
-        System.out.println("Welcome to the STI Merch System!");
-        System.out.println("This system allows you to browse and reserve school uniforms and merchandise.");
+        System.out.println("\n--- WELCOME TO STI MERCH SYSTEM ---");
+        System.out.println("Hello " + student.getUsername() + "! 👋");
+        System.out.println("This system helps you browse and reserve school uniforms and merchandise.");
+        System.out.println("📚 Your course: " + student.getCourse());
         
-        System.out.println("\n--- HOW TO ORDER ---");
-        System.out.println("1. Go to 'Stock Page' to browse available items for your course");
-        System.out.println("2. Note down the item code of what you want to reserve");
-        System.out.println("3. Go to 'Reserve a Item' menu");
-        System.out.println("4. Enter the item code and quantity you want");
-        System.out.println("5. Confirm your reservation details");
-        System.out.println("6. Your reservation will be created with PENDING status");
-        System.out.println("7. Check 'Your Reservations' to see the status");
+        System.out.println("\n--- STEP-BY-STEP ORDERING GUIDE ---");
+        System.out.println("1. 📋 BROWSE ITEMS");
+        System.out.println("   • Go to 'Stock Page' → 'View Your Course Items'");
+        System.out.println("   • Check available uniforms for " + student.getCourse());
+        System.out.println("   • Browse 'STI Special Merchandise' for general items");
+        System.out.println("   • Note down the ITEM CODE of what you want");
         
-        System.out.println("\n--- RESERVATION STATUS ---");
-        System.out.println("• PENDING - Your reservation is waiting for admin approval");
-        System.out.println("• APPROVED - Your reservation has been approved");
-        System.out.println("• COMPLETED - Your items are ready for pickup");
-        System.out.println("• CANCELLED - Your reservation has been cancelled");
+        System.out.println("\n2. 🛒 MAKE RESERVATION");
+        System.out.println("   • Go to 'Reserve a Item' menu");
+        System.out.println("   • Enter the exact ITEM CODE you noted");
+        System.out.println("   • Enter the quantity you need");
+        System.out.println("   • Confirm your reservation details");
+        System.out.println("   • Your reservation will be created with PENDING status");
         
-        System.out.println("\n--- NAVIGATION HELP ---");
-        System.out.println("• Use number keys to navigate menus");
-        System.out.println("• Press [0] to go back to previous menu");
-        System.out.println("• You can only view items for your course: " + student.getCourse());
-        System.out.println("• All reservations require admin approval");
+        System.out.println("\n3. 📞 TRACK YOUR ORDER");
+        System.out.println("   • Go to 'Your Reservations'");
+        System.out.println("   • Check the status of your orders");
+        System.out.println("   • Cancel if needed (before approval)");
         
-        System.out.println("\n--- AVAILABLE ITEMS ---");
-        System.out.println("Uniforms: Polo Shirts, Pants, ID Lace");
-        System.out.println("STI Special: Anniversary Clothes, PE Uniforms, Washday Shirts, NSTP Uniforms");
-        System.out.println("Sizes: XS, S, M, L, XL, XXL");
+        System.out.println("\n--- RESERVATION STATUS GUIDE ---");
+        System.out.println("🟡 PENDING - Waiting for admin approval");
+        System.out.println("🟢 APPROVED - Admin approved, prepare for pickup");
+        System.out.println("🔵 COMPLETED - Items ready for pickup");
+        System.out.println("🔴 CANCELLED - Reservation cancelled");
+        
+        System.out.println("\n--- WHAT YOU CAN ORDER ---");
+        System.out.println("📘 " + student.getCourse() + " Course Items:");
+        System.out.println("   • " + student.getCourse() + " Polo Shirts (All sizes)");
+        System.out.println("   • " + student.getCourse() + " Pants (All sizes)");
+        System.out.println("   • " + student.getCourse() + " ID Lace");
+        
+        System.out.println("\n🎉 STI Special Merchandise (All students):");
+        System.out.println("   • Anniversary Clothes");
+        System.out.println("   • PE Uniforms");
+        System.out.println("   • Washday Shirts");
+        System.out.println("   • NSTP Uniforms");
+        
+        System.out.println("\n--- IMPORTANT REMINDERS ---");
+        System.out.println("⚠️ You can only order items for your course (" + student.getCourse() + ")");
+        System.out.println("⚠️ All reservations need admin approval");
+        System.out.println("⚠️ Use exact item codes when reserving");
+        System.out.println("⚠️ Payment required during pickup");
+        System.out.println("⚠️ Items must be picked up within 7 days");
+        
+        System.out.println("\n--- NAVIGATION TIPS ---");
+        System.out.println("🔢 Use number keys [1-5] to navigate");
+        System.out.println("🔙 Press [0] to go back in any menu");
+        System.out.println("🚪 Press [5] to logout safely");
         
         System.out.println("\nPress Enter to continue...");
-        scanner.nextLine();
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            // Handle input exception
+        }
     }
     
     private void reserveItem() {
@@ -95,45 +130,43 @@ public class StudentInterface {
         System.out.println("=================================");
         
         // Show available items for student's course first
-        System.out.println("Available items for your course (" + student.getCourse() + "):");
+        System.out.println("📚 Available items for your course (" + student.getCourse() + "):");
         inventoryManager.displayItemsByCourse(student.getCourse());
         
         // Also show STI Special items
-        System.out.println("STI Special Merchandise:");
+        System.out.println("🎉 STI Special Merchandise:");
         inventoryManager.displayItemsByCourse("STI Special");
         
-        System.out.print("Enter item code to reserve: ");
-        int itemCode = getChoice();
+        int itemCode = validator.getValidInteger("Enter item code to reserve: ", 1000, 9999);
         
         Item item = inventoryManager.findItemByCode(itemCode);
         if (item == null) {
-            System.out.println("Item not found.");
+            System.out.println("❌ Item with code " + itemCode + " not found.");
+            System.out.println("💡 Please check the item code from the inventory list above.");
             return;
         }
         
         // Check if item belongs to student's course or is STI Special
         if (!item.getCourse().equalsIgnoreCase(student.getCourse()) && 
             !item.getCourse().equalsIgnoreCase("STI Special")) {
-            System.out.println("You can only reserve items for your course or STI Special merchandise.");
+            System.out.println("❌ You can only reserve items for your course (" + student.getCourse() + ") or STI Special merchandise.");
+            System.out.println("💡 This item belongs to: " + item.getCourse());
             return;
         }
         
-        System.out.println("\nSelected item: " + item);
-        System.out.print("Enter quantity to reserve: ");
-        int quantity = getChoice();
+        System.out.println("\n✅ Item found: " + item.getName() + " (" + item.getSize() + ")");
+        System.out.println("Available quantity: " + item.getQuantity());
+        System.out.println("Price: ₱" + item.getPrice() + " per item");
         
-        if (quantity <= 0) {
-            System.out.println("Invalid quantity.");
-            return;
-        }
+        int quantity = validator.getValidInteger("Enter quantity to reserve (1-" + item.getQuantity() + "): ", 1, item.getQuantity());
         
         if (item.getQuantity() < quantity) {
-            System.out.println("Insufficient stock. Available quantity: " + item.getQuantity());
+            System.out.println("❌ Insufficient stock. Available quantity: " + item.getQuantity());
             return;
         }
         
         // Show reservation summary
-        System.out.println("\n--- RESERVATION SUMMARY ---");
+        System.out.println("\n=== RESERVATION CONFIRMATION ===");
         System.out.println("Student Name: " + student.getUsername());
         System.out.println("Student ID: " + student.getStudentId());
         System.out.println("Course: " + student.getCourse());
@@ -141,12 +174,15 @@ public class StudentInterface {
         System.out.println("Item Code: " + item.getCode());
         System.out.println("Quantity: " + quantity);
         System.out.println("Price per item: ₱" + item.getPrice());
-        System.out.println("Total: ₱" + (item.getPrice() * quantity));
+        System.out.println("Total Amount: ₱" + (item.getPrice() * quantity));
         
-        System.out.print("\nConfirm reservation? (y/n): ");
-        String confirm = scanner.nextLine().toLowerCase();
+        System.out.println("\n⚠️ IMPORTANT REMINDERS:");
+        System.out.println("• Reservation requires admin approval");
+        System.out.println("• Payment due during pickup");
+        System.out.println("• Items must be collected within 7 days");
+        System.out.println("• You can cancel before approval");
         
-        if (confirm.equals("y") || confirm.equals("yes")) {
+        if (validator.getValidYesNo("\nConfirm this reservation")) {
             if (inventoryManager.reserveItem(itemCode, quantity)) {
                 Reservation reservation = reservationManager.createReservation(
                     student.getUsername(), 
@@ -157,15 +193,16 @@ public class StudentInterface {
                     quantity
                 );
                 
-                System.out.println("Reservation created successfully!");
-                System.out.println("Reservation ID: " + reservation.getReservationId());
-                System.out.println("Status: " + reservation.getStatus());
-                System.out.println("Wait for admin approval.");
+                System.out.println("\n✅ Reservation created successfully!");
+                System.out.println("📧 Reservation ID: " + reservation.getReservationId());
+                System.out.println("📊 Status: " + reservation.getStatus());
+                System.out.println("⏰ Created: " + reservation.getFormattedTime());
+                System.out.println("🔔 Please wait for admin approval.");
             } else {
-                System.out.println("Failed to create reservation. Please try again.");
+                System.out.println("❌ Failed to create reservation. Please try again.");
             }
         } else {
-            System.out.println("Reservation cancelled.");
+            System.out.println("📝 Reservation cancelled.");
         }
     }
     
@@ -181,7 +218,7 @@ public class StudentInterface {
             System.out.println("[0] Back");
             System.out.print("Enter your choice: ");
             
-            int choice = getChoice();
+            int choice = validator.getValidInteger("", 0, 3);
             
             switch (choice) {
                 case 1:
@@ -203,7 +240,7 @@ public class StudentInterface {
     
     private void searchItemByCode() {
         System.out.print("Enter item code: ");
-        int code = getChoice();
+        int code = validator.getValidInteger("", 1000, 9999);
         
         Item item = inventoryManager.findItemByCode(code);
         if (item != null) {
@@ -234,7 +271,7 @@ public class StudentInterface {
             System.out.println("[0] Back");
             System.out.print("Enter your choice: ");
             
-            int choice = getChoice();
+            int choice = validator.getValidInteger("", 0, 3);
             
             switch (choice) {
                 case 1:
@@ -287,7 +324,7 @@ public class StudentInterface {
         reservationManager.displayReservationsByStudent(student.getStudentId());
         
         System.out.print("Enter Reservation ID to cancel (0 to go back): ");
-        int reservationId = getChoice();
+        int reservationId = validator.getValidInteger("", 0, Integer.MAX_VALUE);
         
         if (reservationId == 0) {
             return;
@@ -306,10 +343,9 @@ public class StudentInterface {
         }
         
         System.out.println("Reservation to cancel: " + reservation);
-        System.out.print("Are you sure you want to cancel this reservation? (y/n): ");
-        String confirm = scanner.nextLine().toLowerCase();
+        boolean confirm = validator.getValidYesNo("Are you sure you want to cancel this reservation? (y/n): ");
         
-        if (confirm.equals("y") || confirm.equals("yes")) {
+        if (confirm) {
             if (reservationManager.cancelReservation(reservationId)) {
                 // Return the reserved quantity back to inventory
                 Item item = inventoryManager.findItemByCode(reservation.getItemCode());
@@ -322,14 +358,6 @@ public class StudentInterface {
             }
         } else {
             System.out.println("Cancellation aborted.");
-        }
-    }
-    
-    private int getChoice() {
-        try {
-            return Integer.parseInt(scanner.nextLine());
-        } catch (NumberFormatException e) {
-            return -1;
         }
     }
 }

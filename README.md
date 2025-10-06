@@ -1,30 +1,78 @@
-# STI Merch System
+# STI Merch System - Enhanced Version
 
-A comprehensive console-based inventory management system for school uniforms and merchandise.
+A comprehensive console-based inventory management system for school uniforms and merchandise with advanced validation, user registration, and improved user experience.
+
+## 🆕 Latest Features (Enhanced Version)
+
+### ✨ **New Student Features**
+- **Student Registration**: Create account with username, password, Student ID, and course
+- **Terms & Conditions**: Required acceptance during signup
+- **Password Confirmation**: Secure account creation
+- **Enhanced Help**: Detailed step-by-step ordering guide for students
+- **Logout Functionality**: Safe logout from student dashboard
+- **Improved Reservation**: Confirmation dialogs and better validation
+- **Enhanced Navigation**: Back options in all menus
+
+### 🔧 **New Admin Features**
+- **Comprehensive Admin Help**: Detailed administration guide
+- **Stock Update Confirmations**: Confirm before updating quantities
+- **Enhanced Item Management**: Better validation for adding items
+- **Logout Functionality**: Safe logout from admin dashboard
+- **Improved Navigation**: Back options and better menu flow
+
+### 🛡️ **Input Validation & Security**
+- **Smart Course Validation**: Only valid course codes accepted (BSIT, BSCS, STEM, etc.)
+- **Item Code Validation**: Proper format enforcement (1000-9999)
+- **Price Validation**: Realistic price ranges (₱0 - ₱10,000)
+- **Quantity Validation**: Proper integer ranges (1-1000)
+- **Size Validation**: Only valid sizes (XS, S, M, L, XL, XXL, One Size)
+- **Student ID Validation**: 6-12 digit format required
+- **Password Security**: Minimum 6 characters, maximum 20
+- **Error Messages**: Clear, helpful error messages with format examples
+
+### 📚 **Expanded Course Support**
+- **Senior High School**: STEM, ABM, HUMSS, GAS, TVL-ICT, TVL-HE, TVL-IA, ARTS
+- **Tertiary Programs**: BSCS, BSIT, BSCpE, BSBA, BSA, BSHM, BSTM, BMMA
 
 ## Features
 
 ### Admin Features
-- **Help**: Step-by-step ordering guide and system navigation help
+- **Enhanced Help Desk**: Comprehensive administration guide and best practices
 - **Users Reservations**: View all student reservations, update status, and manage pending requests
-- **Stock Management**: View all inventory, search items, and manage stock levels
-- **Add/Remove Items**: Full inventory management with ability to add new items and remove existing ones
+- **Stock Management**: View all inventory, search items, and manage stock levels with confirmations
+- **Add/Remove Items**: Full inventory management with proper validation and confirmation dialogs
+- **Logout & Exit**: Safe logout option and system exit
 
 ### Student Features
-- **Help**: Ordering instructions and system guidance
-- **Reserve Items**: Browse and reserve uniforms and merchandise
+- **Student Registration**: Create new account with course validation and password confirmation
+- **Terms & Conditions**: Review and accept terms during registration
+- **Enhanced Help**: Detailed step-by-step ordering guide specific to students
+- **Reserve Items**: Browse and reserve uniforms and merchandise with confirmation dialogs
 - **Stock View**: View available items for their course and STI special merchandise
 - **Your Reservations**: Track reservation status and manage personal orders
+- **Logout & Exit**: Safe logout option and system exit
 
 ## Supported Courses
-- IT (Information Technology)
-- CS (Computer Science)
-- Tourism Management
-- Multi Media Arts
-- HRM (Hotel & Restaurant Management)
-- Accountancy
-- Business Administration
-- Comp E (Computer Engineering)
+
+### 🎓 Senior High School (SHS)
+- **STEM** - Science, Technology, Engineering, and Mathematics
+- **ABM** - Accountancy, Business, and Management
+- **HUMSS** - Humanities and Social Sciences
+- **GAS** - General Academic Strand
+- **TVL-ICT** - Technical-Vocational-Livelihood (ICT)
+- **TVL-HE** - Technical-Vocational-Livelihood (Home Economics)
+- **TVL-IA** - Technical-Vocational-Livelihood (Industrial Arts)
+- **ARTS** - Arts and Design
+
+### 🎓 Tertiary Programs
+- **BSCS** - Bachelor of Science in Computer Science
+- **BSIT** - Bachelor of Science in Information Technology
+- **BSCpE** - Bachelor of Science in Computer Engineering
+- **BSBA** - Bachelor of Science in Business Administration
+- **BSA** - Bachelor of Science in Accountancy
+- **BSHM** - Bachelor of Science in Hotel Management
+- **BSTM** - Bachelor of Science in Tourism Management
+- **BMMA** - Bachelor of Multimedia Arts
 
 ## Available Items
 - **Course-specific uniforms**: Polo shirts, Pants, ID Lace
