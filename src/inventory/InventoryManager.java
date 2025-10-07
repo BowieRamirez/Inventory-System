@@ -1,3 +1,5 @@
+package inventory;
+
 import java.util.*;
 
 public class InventoryManager {
@@ -29,13 +31,13 @@ public class InventoryManager {
     }
     
     public List<Item> getItemsByCourse(String course) {
-        List<Item> courseItems = new ArrayList<>();
+        List<Item> result = new ArrayList<>();
         for (Item item : inventory) {
             if (item.getCourse().equalsIgnoreCase(course)) {
-                courseItems.add(item);
+                result.add(item);
             }
         }
-        return courseItems;
+        return result;
     }
     
     public void displayAllItems() {
@@ -43,33 +45,26 @@ public class InventoryManager {
             System.out.println("No items in inventory.");
             return;
         }
-        
-        System.out.println("\n=== INVENTORY STOCK ===");
+        System.out.println("\n=== ALL ITEMS ===");
         System.out.println("Code   | Name                      | Course               | Size     | Quantity | Price");
         System.out.println("-------|---------------------------|----------------------|----------|----------|----------");
-        
         for (Item item : inventory) {
             System.out.println(item);
         }
-        System.out.println();
     }
     
     public void displayItemsByCourse(String course) {
-        List<Item> courseItems = getItemsByCourse(course);
-        
-        if (courseItems.isEmpty()) {
+        List<Item> items = getItemsByCourse(course);
+        if (items.isEmpty()) {
             System.out.println("No items found for course: " + course);
             return;
         }
-        
-        System.out.println("\n=== " + course.toUpperCase() + " STOCK ===");
+        System.out.println("\n=== ITEMS FOR " + course + " ===");
         System.out.println("Code   | Name                      | Course               | Size     | Quantity | Price");
         System.out.println("-------|---------------------------|----------------------|----------|----------|----------");
-        
-        for (Item item : courseItems) {
+        for (Item item : items) {
             System.out.println(item);
         }
-        System.out.println();
     }
     
     public boolean updateItemQuantity(int code, int newQuantity) {
@@ -84,7 +79,7 @@ public class InventoryManager {
     public boolean reserveItem(int code, int quantity) {
         Item item = findItemByCode(code);
         if (item != null && item.getQuantity() >= quantity) {
-            item.reduceQuantity(quantity);
+            item.setQuantity(item.getQuantity() - quantity);
             return true;
         }
         return false;

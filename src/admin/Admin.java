@@ -1,3 +1,7 @@
+package admin;
+
+import user.User;
+
 public class Admin extends User {
     private static final String DEFAULT_ADMIN_USERNAME = "admin";
     private static final String DEFAULT_ADMIN_PASSWORD = "admin123";
@@ -8,11 +12,6 @@ public class Admin extends User {
     
     @Override
     public boolean authenticate() {
-        // Simple authentication - in real system, this would check against a database
-        return DEFAULT_ADMIN_USERNAME.equals(username) && DEFAULT_ADMIN_PASSWORD.equals(password);
-    }
-    
-    public boolean hasAdminPrivileges() {
-        return authenticate();
+        return username.equals(DEFAULT_ADMIN_USERNAME) && password.equals(DEFAULT_ADMIN_PASSWORD);
     }
 }
