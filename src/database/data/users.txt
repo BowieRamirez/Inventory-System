@@ -1,0 +1,3 @@
+User: karl, Password: halaka, ID: 123123, Course: BSIT, Name: kar frias
+User: karl, Password: araymo, ID: 123123, Course: BSIT, Name: karl frias
+User: ha, Password: cuteetuc, Student ID: 1231234, Course: BSIT, Name: etuc cute
