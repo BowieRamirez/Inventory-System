@@ -1,0 +1,13 @@
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\admin\Admin.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\admin\AdminInterface.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\inventory\InventoryManager.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\inventory\Item.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\inventory\Reservation.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\inventory\ReservationManager.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\main\MerchSystem.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\student\Student.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\student\StudentInterface.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\user\User.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\utils\FileStorage.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\utils\InputValidator.java
+C:\Users\karll\Downloads\sqlite-dll-win-x64-3500400\Inventory-System\src\utils\TermsAndConditions.java

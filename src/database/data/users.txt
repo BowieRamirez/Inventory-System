@@ -1,3 +1,2 @@
-User: karl, Password: halaka, ID: 123123, Course: BSIT, Name: kar frias
-User: karl, Password: araymo, ID: 123123, Course: BSIT, Name: karl frias
-User: ha, Password: cuteetuc, Student ID: 1231234, Course: BSIT, Name: etuc cute
+Student ID: 02000296625, Password: Lolpogi123., Course: BSIT, Gender: Male, Name: Karl Frias
+Student ID: 123456, Password: password123, Course: BSCS, Gender: Male, Name: John Doe

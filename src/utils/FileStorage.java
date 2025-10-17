@@ -18,14 +18,15 @@ public class FileStorage {
             }
             try (BufferedWriter bw = new BufferedWriter(new FileWriter(USERS_FILE, true))) {
                 // simple CSV escaping: replace any comma in fields with semicolon
-                String username = safe(s.getUsername());
                 String password = safe(s.getPassword());
                 String studentId = safe(s.getStudentId());
                 String course = safe(s.getCourse());
                 String first = safe(s.getFirstName());
                 String last = safe(s.getLastName());
-                String line = String.format("User: %s, Password: %s, Student ID: %s, Course: %s, Name: %s %s",
-                            username, password, studentId, course, first, last);
+                String gender = safe(s.getGender());
+                // Persist without username (use student ID as primary key for login)
+                String line = String.format("Student ID: %s, Password: %s, Course: %s, Gender: %s, Name: %s %s",
+                            studentId, password, course, gender, first, last);
                 bw.write(line);
                 bw.newLine();
                 bw.flush();

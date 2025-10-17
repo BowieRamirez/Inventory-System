@@ -296,15 +296,14 @@ public class MerchSystem {
     
     private void handleStudentLogin() {
         System.out.println("\n--- Student Login ---");
-        String username = validator.getValidNonEmptyString("Username: ", "Username");
-        String password = validator.getValidNonEmptyString("Password: ", "Password");
         String studentId = validator.getValidStudentId("Student ID: ");
+        String password = validator.getValidNonEmptyString("Password: ", "Password");
+       
         
-        // First try to authenticate against persisted users file
-        Student student = findStudentInFile(username, password, studentId);
-        // If not found in file, try in-memory registeredStudents (recent signups)
+        // First try to authenticate against persisted users file (studentId + password)
+        Student student = findStudentInFile(studentId, password);
         if (student == null) {
-            student = findStudentByCredentials(username, password, studentId);
+            student = findStudentByCredentials(studentId, password);
         }
         if (student != null) {
             System.out.println("Login successful! Welcome " + student.getFullName());
@@ -321,15 +320,15 @@ public class MerchSystem {
      * Expected line format produced by FileStorage: 
      * "User: <username>, Password: <password>, ID: <studentId>, Course: <course>, Name: <first> <last>"
      */
-    private Student findStudentInFile(String username, String password, String studentId) {
+    private Student findStudentInFile(String studentId, String password) {
         try {
             if (!USERS_FILE.exists()) return null;
             List<String> lines = Files.readAllLines(USERS_FILE.toPath());
             for (String line : lines) {
                 if (line == null || line.trim().isEmpty()) continue;
-                String u = null, p = null, id = null, course = null, first = null, last = null;
+                String p = null, id = null, course = null, first = null, last = null, gender = null;
                 if (line.contains(":")) {
-                    // labeled format: Key: Value, Key: Value, ...
+                    // labeled format: Student ID: <id>, Password: <pw>, Course: <course>, Gender: <gender>, Name: <first> <last>
                     String[] parts = line.split(",");
                     for (String part : parts) {
                         String[] kv = part.split(":", 2);
@@ -337,10 +336,10 @@ public class MerchSystem {
                         String key = kv[0].trim();
                         String val = kv[1].trim();
                         switch (key) {
-                            case "User": u = val; break;
                             case "Password": p = val; break;
                             case "ID": id = val; break;
                             case "Student ID": id = val; break;
+                            case "Gender": gender = val; break;
                             case "Course": course = val; break;
                             case "Name": {
                                 String[] names = val.split(" ", 2);
@@ -352,22 +351,20 @@ public class MerchSystem {
                         }
                     }
                 } else {
-                    // CSV format: username,password,studentId,course,first,last
+                    // legacy CSV: studentId,password,course,first,last,gender?
                     String[] cols = line.split(",");
-                    if (cols.length >= 6) {
-                        u = cols[0].trim();
-                        p = cols[1].trim();
-                        id = cols[2].trim();
-                        course = cols[3].trim();
-                        first = cols[4].trim();
-                        last = cols[5].trim();
+                    if (cols.length >= 2) {
+                        id = cols[0].trim();
+                        p = cols.length > 1 ? cols[1].trim() : null;
+                        course = cols.length > 2 ? cols[2].trim() : null;
+                        first = cols.length > 3 ? cols[3].trim() : null;
+                        last = cols.length > 4 ? cols[4].trim() : null;
+                        gender = cols.length > 5 ? cols[5].trim() : null;
                     }
                 }
-                if (u == null || p == null || id == null) continue;
-                if (u.equals(username) && p.equals(password) && id.equals(studentId)) {
-                    // construct Student and return
-                    Student s = new Student(u, p, id, (course != null ? course : ""), (first != null ? first : ""), (last != null ? last : ""));
-                    // add to in-memory list so future lookups are faster
+                if (p == null || id == null) continue;
+                if (p.equals(password) && id.equals(studentId)) {
+                    Student s = new Student(id, p, (course != null ? course : ""), (first != null ? first : ""), (last != null ? last : ""), (gender != null ? gender : ""));
                     registeredStudents.add(s);
                     return s;
                 }
@@ -388,24 +385,34 @@ public class MerchSystem {
         
         String lastName = validator.getValidNonEmptyString("Enter last name: ", "Last name");
         String firstName = validator.getValidNonEmptyString("Enter first name: ", "First name");
-        String username = validator.getValidNonEmptyString("Enter username: ", "Username");
-        
-        if (isUsernameExists(username)) {
-            System.out.println("Username already exists!");
-            return;
-        }
-        
-        String studentId = validator.getValidStudentId("Enter student ID (6-12 digits): ");
-        
-        if (isStudentIdExists(studentId)) {
-            System.out.println("Student ID already registered!");
-            return;
+    // Username is no longer required; login uses student ID + password.
+
+        // Student ID: ensure uniqueness (file + in-memory)
+        String studentId;
+        while (true) {
+            studentId = validator.getValidStudentId("Enter student ID (6-12 digits): ");
+            if (isStudentIdExists(studentId) || studentIdExistsInFile(studentId)) {
+                System.out.println("Student ID already registered! If this is your ID, please login or use a different ID.");
+                continue;
+            }
+            break;
         }
         
         String password = validator.getValidNonEmptyString("Enter password (6-20 chars): ", "Password");
         String course = validator.getValidCourse("Enter course code: ");
         
-        Student newStudent = new Student(username, password, studentId, course, firstName, lastName);
+        // Gender selection
+        String gender = null;
+        while (true) {
+            String g = validator.getValidNonEmptyString("Enter gender (Male/Female): ", "Gender");
+            g = g.trim();
+            if (g.equalsIgnoreCase("male") || g.equalsIgnoreCase("m")) { gender = "Male"; break; }
+            if (g.equalsIgnoreCase("female") || g.equalsIgnoreCase("f")) { gender = "Female"; break; }
+            System.out.println("Invalid gender. Please enter 'Male' or 'Female'.");
+        }
+
+    // Create Student with username left blank (studentId is used for login)
+    Student newStudent = new Student(studentId, password, course, firstName, lastName, gender);
         registeredStudents.add(newStudent);
         // persist to simple file storage
         boolean saved = utils.FileStorage.saveStudent(newStudent);
@@ -418,29 +425,18 @@ public class MerchSystem {
         System.out.println("Student ID: " + studentId);
         System.out.println("Course: " + course);
         System.out.println("\nPlease remember your credentials:");
-        System.out.println("   - Username: " + username);
         System.out.println("   - Student ID: " + studentId);
         System.out.println("You can now login with your credentials.");
     }
     
-    private Student findStudentByCredentials(String username, String password, String studentId) {
+    private Student findStudentByCredentials(String studentId, String password) {
         for (Student s : registeredStudents) {
-            if (s.getUsername().equals(username) && 
-                s.getPassword().equals(password) && 
+            if (s.getPassword().equals(password) && 
                 s.getStudentId().equals(studentId)) {
                 return s;
             }
         }
         return null;
-    }
-    
-    private boolean isUsernameExists(String username) {
-        for (Student s : registeredStudents) {
-            if (s.getUsername().equals(username)) {
-                return true;
-            }
-        }
-        return false;
     }
     
     private boolean isStudentIdExists(String studentId) {
@@ -450,6 +446,44 @@ public class MerchSystem {
             }
         }
         return false;
+    }
+
+    // Check persisted users file for student ID existence
+    private boolean studentIdExistsInFile(String studentId) {
+        try {
+            if (!USERS_FILE.exists()) return false;
+            List<String> lines = Files.readAllLines(USERS_FILE.toPath());
+            for (String line : lines) {
+                if (line == null || line.trim().isEmpty()) continue;
+                String[] parts = line.split(",");
+                for (String part : parts) {
+                    String[] kv = part.split(":", 2);
+                    if (kv.length < 2) continue;
+                    String key = kv[0].trim();
+                    String val = kv[1].trim();
+                    if ((key.equals("ID") || key.equals("Student ID")) && val.equals(studentId)) return true;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to read users file: " + e.getMessage());
+        }
+        return false;
+    }
+
+    // Delete users file (clears all persisted users)
+    private boolean deleteUsersFile() {
+        try {
+            if (USERS_FILE.exists()) {
+                // backup just in case
+                Path backup = USERS_FILE.toPath().resolveSibling("users.txt.bak");
+                Files.copy(USERS_FILE.toPath(), backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.delete(USERS_FILE.toPath());
+            }
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to delete users file: " + e.getMessage());
+            return false;
+        }
     }
     
     public static void main(String[] args) {
