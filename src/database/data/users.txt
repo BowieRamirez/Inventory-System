@@ -1,2 +1,0 @@
-Student ID: 02000296625, Password: Lolpogi123., Course: BSIT, Gender: Male, Name: Karl Frias
-Student ID: 123456, Password: password123, Course: BSCS, Gender: Male, Name: John Doe

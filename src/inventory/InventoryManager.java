@@ -45,11 +45,41 @@ public class InventoryManager {
             System.out.println("No items in inventory.");
             return;
         }
+        
+        // Group items by name and course
+        Map<String, List<Item>> groupedItems = new LinkedHashMap<>();
+        for (Item item : inventory) {
+            String key = item.getName() + "|" + item.getCourse();
+            groupedItems.putIfAbsent(key, new ArrayList<>());
+            groupedItems.get(key).add(item);
+        }
+        
         System.out.println("\n=== ALL ITEMS ===");
         System.out.println("Code   | Name                           | Course                    | Size       | Quantity | Price");
         System.out.println("-------|--------------------------------|---------------------------|------------|----------|----------");
-        for (Item item : inventory) {
-            System.out.println(item);
+        
+        for (Map.Entry<String, List<Item>> entry : groupedItems.entrySet()) {
+            List<Item> variants = entry.getValue();
+            Item firstItem = variants.get(0);
+            
+            // Build size string with quantities
+            StringBuilder sizeInfo = new StringBuilder();
+            for (int i = 0; i < variants.size(); i++) {
+                Item variant = variants.get(i);
+                sizeInfo.append(variant.getSize()).append(" (").append(variant.getQuantity()).append(")");
+                if (i < variants.size() - 1) {
+                    sizeInfo.append(", ");
+                }
+            }
+            
+            // Display one row per item group
+            System.out.printf("%-6d | %-30s | %-25s | %-10s | %-8s | P%-8.2f\n",
+                firstItem.getCode(),
+                firstItem.getName(),
+                firstItem.getCourse(),
+                sizeInfo.toString(),
+                "", // Empty quantity column since it's in size info
+                firstItem.getPrice());
         }
     }
     
@@ -59,11 +89,40 @@ public class InventoryManager {
             System.out.println("No items found for course: " + course);
             return;
         }
+        
+        // Group items by name
+        Map<String, List<Item>> groupedItems = new LinkedHashMap<>();
+        for (Item item : items) {
+            groupedItems.putIfAbsent(item.getName(), new ArrayList<>());
+            groupedItems.get(item.getName()).add(item);
+        }
+        
         System.out.println("\n=== ITEMS FOR " + course + " ===");
         System.out.println("Code   | Name                           | Course                    | Size       | Quantity | Price");
         System.out.println("-------|--------------------------------|---------------------------|------------|----------|----------");
-        for (Item item : items) {
-            System.out.println(item);
+        
+        for (Map.Entry<String, List<Item>> entry : groupedItems.entrySet()) {
+            List<Item> variants = entry.getValue();
+            Item firstItem = variants.get(0);
+            
+            // Build size string with quantities
+            StringBuilder sizeInfo = new StringBuilder();
+            for (int i = 0; i < variants.size(); i++) {
+                Item variant = variants.get(i);
+                sizeInfo.append(variant.getSize()).append(" (").append(variant.getQuantity()).append(")");
+                if (i < variants.size() - 1) {
+                    sizeInfo.append(", ");
+                }
+            }
+            
+            // Display one row per item group
+            System.out.printf("%-6d | %-30s | %-25s | %-10s | %-8s | P%-8.2f\n",
+                firstItem.getCode(),
+                firstItem.getName(),
+                firstItem.getCourse(),
+                sizeInfo.toString(),
+                "", // Empty quantity column since it's in size info
+                firstItem.getPrice());
         }
     }
     
@@ -91,5 +150,18 @@ public class InventoryManager {
             courses.add(item.getCourse());
         }
         return new ArrayList<>(courses);
+    }
+    
+    // Find all size variants of an item by name and course
+    public List<Item> findSizeVariants(String itemName, String course) {
+        List<Item> variants = new ArrayList<>();
+        for (Item item : inventory) {
+            if (item.getName().equalsIgnoreCase(itemName) && 
+                item.getCourse().equalsIgnoreCase(course) &&
+                item.getQuantity() > 0) {
+                variants.add(item);
+            }
+        }
+        return variants;
     }
 }

@@ -5,48 +5,43 @@ import inventory.ReservationManager;
 import inventory.Reservation;
 import inventory.Item;
 import utils.InputValidator;
-import student.Student;
 
 import java.util.List;
 
-public class AdminInterface {
+public class StaffInterface {
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
     private InputValidator validator;
-    private List<Student> registeredStudents;
 
-    public AdminInterface(InventoryManager inventoryManager, ReservationManager reservationManager, 
-                          InputValidator validator, List<Student> registeredStudents) {
+    public StaffInterface(InventoryManager inventoryManager, ReservationManager reservationManager, 
+                          InputValidator validator) {
         this.inventoryManager = inventoryManager;
         this.reservationManager = reservationManager;
         this.validator = validator;
-        this.registeredStudents = registeredStudents;
     }
 
     public void showMenu() {
         while (true) {
-            System.out.println("\n=== ADMIN HOMEPAGE ===");
+            System.out.println("\n=== STAFF HOMEPAGE ===");
             System.out.println("[1] Help");
             System.out.println("[2] User Reservations");
             System.out.println("[3] Stock Page");
             System.out.println("[4] Add/Remove Item");
-            System.out.println("[5] Account Management");
-            System.out.println("[6] Logout");
+            System.out.println("[5] Logout");
             System.out.println("[0] Exit");
             
-            int choice = validator.getValidInteger("Enter choice: ", 0, 6);
+            int choice = validator.getValidInteger("Enter choice: ", 0, 5);
             
             switch (choice) {
                 case 0:
                     System.out.println("Exiting...");
                     System.exit(0);
                     break;
-                case 1: showAdminHelp(); break;
+                case 1: showStaffHelp(); break;
                 case 2: showUserReservations(); break;
                 case 3: showStockPage(); break;
                 case 4: showAddRemoveMenu(); break;
-                case 5: showAccountManagement(); break;
-                case 6:
+                case 5:
                     if (validator.getValidYesNo("Are you sure you want to logout?")) {
                         System.out.println("Logged out successfully!");
                         return;
@@ -56,34 +51,9 @@ public class AdminInterface {
         }
     }
 
-    private void showAccountManagement() {
-        System.out.println("\n=== ACCOUNT MANAGEMENT (ADMIN ONLY) ===");
-        System.out.println("Total Registered Students: " + registeredStudents.size());
-        
-        if (registeredStudents.isEmpty()) {
-            System.out.println("No registered students found.");
-            return;
-        }
-        
-        System.out.println("\nID   | Student ID    | Name and section               | Password");
-        System.out.println("-----|---------------|---------------------------|------------------");
-
-        int count = 1;
-        for (Student student : registeredStudents) {
-            System.out.printf("%-4d | %-13s | %-25s | %s\n",
-                count++,
-                student.getStudentId(),
-                student.getFullName(),
-                "********");
-        }
-        
-        System.out.println("\nPress [0] to go back...");
-        validator.getValidInteger("", 0, 0);
-    }
-
-    private void showAdminHelp() {
+    private void showStaffHelp() {
         System.out.println("\n" + "=".repeat(80));
-        System.out.println("                          ADMIN HELP GUIDE");
+        System.out.println("                          STAFF HELP GUIDE");
         System.out.println("=".repeat(80));
         
         System.out.println("\nNAVIGATION BASICS:");
@@ -107,9 +77,9 @@ public class AdminInterface {
         System.out.println("   [2] Remove Item - Delete item");
         System.out.println("   [3] Update Quantity - Change stock levels");
         
-        System.out.println("\nACCOUNT MANAGEMENT:");
-        System.out.println("   - View all registered student accounts");
-        System.out.println("   - Staff and Cashier CANNOT access this");
+        System.out.println("\nIMPORTANT NOTES:");
+        System.out.println("   - Staff CANNOT access Account Management");
+        System.out.println("   - Only Admin has access to view student accounts");
         
         System.out.println("\n" + "=".repeat(80));
         System.out.println("Press [0] to go back...");
@@ -220,7 +190,7 @@ public class AdminInterface {
     private void cancelRes() {
         int id = validator.getValidInteger("Enter ID to cancel: ", 1000, 9999);
         if (validator.getValidYesNo("Confirm cancellation?")) {
-            if (reservationManager.cancelReservation(id, "Cancelled by admin")) {
+            if (reservationManager.cancelReservation(id, "Cancelled by staff")) {
                 System.out.println("Cancelled.");
             }
         }
@@ -246,36 +216,26 @@ public class AdminInterface {
     }
 
     private void viewByCourse() {
-        for (String course : inventoryManager.getAvailableCourses()) {
-            System.out.println("- " + course);
-        }
-        String course = validator.getValidNonEmptyString("Enter course: ", "Course");
+        String course = validator.getValidCourse("Enter course code: ");
         inventoryManager.displayItemsByCourse(course);
     }
 
     private void searchByCode() {
-        System.out.println("\n=== SEARCH BY CODE ===");
-        System.out.println("[0] Back to previous menu");
-        int code = validator.getValidInteger("Enter code (1000-9999, 0 to go back): ", 0, 9999);
-        if (code == 0) {
-            System.out.println("Returning to menu...");
-            return;
-        }
-        
+        int code = validator.getValidInteger("Enter item code: ", 1000, 9999);
         Item item = inventoryManager.findItemByCode(code);
         if (item != null) {
-            System.out.println("\n=== ITEM FOUND ===");
-            System.out.println("Code   | Name                           | Course                    | Size       | Quantity | Price");
-            System.out.println("-------|--------------------------------|---------------------------|------------|----------|----------");
+            System.out.println("\n=== ITEM DETAILS ===");
+            System.out.println("Code | Item Name                 | Course               | Size     | Quantity | Price");
+            System.out.println("-----|---------------------------|----------------------|----------|----------|--------");
             System.out.println(item);
         } else {
-            System.out.println("Not found.");
+            System.out.println("Item not found.");
         }
     }
 
     private void showAddRemoveMenu() {
         while (true) {
-            System.out.println("\n=== ADD/REMOVE/UPDATE ===");
+            System.out.println("\n=== ADD/REMOVE ITEM ===");
             System.out.println("[1] Add Item");
             System.out.println("[2] Remove Item");
             System.out.println("[3] Update Quantity");
@@ -287,82 +247,66 @@ public class AdminInterface {
                 case 0: return;
                 case 1: addItem(); break;
                 case 2: removeItem(); break;
-                case 3: updateQty(); break;
+                case 3: updateQuantity(); break;
             }
         }
     }
 
     private void addItem() {
-        System.out.println("\n=== ADD ITEM ===");
-        System.out.println("[0] Back to previous menu");
-        int code = validator.getValidInteger("Item code (1000-9999, 0 to go back): ", 0, 9999);
-        if (code == 0) {
-            System.out.println("Returning to menu...");
-            return;
-        }
+        System.out.println("\n--- Add New Item ---");
+        int code = validator.getValidInteger("Enter item code: ", 1000, 9999);
         
         if (inventoryManager.findItemByCode(code) != null) {
-            System.out.println("Code exists!");
+            System.out.println("Item code already exists!");
             return;
         }
         
-        String name = validator.getValidNonEmptyString("Item name: ", "Name");
-        String course = validator.getValidCourse("Course code: ");
-        String size = validator.getValidSize("Size: ");
-        int qty = validator.getValidInteger("Quantity: ", 1, 1000);
-        double price = validator.getValidPrice("Price: ");
+        String name = validator.getValidNonEmptyString("Enter item name: ", "Item name");
+        String course = validator.getValidCourse("Enter course: ");
+        String size = validator.getValidNonEmptyString("Enter size: ", "Size");
+        int qty = validator.getValidInteger("Enter quantity: ", 0, 10000);
+        double price = validator.getValidPrice("Enter price: ");
         
-        Item item = new Item(code, name, course, size, qty, price);
-        
-        if (validator.getValidYesNo("Add this item?")) {
-            inventoryManager.addItem(item);
-            System.out.println("Item added!");
+        if (validator.getValidYesNo("Confirm add item?")) {
+            Item newItem = new Item(code, name, course, size, qty, price);
+            inventoryManager.addItem(newItem);
+            System.out.println("Item added successfully!");
         }
     }
 
     private void removeItem() {
-        System.out.println("\n=== REMOVE ITEM ===");
-        System.out.println("[0] Back to previous menu");
-        int code = validator.getValidInteger("Item code (1000-9999, 0 to go back): ", 0, 9999);
-        if (code == 0) {
-            System.out.println("Returning to menu...");
-            return;
-        }
-        
+        int code = validator.getValidInteger("Enter item code to remove: ", 1000, 9999);
         Item item = inventoryManager.findItemByCode(code);
+        
         if (item == null) {
-            System.out.println("Not found.");
+            System.out.println("Item not found.");
             return;
         }
         
-        System.out.println(item);
-        if (validator.getValidYesNo("Remove this item?")) {
+        System.out.println("Item to remove: " + item);
+        if (validator.getValidYesNo("Confirm removal?")) {
             inventoryManager.removeItem(code);
-            System.out.println("Removed!");
+            System.out.println("Item removed successfully!");
         }
     }
 
-    private void updateQty() {
-        System.out.println("\n=== UPDATE QUANTITY ===");
-        System.out.println("[0] Back to previous menu");
-        int code = validator.getValidInteger("Item code (1000-9999, 0 to go back): ", 0, 9999);
-        if (code == 0) {
-            System.out.println("Returning to menu...");
-            return;
-        }
-        
+    private void updateQuantity() {
+        int code = validator.getValidInteger("Enter item code: ", 1000, 9999);
         Item item = inventoryManager.findItemByCode(code);
+        
         if (item == null) {
-            System.out.println("Not found.");
+            System.out.println("Item not found.");
             return;
         }
         
-        System.out.println("Current: " + item);
-        int newQty = validator.getValidInteger("New quantity: ", 0, 1000);
+        System.out.println("Current item: " + item);
+        System.out.println("Current quantity: " + item.getQuantity());
         
-        if (validator.getValidYesNo("Update quantity?")) {
+        int newQty = validator.getValidInteger("Enter new quantity: ", 0, 10000);
+        
+        if (validator.getValidYesNo("Confirm quantity update?")) {
             inventoryManager.updateItemQuantity(code, newQty);
-            System.out.println("Updated!");
+            System.out.println("Quantity updated successfully!");
         }
     }
 }

@@ -65,7 +65,7 @@ public class InputValidator {
     
     public String getValidCourse(String prompt) {
         while (true) {
-            System.out.println("\n📚 Valid Course Codes:");
+            System.out.println("\n Valid Course Codes:");
             System.out.println("=== Senior High School ===");
             System.out.println("ABM    - Accountancy, Business, and Management");
             System.out.println("STEM   - Science, Technology, Engineering, and Mathematics");
