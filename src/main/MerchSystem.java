@@ -155,6 +155,7 @@ public class MerchSystem {
             break;
         }
         
+<<<<<<< HEAD
         String password;
         while(true) {
             password = validator.getValidNonEmptyString("Enter password (6-20 chars): ", "Password");
@@ -166,6 +167,9 @@ public class MerchSystem {
         }
     
 
+=======
+        String password = validator.getValidNonEmptyString("Enter password (6-20 chars): ", "Password");
+>>>>>>> 7f4a2f17653b60fd5ee5d43a0bf168598c662887
         String course = validator.getValidCourse("Enter course code: ");
         
         // Gender selection
