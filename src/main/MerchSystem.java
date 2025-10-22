@@ -10,6 +10,7 @@ import admin.Cashier;
 import admin.CashierInterface;
 import inventory.InventoryManager;
 import inventory.ReservationManager;
+import inventory.ReceiptManager;
 import inventory.Item;
 import utils.InputValidator;
 import utils.TermsAndConditions;
@@ -23,6 +24,7 @@ public class MerchSystem {
     private Scanner scanner;
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
+    private ReceiptManager receiptManager;
     private InputValidator validator;
     private List<Student> registeredStudents;
     
@@ -30,6 +32,7 @@ public class MerchSystem {
         this.scanner = new Scanner(System.in);
         this.inventoryManager = new InventoryManager();
         this.reservationManager = new ReservationManager(inventoryManager);
+        this.receiptManager = new ReceiptManager();
         this.validator = new InputValidator(this.scanner);
         this.registeredStudents = new ArrayList<>();
         // Removed student loading from file - accounts only exist in memory now
@@ -39,31 +42,37 @@ public class MerchSystem {
     private void loadInventoryFromFile() {
         List<Item> loadedItems = FileStorage.loadItems();
         for (Item item : loadedItems) {
-            inventoryManager.addItem(item);
+            inventoryManager.loadItem(item); // Use loadItem() to avoid unnecessary file writes during initialization
         }
     }
     
     public void start() {
         System.out.println("=================================");
-        System.out.println("     STI MERCH SYSTEM");
+        System.out.println("     STI ProWear System");
         System.out.println("=================================");
         
         while (true) {
             showMainLogin();
-            int choice = validator.getValidInteger("Enter your choice: ", 0, 3);
+            int choice = validator.getValidInteger("Enter your choice: ", 0, 5);
             
             switch (choice) {
                 case 0:
-                    System.out.println("Thank you for using STI Merch System!");
+                    System.out.println("Thank you for using STI ProWear System!");
                     System.exit(0);
                     break;
                 case 1:
-                    handleAdminLogin();
+                    handleMaintenanceLogin();
                     break;
                 case 2:
-                    handleStudentLogin();
+                    handleCashierLogin();
                     break;
                 case 3:
+                    handleStaffLogin();
+                    break;
+                case 4:
+                    handleStudentLogin();
+                    break;
+                case 5:
                     handleStudentSignup();
                     break;
             }
@@ -72,68 +81,131 @@ public class MerchSystem {
     
     private void showMainLogin() {
         System.out.println("\n=================================");
-        System.out.println("           MAIN MENU");
+        System.out.println("           LOGIN");
         System.out.println("=================================");
-        System.out.println("[1] Admin Login");
-        System.out.println("[2] Student Login");
-        System.out.println("[3] Student Sign Up");
+        System.out.println("[1] Maintenance");
+        System.out.println("[2] Cashier");
+        System.out.println("[3] Purchasing & Asset Management Officer");
+        System.out.println("[4] Student Login");
+        System.out.println("[5] Student Signup");
         System.out.println("[0] Exit");
     }
     
-    private void handleAdminLogin() {
-        System.out.println("\n--- Admin Login ---");
-        String username = validator.getValidNonEmptyString("Username: ", "Username");
-        String password = validator.getValidNonEmptyString("Password: ", "Password");
+    private void handleMaintenanceLogin() {
+        System.out.println("\n=== MAINTENANCE LOGIN ===");
+        System.out.println("Admin access for system maintenance");
+        System.out.println("Enter [0] at any time to return to main menu.");
         
-        // Check Admin
+        String username = validator.getValidNonEmptyString("Username: ", "Username");
+        if (username.equals("0")) {
+            System.out.println("Returning to main menu...");
+            return;
+        }
+        
+        String password = validator.getValidNonEmptyString("Password: ", "Password");
+        if (password.equals("0")) {
+            System.out.println("Returning to main menu...");
+            return;
+        }
+        
         Admin admin = new Admin(username, password);
         if (admin.authenticate()) {
-            System.out.println("Login successful!");
+            System.out.println("Login successful! Welcome Admin");
             AdminInterface adminInterface = new AdminInterface(inventoryManager, reservationManager, validator, registeredStudents);
             adminInterface.showMenu();
+        } else {
+            System.out.println("Invalid credentials.");
+            validator.waitForEnter("Press Enter to return to main menu...");
+        }
+    }
+    
+    private void handleStaffLogin() {
+        System.out.println("\n=== PURCHASING & ASSET MANAGEMENT OFFICER LOGIN ===");
+        System.out.println("Staff access for purchasing and asset management");
+        System.out.println("Enter [0] at any time to return to main menu.");
+        
+        String username = validator.getValidNonEmptyString("Username: ", "Username");
+        if (username.equals("0")) {
+            System.out.println("Returning to main menu...");
             return;
         }
         
-        // Check Staff
+        String password = validator.getValidNonEmptyString("Password: ", "Password");
+        if (password.equals("0")) {
+            System.out.println("Returning to main menu...");
+            return;
+        }
+        
         Staff staff = new Staff(username, password);
         if (staff.authenticate()) {
-            System.out.println("Login successful!");
+            System.out.println("Login successful! Welcome Staff");
             StaffInterface staffInterface = new StaffInterface(inventoryManager, reservationManager, validator);
             staffInterface.showMenu();
+        } else {
+            System.out.println("Invalid credentials.");
+            validator.waitForEnter("Press Enter to return to main menu...");
+        }
+    }
+    
+    private void handleCashierLogin() {
+        System.out.println("\n=== CASHIER LOGIN ===");
+        System.out.println("Cashier access for transaction management");
+        System.out.println("Enter [0] at any time to return to main menu.");
+        
+        String username = validator.getValidNonEmptyString("Username: ", "Username");
+        if (username.equals("0")) {
+            System.out.println("Returning to main menu...");
             return;
         }
         
-        // Check Cashier
+        String password = validator.getValidNonEmptyString("Password: ", "Password");
+        if (password.equals("0")) {
+            System.out.println("Returning to main menu...");
+            return;
+        }
+        
         Cashier cashier = new Cashier(username, password);
         if (cashier.authenticate()) {
-            System.out.println("Login successful!");
-            CashierInterface cashierInterface = new CashierInterface(reservationManager, validator);
+            System.out.println("Login successful! Welcome Cashier");
+            CashierInterface cashierInterface = new CashierInterface(reservationManager, receiptManager, validator);
             cashierInterface.showMenu();
-            return;
+        } else {
+            System.out.println("Invalid credentials.");
+            validator.waitForEnter("Press Enter to return to main menu...");
         }
-        
-        System.out.println("Invalid credentials.");
     }
     
     private void handleStudentLogin() {
         System.out.println("\n--- Student Login ---");
+        System.out.println("Enter [0] at any time to return to main menu.");
+
         String studentId = validator.getValidStudentId("Student ID: ");
+        if (studentId.equals("0")) {
+            System.out.println("Returning to main menu...");
+            return;
+        }
+
         String password = validator.getValidNonEmptyString("Password: ", "Password");
-       
-        // Authenticate against in-memory registered students
+        if (password.equals("0")) {
+            System.out.println("Returning to main menu...");
+            return;
+        }
+
         Student student = findStudentByCredentials(studentId, password);
         if (student != null) {
             System.out.println("Login successful! Welcome " + student.getFullName());
-            StudentInterface studentInterface = new StudentInterface(inventoryManager, reservationManager, validator, student);
+            StudentInterface studentInterface = new StudentInterface(inventoryManager, reservationManager, receiptManager, validator, student);
             studentInterface.showMenu();
         } else {
             System.out.println("Invalid credentials or student ID. Please check your information.");
             System.out.println("If you don't have an account, please sign up first.");
+            validator.waitForEnter("Press Enter to return to main menu...");
         }
     }
     
     private void handleStudentSignup() {
         System.out.println("\n--- Student Sign Up ---");
+        System.out.println("Enter [0] at any time to cancel and return to main menu.");
         
         if (!TermsAndConditions.acceptTerms(validator)) {
             System.out.println("You must accept terms and conditions to sign up.");
@@ -141,13 +213,26 @@ public class MerchSystem {
         }
         
         String lastName = validator.getValidNonEmptyString("Enter last name: ", "Last name");
+        if (lastName.equals("0")) {
+            System.out.println("Signup cancelled. Returning to main menu...");
+            return;
+        }
+        
         String firstName = validator.getValidNonEmptyString("Enter first name: ", "First name");
+        if (firstName.equals("0")) {
+            System.out.println("Signup cancelled. Returning to main menu...");
+            return;
+        }
     // Username is no longer required; login uses student ID + password.
 
         // Student ID: ensure uniqueness (in-memory only)
         String studentId;
         while (true) {
-            studentId = validator.getValidStudentId("Enter student ID (6-12 digits): ");
+            studentId = validator.getValidStudentId("Enter student ID (10-12 digits): ");
+            if (studentId.equals("0")) {
+                System.out.println("Signup cancelled. Returning to main menu...");
+                return;
+            }
             if (isStudentIdExists(studentId)) {
                 System.out.println("Student ID already registered! If this is your ID, please login or use a different ID.");
                 continue;
@@ -166,19 +251,31 @@ public class MerchSystem {
         String password;
         while(true) {
             password = validator.getValidNonEmptyString("Enter password (8-20 chars): ", "Password");
+            if (password.equals("0")) {
+                System.out.println("Signup cancelled. Returning to main menu...");
+                return;
+            }
             if(password.length() < 8) {
-                System.out.println("Error: Password must be at least 6 characters long.");
+                System.out.println("Error: Password must be at least 8-20 characters long.");
                 continue;
             }
             break;
         }
 
         String course = validator.getValidCourse("Enter course code: ");
+        if (course.equals("0")) {
+            System.out.println("Signup cancelled. Returning to main menu...");
+            return;
+        }
         
         // Gender selection
         String gender = null;
         while (true) {
             String g = validator.getValidNonEmptyString("Enter gender (Male/Female): ", "Gender");
+            if (g.equals("0")) {
+                System.out.println("Signup cancelled. Returning to main menu...");
+                return;
+            }
             g = g.trim();
             if (g.equalsIgnoreCase("male") || g.equalsIgnoreCase("m")) { gender = "Male"; break; }
             if (g.equalsIgnoreCase("female") || g.equalsIgnoreCase("f")) { gender = "Female"; break; }

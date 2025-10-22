@@ -2,16 +2,20 @@ package admin;
 
 import inventory.InventoryManager;
 import inventory.ReservationManager;
+import inventory.ReceiptManager;
 import inventory.Reservation;
+import inventory.Receipt;
 import utils.InputValidator;
 import java.util.List;
 
 public class CashierInterface {
     private ReservationManager reservationManager;
+    private ReceiptManager receiptManager;
     private InputValidator validator;
 
-    public CashierInterface(ReservationManager reservationManager, InputValidator validator) {
+    public CashierInterface(ReservationManager reservationManager, ReceiptManager receiptManager, InputValidator validator) {
         this.reservationManager = reservationManager;
+        this.receiptManager = receiptManager;
         this.validator = validator;
     }
 
@@ -211,23 +215,36 @@ public class CashierInterface {
         
         if (validator.getValidYesNo("\nConfirm payment of ₱" + r.getTotalPrice() + " via " + paymentMethod + "?")) {
             if (reservationManager.markAsPaid(reservationId, paymentMethod)) {
+                // Create receipt in database
+                Receipt receipt = receiptManager.createReceipt(
+                    "Waiting for Approval", 
+                    r.getQuantity(), 
+                    r.getTotalPrice(), 
+                    r.getItemCode(),
+                    r.getItemName(),
+                    r.getSize(),
+                    r.getStudentName()
+                );
+                
                 // Generate and display receipt
-                printReceipt(r, paymentMethod);
-                System.out.println("\n⚠ Student can now wait for Admin/Staff approval for pickup.");
+                printReceipt(r, paymentMethod, receipt.getReceiptId());
+                System.out.println("\n✓ Receipt ID: " + receipt.getReceiptId() + " has been saved to database.");
+                System.out.println("⚠ Student can now wait for Admin/Staff approval for pickup.");
             } else {
                 System.out.println("Failed to process payment.");
             }
         }
     }
     
-    private void printReceipt(Reservation r, String paymentMethod) {
+    private void printReceipt(Reservation r, String paymentMethod, int receiptId) {
         System.out.println("\n" + "=".repeat(60));
         System.out.println("                   OFFICIAL RECEIPT                      ");
-        System.out.println("                  STI MERCH SYSTEM                       ");
+        System.out.println("                  STI ProWear System                     ");
         System.out.println("=".repeat(60));
         System.out.println("Date: " + java.time.LocalDateTime.now().format(
             java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        System.out.println("Receipt #: " + r.getReservationId());
+        System.out.println("Receipt ID: " + receiptId);
+        System.out.println("Reservation ID: " + r.getReservationId());
         System.out.println("-".repeat(60));
         System.out.println("CUSTOMER INFORMATION:");
         System.out.println("  Name       : " + r.getStudentName());

@@ -8,13 +8,9 @@ public class Student extends User {
     private String lastName;
     private String gender;
 
-    // New constructors: username removed. studentId is used as the internal username for User.
-    public Student(String studentId, String password, String course, String firstName, String lastName) {
-        this(studentId, password, course, firstName, lastName, "");
-    }
-
+    // REWRITTEN Constructor - NEW ORDER: studentId, password, course, firstName, lastName, gender
     public Student(String studentId, String password, String course, String firstName, String lastName, String gender) {
-        super(studentId, password); // store studentId in User.username for compatibility
+        super(studentId, password);  // username = studentId
         this.studentId = studentId;
         this.course = course;
         this.firstName = firstName;
@@ -24,18 +20,40 @@ public class Student extends User {
     
     @Override
     public boolean authenticate() {
-     // Authentication for students is based on studentId and password. Username may be empty.
-     return password != null && !password.trim().isEmpty() &&
-         studentId != null && !studentId.trim().isEmpty();
+        return username != null && !username.trim().isEmpty() &&
+               password != null && !password.trim().isEmpty() &&
+               studentId != null && !studentId.trim().isEmpty() &&
+               course != null && !course.trim().isEmpty();
     }
     
-    public String getStudentId() { return studentId; }
-    public String getCourse() { return course; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
-    public String getGender() { return gender; }
+    // Getters with DEBUG
+    public String getStudentId() { 
+        System.out.println("[DEBUG] getStudentId() returning: " + this.studentId);
+        return this.studentId; 
+    }
+    
+    public String getCourse() { 
+        System.out.println("[DEBUG] getCourse() returning: " + this.course);
+        return this.course; 
+    }
+    
+    public String getFirstName() { 
+        System.out.println("[DEBUG] getFirstName() returning: " + this.firstName);
+        return this.firstName; 
+    }
+    
+    public String getLastName() { 
+        System.out.println("[DEBUG] getLastName() returning: " + this.lastName);
+        return this.lastName; 
+    }
+    
+    public String getGender() {
+        System.out.println("[DEBUG] getGender() returning: " + this.gender);
+        return this.gender;
+    }
     
     public String getFullName() {
-        return lastName + ", " + firstName;
+        System.out.println("[DEBUG] getFullName() - lastName=" + this.lastName + ", firstName=" + this.firstName);
+        return this.lastName + ", " + this.firstName;
     }
 }

@@ -141,6 +141,9 @@ public class InputValidator {
         while (true) {
             System.out.print(prompt);
             String id = scanner.nextLine().trim();
+            if (id.equals("0")) {
+                return id;  // Allow 0 to return to main menu
+            }
             if (id.matches("\\d{6,12}")) {
                 return id;
             }
@@ -187,5 +190,10 @@ public class InputValidator {
     
     public static String[] getTertiaryCourses() {
         return TERTIARY_COURSES.clone();
+    }
+    
+    public void waitForEnter(String prompt) {
+        System.out.print(prompt);
+        scanner.nextLine();
     }
 }

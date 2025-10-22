@@ -57,7 +57,26 @@ public class AdminInterface {
     }
 
     private void showAccountManagement() {
-        System.out.println("\n=== ACCOUNT MANAGEMENT (ADMIN ONLY) ===");
+        while (true) {
+            System.out.println("\n=== ACCOUNT MANAGEMENT ===");
+            System.out.println("[1] Change User Password");
+            System.out.println("[2] Delete Account");
+            System.out.println("[3] View All Accounts");
+            System.out.println("[0] Back to Admin Main Page");
+            
+            int choice = validator.getValidInteger("Enter choice: ", 0, 3);
+            
+            switch (choice) {
+                case 0: return;
+                case 1: changeUserPassword(); break;
+                case 2: deleteAccount(); break;
+                case 3: viewAllAccounts(); break;
+            }
+        }
+    }
+    
+    private void viewAllAccounts() {
+        System.out.println("\n=== ALL REGISTERED ACCOUNTS ===");
         System.out.println("Total Registered Students: " + registeredStudents.size());
         
         if (registeredStudents.isEmpty()) {
@@ -65,20 +84,108 @@ public class AdminInterface {
             return;
         }
         
-        System.out.println("\nID   | Student ID    | Name and section               | Password");
-        System.out.println("-----|---------------|---------------------------|------------------");
+        System.out.println("\nID   | Student ID    | Name                           | Course    | Gender");
+        System.out.println("-----|---------------|--------------------------------|-----------|--------");
 
         int count = 1;
         for (Student student : registeredStudents) {
-            System.out.printf("%-4d | %-13s | %-25s | %s\n",
+            System.out.printf("%-4d | %-13s | %-30s | %-9s | %-6s\n",
                 count++,
                 student.getStudentId(),
                 student.getFullName(),
-                "********");
+                student.getCourse(),
+                student.getGender());
         }
         
-        System.out.println("\nPress [0] to go back...");
-        validator.getValidInteger("", 0, 0);
+        System.out.println("\nPress Enter to go back...");
+        validator.waitForEnter("");
+    }
+    
+    private void changeUserPassword() {
+        System.out.println("\n=== CHANGE USER PASSWORD ===");
+        
+        if (registeredStudents.isEmpty()) {
+            System.out.println("No registered students found.");
+            return;
+        }
+        
+        String studentId = validator.getValidStudentId("Enter Student ID (or 0 to cancel): ");
+        if (studentId.equals("0")) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
+        Student student = findStudentById(studentId);
+        if (student == null) {
+            System.out.println("Student ID not found.");
+            return;
+        }
+        
+        System.out.println("\nStudent Found:");
+        System.out.println("Name: " + student.getFullName());
+        System.out.println("Course: " + student.getCourse());
+        
+        String newPassword = validator.getValidNonEmptyString("\nEnter new password (8-20 chars): ", "Password");
+        if (newPassword.equals("0")) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
+        if (newPassword.length() < 8 || newPassword.length() > 20) {
+            System.out.println("Error: Password must be 8-20 characters long.");
+            return;
+        }
+        
+        if (validator.getValidYesNo("Confirm password change for " + student.getFullName() + "?")) {
+            student.setPassword(newPassword);
+            System.out.println("✓ Password changed successfully!");
+        } else {
+            System.out.println("Password change cancelled.");
+        }
+    }
+    
+    private void deleteAccount() {
+        System.out.println("\n=== DELETE ACCOUNT ===");
+        System.out.println("⚠ WARNING: This action cannot be undone!");
+        
+        if (registeredStudents.isEmpty()) {
+            System.out.println("No registered students found.");
+            return;
+        }
+        
+        String studentId = validator.getValidStudentId("Enter Student ID to delete (or 0 to cancel): ");
+        if (studentId.equals("0")) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
+        Student student = findStudentById(studentId);
+        if (student == null) {
+            System.out.println("Student ID not found.");
+            return;
+        }
+        
+        System.out.println("\nAccount Details:");
+        System.out.println("Student ID: " + student.getStudentId());
+        System.out.println("Name: " + student.getFullName());
+        System.out.println("Course: " + student.getCourse());
+        
+        if (validator.getValidYesNo("\n⚠ Are you absolutely sure you want to delete this account?")) {
+            registeredStudents.remove(student);
+            System.out.println("✓ Account deleted successfully!");
+            System.out.println("Remaining accounts: " + registeredStudents.size());
+        } else {
+            System.out.println("Account deletion cancelled.");
+        }
+    }
+    
+    private Student findStudentById(String studentId) {
+        for (Student student : registeredStudents) {
+            if (student.getStudentId().equals(studentId)) {
+                return student;
+            }
+        }
+        return null;
     }
 
     private void showAdminHelp() {
@@ -156,6 +263,34 @@ public class AdminInterface {
     }
 
     private void updateStatus() {
+        // Display all reservations in table format
+        System.out.println("\n=== ALL RESERVATIONS ===");
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+        
+        if (allReservations.isEmpty()) {
+            System.out.println("No reservations found.");
+            return;
+        }
+        
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Payment  | Method     | Status");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------|------------|----------");
+        
+        for (Reservation r : allReservations) {
+            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %-8s | %-10s | %-10s\n",
+                r.getReservationId(),
+                truncate(r.getStudentName(), 15),
+                r.getStudentId(),
+                r.getItemCode(),
+                truncate(r.getItemName(), 25),
+                r.getQuantity(),
+                r.getTotalPrice(),
+                r.isPaid() ? "PAID" : "UNPAID",
+                r.getPaymentMethod(),
+                r.getStatus());
+        }
+        
+        System.out.println("\nℹ Note: Only PAID reservations can be approved for pickup.");
+        
         int id = validator.getValidInteger("Enter Reservation ID: ", 1000, 9999);
         Reservation r = reservationManager.findReservationById(id);
         if (r == null) {
@@ -168,6 +303,14 @@ public class AdminInterface {
             System.out.println("\n⚠ ERROR: Cannot update status!");
             System.out.println("Reason: This reservation is already COMPLETED.");
             System.out.println("Completed reservations are final and cannot be modified.");
+            return;
+        }
+        
+        // Check if user has already paid - cannot cancel paid reservations
+        if (r.isPaid() && r.getStatus().equals("CANCELLED")) {
+            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("Reason: Student has already paid for this reservation.");
+            System.out.println("Contact the student or process a refund if needed.");
             return;
         }
         
@@ -203,6 +346,14 @@ public class AdminInterface {
             default -> r.getStatus();
         };
         
+        // Check if trying to cancel a paid reservation
+        if (newStatus.equals("CANCELLED") && r.isPaid()) {
+            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("Reason: Student has already paid for this reservation.");
+            System.out.println("Contact the student or process a refund if needed.");
+            return;
+        }
+        
         // Check if trying to approve for pickup without payment
         if (newStatus.equals("APPROVED - READY FOR PICKUP") && !r.isPaid()) {
             System.out.println("\n⚠ ERROR: Cannot approve for pickup!");
@@ -229,6 +380,22 @@ public class AdminInterface {
 
     private void cancelRes() {
         int id = validator.getValidInteger("Enter ID to cancel: ", 1000, 9999);
+        
+        // Check if reservation exists and if it's paid
+        Reservation r = reservationManager.findReservationById(id);
+        if (r == null) {
+            System.out.println("Reservation not found.");
+            return;
+        }
+        
+        // Check if user has already paid
+        if (r.isPaid()) {
+            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("Reason: Student has already paid for this reservation.");
+            System.out.println("Contact the student or process a refund if needed.");
+            return;
+        }
+        
         if (validator.getValidYesNo("Confirm cancellation?")) {
             if (reservationManager.cancelReservation(id, "Cancelled by admin")) {
                 System.out.println("Cancelled.");
@@ -374,5 +541,12 @@ public class AdminInterface {
             inventoryManager.updateItemQuantity(code, newQty);
             System.out.println("Updated!");
         }
+    }
+
+    // Helper method to truncate text to specified length
+    private String truncate(String text, int maxLength) {
+        if (text == null) return "";
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, maxLength - 3) + "...";
     }
 }

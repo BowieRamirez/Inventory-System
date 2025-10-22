@@ -29,13 +29,14 @@ public class FileStorage {
             // Write student data
             try (FileWriter fw = new FileWriter(USERS_FILE, true);
                  BufferedWriter bw = new BufferedWriter(fw)) {
-                String line = String.format("%s,%s,%s,%s,%s,%s",
+                String line = String.format("%s,%s,%s,%s,%s,%s,%s",
                     safe(s.getUsername()),
                     safe(s.getPassword()),
                     safe(s.getStudentId()),
                     safe(s.getCourse()),
                     safe(s.getFirstName()),
-                    safe(s.getLastName()));
+                    safe(s.getLastName()),
+                    safe(s.getGender()));
                 bw.write(line);
                 bw.newLine();
                 bw.flush();
@@ -66,7 +67,21 @@ public class FileStorage {
                 if (line.isEmpty()) continue;
                 
                 String[] parts = line.split(",");
-                if (parts.length >= 6) {
+                if (parts.length >= 7) {
+                    // New format with gender
+                    String username = parts[0].trim();
+                    String password = parts[1].trim();
+                    String studentId = parts[2].trim();
+                    String course = parts[3].trim();
+                    String firstName = parts[4].trim();
+                    String lastName = parts[5].trim();
+                    String gender = parts[6].trim();
+                    
+                    // NEW constructor: Student(studentId, password, course, firstName, lastName, gender)
+                    Student student = new Student(studentId, password, course, firstName, lastName, gender);
+                    students.add(student);
+                } else if (parts.length >= 6) {
+                    // Old format without gender - default to "Not Specified"
                     String username = parts[0].trim();
                     String password = parts[1].trim();
                     String studentId = parts[2].trim();
@@ -74,8 +89,7 @@ public class FileStorage {
                     String firstName = parts[4].trim();
                     String lastName = parts[5].trim();
                     
-                    // NEW constructor: Student(studentId, password, course, firstName, lastName)
-                    Student student = new Student(studentId, password, course, firstName, lastName);
+                    Student student = new Student(studentId, password, course, firstName, lastName, "Not Specified");
                     students.add(student);
                 }
             }

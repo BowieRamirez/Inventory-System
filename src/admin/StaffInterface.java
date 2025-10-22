@@ -126,6 +126,34 @@ public class StaffInterface {
     }
 
     private void updateStatus() {
+        // Display all reservations in table format
+        System.out.println("\n=== ALL RESERVATIONS ===");
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+        
+        if (allReservations.isEmpty()) {
+            System.out.println("No reservations found.");
+            return;
+        }
+        
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Payment  | Method     | Status");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------|------------|----------");
+        
+        for (Reservation r : allReservations) {
+            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %-8s | %-10s | %-10s\n",
+                r.getReservationId(),
+                truncate(r.getStudentName(), 15),
+                r.getStudentId(),
+                r.getItemCode(),
+                truncate(r.getItemName(), 25),
+                r.getQuantity(),
+                r.getTotalPrice(),
+                r.isPaid() ? "PAID" : "UNPAID",
+                r.getPaymentMethod(),
+                r.getStatus());
+        }
+        
+        System.out.println("\nℹ Note: Only PAID reservations can be approved for pickup.");
+        
         int id = validator.getValidInteger("Enter Reservation ID: ", 1000, 9999);
         Reservation r = reservationManager.findReservationById(id);
         if (r == null) {
@@ -138,6 +166,14 @@ public class StaffInterface {
             System.out.println("\n⚠ ERROR: Cannot update status!");
             System.out.println("Reason: This reservation is already COMPLETED.");
             System.out.println("Completed reservations are final and cannot be modified.");
+            return;
+        }
+        
+        // Check if user has already paid - cannot cancel paid reservations
+        if (r.isPaid() && r.getStatus().equals("CANCELLED")) {
+            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("Reason: Student has already paid for this reservation.");
+            System.out.println("Contact the student or process a refund if needed.");
             return;
         }
         
@@ -173,6 +209,14 @@ public class StaffInterface {
             default -> r.getStatus();
         };
         
+        // Check if trying to cancel a paid reservation
+        if (newStatus.equals("CANCELLED") && r.isPaid()) {
+            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("Reason: Student has already paid for this reservation.");
+            System.out.println("Contact the student or process a refund if needed.");
+            return;
+        }
+        
         // Check if trying to approve for pickup without payment
         if (newStatus.equals("APPROVED - READY FOR PICKUP") && !r.isPaid()) {
             System.out.println("\n⚠ ERROR: Cannot approve for pickup!");
@@ -199,6 +243,22 @@ public class StaffInterface {
 
     private void cancelRes() {
         int id = validator.getValidInteger("Enter ID to cancel: ", 1000, 9999);
+        
+        // Check if reservation exists and if it's paid
+        Reservation r = reservationManager.findReservationById(id);
+        if (r == null) {
+            System.out.println("Reservation not found.");
+            return;
+        }
+        
+        // Check if user has already paid
+        if (r.isPaid()) {
+            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("Reason: Student has already paid for this reservation.");
+            System.out.println("Contact the student or process a refund if needed.");
+            return;
+        }
+        
         if (validator.getValidYesNo("Confirm cancellation?")) {
             if (reservationManager.cancelReservation(id, "Cancelled by staff")) {
                 System.out.println("Cancelled.");
@@ -318,5 +378,12 @@ public class StaffInterface {
             inventoryManager.updateItemQuantity(code, newQty);
             System.out.println("Quantity updated successfully!");
         }
+    }
+    
+    // Helper method to truncate text to specified length
+    private String truncate(String text, int maxLength) {
+        if (text == null) return "";
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, maxLength - 3) + "...";
     }
 }

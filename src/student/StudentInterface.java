@@ -2,7 +2,9 @@ package student;
 
 import inventory.InventoryManager;
 import inventory.ReservationManager;
+import inventory.ReceiptManager;
 import inventory.Reservation;
+import inventory.Receipt;
 import inventory.Item;
 import utils.InputValidator;
 
@@ -11,13 +13,15 @@ import java.util.List;
 public class StudentInterface {
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
+    private ReceiptManager receiptManager;
     private InputValidator validator;
     private Student student;
 
     public StudentInterface(InventoryManager inventoryManager, ReservationManager reservationManager,
-                            InputValidator validator, Student student) {
+                            ReceiptManager receiptManager, InputValidator validator, Student student) {
         this.inventoryManager = inventoryManager;
         this.reservationManager = reservationManager;
+        this.receiptManager = receiptManager;
         this.validator = validator;
         this.student = student;
     }
@@ -29,50 +33,64 @@ public class StudentInterface {
             System.out.println("   Welcome, " + student.getFullName() + "!");
             System.out.println("   Course: " + student.getCourse());
             System.out.println("=================================");
-            System.out.println("[1] Help");
-            System.out.println("[2] Reserve a Item");
-            System.out.println("[3] Stock Page");
-            System.out.println("[4] Your Reservations");
-            System.out.println("[5] Payment Status");
-            System.out.println("[6] View Receipts");
-            System.out.println("[7] Pickup Item");
-            System.out.println("[8] Logout");
-            System.out.println("[0] Exit System");
+            System.out.println("[1] Reservation Status");
+            System.out.println("[2] Stock Page");
+            System.out.println("[3] Next (Go to Payments and Receipts)");
+            System.out.println("[4] Logout");
+            System.out.println("[5] Exit System");
             
-            int choice = validator.getValidInteger("Enter your choice: ", 0, 8);
+            int choice = validator.getValidInteger("Enter your choice: ", 1, 5);
             
             switch (choice) {
-                case 0:
-                    System.out.println("Exiting system...");
-                    System.exit(0);
-                    break;
                 case 1:
-                    showStudentHelp();
-                    break;
-                case 2:
-                    reserveItem();
-                    break;
-                case 3:
-                    showStockPage();
-                    break;
-                case 4:
                     showYourReservations();
                     break;
-                case 5:
-                    showPaymentStatus();
+                case 2:
+                    showStockPage();
                     break;
-                case 6:
-                    viewReceipts();
+                case 3:
+                    showPaymentsAndReceipts();
                     break;
-                case 7:
-                    pickupItem();
-                    break;
-                case 8:
+                case 4:
                     if (validator.getValidYesNo("Are you sure you want to logout?")) {
                         System.out.println("Logged out successfully!");
                         return;
                     }
                     break;
+                case 5:
+                    System.out.println("Exiting system...");
+                    System.exit(0);
+                    break;
+            }
+        }
+    }
+
+    private void showPaymentsAndReceipts() {
+        while (true) {
+            System.out.println("\n=================================");
+            System.out.println("    PAYMENTS AND RECEIPTS");
+            System.out.println("   Welcome, " + student.getFullName() + "!");
+            System.out.println("   Course: " + student.getCourse());
+            System.out.println("=================================");
+            System.out.println("[1] Payment Status");
+            System.out.println("[2] View Receipts");
+            System.out.println("[3] Pickup Item");
+            System.out.println("[4] Back (Return to Main Homepage)");
+            
+            int choice = validator.getValidInteger("Enter your choice: ", 1, 4);
+            
+            switch (choice) {
+                case 1:
+                    showPaymentStatus();
+                    break;
+                case 2:
+                    viewReceipts();
+                    break;
+                case 3:
+                    pickupItem();
+                    break;
+                case 4:
+                    return; // Return to main homepage
             }
         }
     }
@@ -238,12 +256,18 @@ public class StudentInterface {
                     System.out.println("Payment Status: UNPAID");
                     System.out.println("\n⚠ IMPORTANT: Please proceed to CASHIER to make payment!");
                     System.out.println("Status: " + res.getStatus());
+                    
+                    // Ask if user wants to reserve another item after successful reservation
+                    if (!validator.getValidYesNo("Reserve another item?")) {
+                        return;
+                    }
                 } else {
                     System.out.println("Failed to create reservation.");
+                    return;
                 }
-            }
-            
-            if (!validator.getValidYesNo("Reserve another item?")) {
+            } else {
+                // User cancelled the reservation
+                System.out.println("Reservation cancelled. Returning to homepage...");
                 return;
             }
         }
@@ -268,15 +292,17 @@ public class StudentInterface {
             System.out.println("[1] View Your Course Items");
             System.out.println("[2] View STI Special Items");
             System.out.println("[3] Search by Code");
+            System.out.println("[4] Reserve Item");
             System.out.println("[0] Back");
             
-            int choice = validator.getValidInteger("Enter choice: ", 0, 3);
+            int choice = validator.getValidInteger("Enter choice: ", 0, 4);
             
             switch (choice) {
                 case 0: return;
                 case 1: inventoryManager.displayItemsByCourse(student.getCourse()); break;
                 case 2: inventoryManager.displayItemsByCourse("STI Special"); break;
                 case 3: searchItem(); break;
+                case 4: reserveItem(); break;
             }
         }
     }
@@ -292,6 +318,22 @@ public class StudentInterface {
         
         Item item = inventoryManager.findItemByCode(code);
         if (item != null) {
+            // Get student's course
+            String studentCourse = student.getCourse();
+            String itemCourse = item.getCourse();
+            
+            // Check if the item belongs to the student's course or is a STI Special item
+            boolean isStiSpecial = itemCourse.equalsIgnoreCase("STI SPECIAL");
+            boolean isSameCourse = studentCourse.equalsIgnoreCase(itemCourse);
+            
+            if (!isSameCourse && !isStiSpecial) {
+                System.out.println("\n⚠ ERROR: You can only search for items within your own course.");
+                System.out.println("Your course: " + studentCourse);
+                System.out.println("Item course: " + itemCourse);
+                System.out.println("\nPlease search for items belonging to your course or STI SPECIAL items.");
+                return;
+            }
+            
             System.out.println("\n=== ITEM FOUND ===");
             System.out.println("Code   | Name                      | Course               | Size     | Quantity | Price");
             System.out.println("-------|---------------------------|----------------------|----------|----------|----------");
@@ -505,9 +547,25 @@ public class StudentInterface {
             // Mark as completed (stock was already deducted during staff approval)
             reservationManager.updateReservationStatus(reservationId, "COMPLETED", "Picked up by student");
             
-            System.out.println("\n✓ Pickup confirmed successfully!");
-            System.out.println("✓ Reservation marked as COMPLETED");
-            System.out.println("\nThank you for using STI Merch System!");
+            // Find and update existing receipt instead of creating a new one
+            Receipt existingReceipt = receiptManager.findPendingReceiptByItemAndBuyer(
+                r.getItemCode(), 
+                r.getStudentName()
+            );
+            
+            if (existingReceipt != null) {
+                // Update the existing receipt with payment method
+                receiptManager.updatePaymentStatus(existingReceipt.getReceiptId(), r.getPaymentMethod());
+                System.out.println("\n✓ Pickup confirmed successfully!");
+                System.out.println("✓ Reservation marked as COMPLETED");
+                System.out.println("✓ Receipt updated - ID: " + existingReceipt.getReceiptId());
+            } else {
+                System.out.println("\n✓ Pickup confirmed successfully!");
+                System.out.println("✓ Reservation marked as COMPLETED");
+                System.out.println("⚠ Warning: No pending receipt found for this reservation");
+            }
+            
+            System.out.println("\nThank you for using STI ProWear System!");
             System.out.println("Enjoy your items! 🎉");
         } else {
             System.out.println("Pickup cancelled.");
@@ -519,11 +577,10 @@ public class StudentInterface {
         System.out.println("                         YOUR RECEIPTS                         ");
         System.out.println("=".repeat(70));
         
-        List<Reservation> paidReservations = reservationManager.getAllReservations().stream()
-            .filter(r -> r.getStudentId().equals(student.getStudentId()) && r.isPaid())
-            .toList();
+        // Get receipts from ReceiptManager
+        List<Receipt> receipts = receiptManager.getReceiptsByBuyer(student.getFullName());
         
-        if (paidReservations.isEmpty()) {
+        if (receipts.isEmpty()) {
             System.out.println("\nNo receipts found. You haven't made any payments yet.");
             System.out.println("\nPress [0] to go back...");
             validator.getValidInteger("", 0, 0);
@@ -540,23 +597,23 @@ public class StudentInterface {
         
         if (choice == 1) {
             System.out.println("\n=== ALL YOUR RECEIPTS ===");
-            System.out.println("Receipt# | Item Name                 | Qty | Amount    | Payment   | Status");
-            System.out.println("---------|---------------------------|-----|-----------|-----------|---------------------------");
-            for (Reservation r : paidReservations) {
-                System.out.printf("%-8d | %-25s | %-3d | ₱%-8.2f | %-9s | %s\n",
-                    r.getReservationId(), r.getItemName(), r.getQuantity(), 
-                    r.getTotalPrice(), r.getPaymentMethod(), r.getStatus());
+            System.out.println("Receipt ID | Date Ordered        | Payment Status            | Qty | Amount    | Item Code | Item Name                      | Size       | Buyer Name");
+            System.out.println("-".repeat(170));
+            for (Receipt receipt : receipts) {
+                System.out.println(receipt);
             }
+            System.out.println("\nTotal receipts: " + receipts.size());
             System.out.println("\nPress [0] to go back...");
             validator.getValidInteger("", 0, 0);
         } else if (choice == 2) {
-            int receiptId = validator.getValidInteger("\nEnter Receipt/Reservation ID: ", 1000, 9999);
-            Reservation r = reservationManager.findReservationById(receiptId);
-            if (r == null || !r.getStudentId().equals(student.getStudentId()) || !r.isPaid()) {
-                System.out.println("Receipt not found or invalid.");
+            int receiptId = validator.getValidInteger("\nEnter Receipt ID (starts with 1000000): ", 10000000, 99999999);
+            Receipt receipt = receiptManager.findReceiptById(receiptId);
+            if (receipt == null || !receipt.getBuyerName().equalsIgnoreCase(student.getFullName())) {
+                System.out.println("Receipt not found or does not belong to you.");
                 return;
             }
-            printDetailedReceipt(r);
+            
+            System.out.println(receipt.toDetailedFormat());
             System.out.println("\nPress [0] to go back...");
             validator.getValidInteger("", 0, 0);
         }
@@ -565,7 +622,7 @@ public class StudentInterface {
     private void printDetailedReceipt(Reservation r) {
         System.out.println("\n" + "=".repeat(60));
         System.out.println("                   OFFICIAL RECEIPT                      ");
-        System.out.println("                  STI MERCH SYSTEM                       ");
+        System.out.println("                  STI ProWear System                     ");
         System.out.println("=".repeat(60));
         System.out.println("Receipt #: " + r.getReservationId());
         System.out.println("-".repeat(60));

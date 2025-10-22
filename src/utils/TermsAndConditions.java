@@ -5,7 +5,7 @@ public class TermsAndConditions {
         System.out.println("\n" + "=".repeat(75));
         System.out.println("                          TERMS AND CONDITIONS");
         System.out.println("=".repeat(75));
-        System.out.println("| These Terms and Conditions govern the use of the STI Merch System.      |");
+        System.out.println("| These Terms and Conditions govern the use of the STI ProWear System.    |");
         System.out.println("| By creating an account, you ('Student') agree to comply with the        |");
         System.out.println("| following terms:                                                        |");
         System.out.println("|                                                                         |");
