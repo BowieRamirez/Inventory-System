@@ -6,13 +6,40 @@ import java.util.List;
 public class ReservationManager {
     private List<Reservation> reservations = new ArrayList<>();
     private int nextReservationId = 1001;
+    private InventoryManager inventoryManager; // link inventory
+
+    public ReservationManager(InventoryManager inventoryManager) {
+        this.inventoryManager = inventoryManager;
+    }
     
     public Reservation createReservation(String studentName, String studentId, String course,
-                                         int itemCode, String itemName, int quantity, double totalPrice) {
+                                         int itemCode, String itemName, String size,
+                                         int quantity, double totalPrice) {
+        boolean available = inventoryManager.reserveItem(itemCode, size, quantity);
+        if (!available) {
+            System.out.println("Not enough stock available for " + itemName + " (" + size + ")");
+            return null;
+        }
+
         Reservation reservation = new Reservation(nextReservationId++, studentName, studentId, 
-                                                   course, itemCode, itemName, quantity, totalPrice);
+                                                   course, itemCode, itemName, quantity, totalPrice, size);
         reservations.add(reservation);
         return reservation;
+    }
+
+    public boolean approveReservation(int reservationId, String size) {
+        Reservation r = findReservationById(reservationId);
+        if (r != null && "PENDING".equals(r.getStatus())) {
+            // Use the size from the reservation object, not the parameter
+            boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
+            if (deducted) {
+                r.setStatus("APPROVED");
+                return true;
+            } else {
+                System.out.println("Error: Not enough stock for approval of reservation " + reservationId);
+            }
+        }
+        return false;
     }
     
     public List<Reservation> getAllReservations() {

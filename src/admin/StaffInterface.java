@@ -182,8 +182,18 @@ public class StaffInterface {
         }
         
         if (validator.getValidYesNo("Confirm status change to: " + newStatus + "?")) {
-            reservationManager.updateReservationStatus(id, newStatus, "");
-            System.out.println("✓ Status updated to: " + newStatus);
+            if (newStatus.equals("APPROVED - READY FOR PICKUP")) {
+                // Use approveReservation to properly deduct stock
+                if (reservationManager.approveReservation(id, "")) {
+                    System.out.println("✓ Status updated to: " + newStatus);
+                    System.out.println("✓ Stock deducted successfully");
+                } else {
+                    System.out.println("❌ Failed to approve reservation - insufficient stock");
+                }
+            } else {
+                reservationManager.updateReservationStatus(id, newStatus, "");
+                System.out.println("✓ Status updated to: " + newStatus);
+            }
         }
     }
 

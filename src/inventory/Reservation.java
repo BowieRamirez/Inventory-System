@@ -17,9 +17,9 @@ public class Reservation {
     private boolean isPaid;
     private String paymentMethod;
     private double totalPrice;
-    
+    private String size;
     public Reservation(int reservationId, String studentName, String studentId, String course,
-                       int itemCode, String itemName, int quantity, double totalPrice) {
+                       int itemCode, String itemName, int quantity, double totalPrice, String size) {
         this.reservationId = reservationId;
         this.studentName = studentName;
         this.studentId = studentId;
@@ -27,13 +27,14 @@ public class Reservation {
         this.itemCode = itemCode;
         this.itemName = itemName;
         this.quantity = quantity;
+        this.size = size; // ✅ add this
         this.totalPrice = totalPrice;
         this.reservationTime = LocalDateTime.now();
         this.status = "PENDING";
         this.isPaid = false;
         this.paymentMethod = "UNPAID";
     }
-    
+    public String getSize() { return size; }
     public int getReservationId() { return reservationId; }
     public String getStudentName() { return studentName; }
     public String getStudentId() { return studentId; }

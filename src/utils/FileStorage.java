@@ -125,6 +125,48 @@ public class FileStorage {
         
         return items;
     }
+    
+    public static boolean saveItems(List<Item> items) {
+        try {
+            // Ensure directory exists
+            if (!Files.exists(DATA_DIR)) {
+                Files.createDirectories(DATA_DIR);
+            }
+            
+            // Write items data
+            try (FileWriter fw = new FileWriter(ITEMS_FILE, false);
+                 BufferedWriter bw = new BufferedWriter(fw)) {
+                
+                // Write header
+                bw.write("ItemCode,ItemName,Course,Size,Quantity,Price");
+                bw.newLine();
+                
+                // Write each item
+                for (Item item : items) {
+                    String line = String.format("%d,%s,%s,%s,%d,%.2f",
+                        item.getCode(),
+                        safe(item.getName()),
+                        safe(item.getCourse()),
+                        safe(item.getSize()),
+                        item.getQuantity(),
+                        item.getPrice());
+                    bw.write(line);
+                    bw.newLine();
+                }
+                
+                bw.flush();
+                fw.flush(); // Explicit flush to ensure data is written
+            }
+            
+            // Force file timestamp update to trigger VS Code refresh
+            ITEMS_FILE.setLastModified(System.currentTimeMillis());
+            
+            return true;
+        } catch (IOException e) {
+            System.err.println("Failed to save items to file: " + e.getMessage());
+            return false;
+        }
+    }
 
     private static String safe(String in) {
         if (in == null) return "";

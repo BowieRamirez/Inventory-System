@@ -29,7 +29,7 @@ public class MerchSystem {
     public MerchSystem() {
         this.scanner = new Scanner(System.in);
         this.inventoryManager = new InventoryManager();
-        this.reservationManager = new ReservationManager();
+        this.reservationManager = new ReservationManager(inventoryManager);
         this.validator = new InputValidator(this.scanner);
         this.registeredStudents = new ArrayList<>();
         // Removed student loading from file - accounts only exist in memory now
@@ -155,7 +155,6 @@ public class MerchSystem {
             break;
         }
         
-<<<<<<< HEAD
         String password;
         while(true) {
             password = validator.getValidNonEmptyString("Enter password (6-20 chars): ", "Password");
@@ -165,11 +164,7 @@ public class MerchSystem {
             }
             break;
         }
-    
 
-=======
-        String password = validator.getValidNonEmptyString("Enter password (6-20 chars): ", "Password");
->>>>>>> 7f4a2f17653b60fd5ee5d43a0bf168598c662887
         String course = validator.getValidCourse("Enter course code: ");
         
         // Gender selection

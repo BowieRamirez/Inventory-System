@@ -221,13 +221,14 @@ public class StudentInterface {
             System.out.println("Total: ₱" + totalPrice);
 
             if (validator.getValidYesNo("\nConfirm reservation?")) {
-                if (inventoryManager.reserveItem(selectedItem.getCode(), qty)) {
+                if (inventoryManager.reserveItem(selectedItem.getCode(), selectedItem.getSize(), qty)) {
                     Reservation res = reservationManager.createReservation(
                         student.getFullName(),
                         student.getStudentId(),
                         student.getCourse(),
                         selectedItem.getCode(),
-                        selectedItem.getName() + " (" + selectedItem.getSize() + ")",
+                        selectedItem.getName(),
+                        selectedItem.getSize(),
                         qty,
                         totalPrice
                     );
@@ -498,23 +499,14 @@ public class StudentInterface {
         System.out.println("\n⚠ By confirming pickup, you acknowledge:");
         System.out.println("   • You have received all items in good condition");
         System.out.println("   • The transaction will be marked as COMPLETED");
-        System.out.println("   • Items will be removed from inventory");
+        System.out.println("   • Items were already removed from inventory during approval");
         
         if (validator.getValidYesNo("\nConfirm that you have picked up these items?")) {
-            // Mark as completed
+            // Mark as completed (stock was already deducted during staff approval)
             reservationManager.updateReservationStatus(reservationId, "COMPLETED", "Picked up by student");
-            
-            // Remove items from inventory
-            Item item = inventoryManager.findItemByCode(r.getItemCode());
-            if (item != null) {
-                int newQty = item.getQuantity() - r.getQuantity();
-                if (newQty < 0) newQty = 0;
-                inventoryManager.updateItemQuantity(r.getItemCode(), newQty);
-            }
             
             System.out.println("\n✓ Pickup confirmed successfully!");
             System.out.println("✓ Reservation marked as COMPLETED");
-            System.out.println("✓ Items removed from inventory");
             System.out.println("\nThank you for using STI Merch System!");
             System.out.println("Enjoy your items! 🎉");
         } else {

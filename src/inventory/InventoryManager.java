@@ -1,6 +1,7 @@
 package inventory;
 
 import java.util.*;
+import utils.FileStorage;
 
 public class InventoryManager {
     private List<Item> inventory;
@@ -126,24 +127,75 @@ public class InventoryManager {
         }
     }
     
-    public boolean updateItemQuantity(int code, int newQuantity) {
-        Item item = findItemByCode(code);
-        if (item != null) {
-            item.setQuantity(newQuantity);
+    public Item findItemByCodeAndSize(int code, String size) {
+        for (Item item : inventory) {
+            if (item.getCode() == code && item.getSize().equalsIgnoreCase(size)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    // ✅ Reservation should NOT deduct stock immediately
+    public boolean reserveItem(int code, String size, int quantity) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item != null && item.getQuantity() >= quantity) {
+            // Do not deduct yet — just confirm availability
             return true;
         }
         return false;
     }
-    
-    public boolean reserveItem(int code, int quantity) {
-        Item item = findItemByCode(code);
+
+    // ✅ Deduct stock ONLY upon approval
+    public boolean deductStockOnApproval(int code, String size, int quantity) {
+        Item item = findItemByCodeAndSize(code, size);
         if (item != null && item.getQuantity() >= quantity) {
             item.setQuantity(item.getQuantity() - quantity);
+            // Save updated inventory to file
+            FileStorage.saveItems(inventory);
+            return true;
+        }
+        return false;
+    }
+
+    // ✅ Update item quantity
+    public boolean updateItemQuantity(int code, int newQuantity) {
+        for (Item item : inventory) {
+            if (item.getCode() == code) {
+                item.setQuantity(newQuantity);
+                // Save updated inventory to file
+                FileStorage.saveItems(inventory);
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // ✅ Update item quantity by code and size
+    public boolean updateItemQuantityBySize(int code, String size, int newQuantity) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item != null) {
+            item.setQuantity(newQuantity);
+            // Save updated inventory to file
+            FileStorage.saveItems(inventory);
             return true;
         }
         return false;
     }
     
+    // ✅ Add new stock to existing item
+    public boolean addStock(int code, String size, int quantity) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item != null) {
+            item.addQuantity(quantity);
+            // Save updated inventory to file
+            FileStorage.saveItems(inventory);
+            return true;
+        }
+        return false;
+    }
+
+
     public List<String> getAvailableCourses() {
         Set<String> courses = new HashSet<>();
         for (Item item : inventory) {
