@@ -33,7 +33,7 @@ public class ReservationManager {
             // Use the size from the reservation object, not the parameter
             boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
             if (deducted) {
-                r.setStatus("APPROVED");
+                r.setStatus("APPROVED - READY FOR PICKUP");
                 return true;
             } else {
                 System.out.println("Error: Not enough stock for approval of reservation " + reservationId);

@@ -152,13 +152,21 @@ public class MerchSystem {
                 System.out.println("Student ID already registered! If this is your ID, please login or use a different ID.");
                 continue;
             }
+            if(studentId.length() < 11 || studentId.length() > 12) {
+                System.out.println("Error: Student ID must be 10-12 digits.");
+                continue;
+            }
+            if(!studentId.matches("\\d+")) {
+                System.out.println("Error: Student ID must contain only digits.");
+                continue;
+            }   
             break;
         }
         
         String password;
         while(true) {
-            password = validator.getValidNonEmptyString("Enter password (6-20 chars): ", "Password");
-            if(password.length() < 6) {
+            password = validator.getValidNonEmptyString("Enter password (8-20 chars): ", "Password");
+            if(password.length() < 8) {
                 System.out.println("Error: Password must be at least 6 characters long.");
                 continue;
             }

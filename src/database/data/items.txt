@@ -1,6 +1,6 @@
 ItemCode,ItemName,Course,Size,Quantity,Price
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,S,50,450.00
-1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,72,450.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,60,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,L,60,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,XL,40,450.00
 1002,IT/Eng RTW Pants (Male),BSIT,S,40,500.00
