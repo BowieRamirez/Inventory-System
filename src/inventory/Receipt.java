@@ -41,8 +41,6 @@ public class Receipt {
     
     // Setters
     public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
-    public void setQuantity(int quantity) { this.quantity = quantity; }
-    public void setAmount(double amount) { this.amount = amount; }
     
     // Get current date/time formatted
     public static String getCurrentDateTime() {

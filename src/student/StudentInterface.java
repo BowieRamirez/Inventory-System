@@ -9,6 +9,7 @@ import inventory.Item;
 import utils.InputValidator;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class StudentInterface {
     private InventoryManager inventoryManager;
@@ -104,22 +105,23 @@ public class StudentInterface {
         System.out.println("Student ID: " + student.getStudentId());
         
         System.out.println("\nNAVIGATION BASICS:");
-        System.out.println("   • Use number keys (0-9) to select menu options");
+        System.out.println("   • Use number keys (1-5) to select menu options");
         System.out.println("   • Press [0] to go back to the previous menu");
         System.out.println("   • Press [0] when entering codes to cancel and return");
         System.out.println("   • All reservations require confirmation (y/n)");
         
         System.out.println("\nHOW TO RESERVE ITEMS:");
-        System.out.println("   Step 1: Select [2] Reserve a Item from homepage");
-        System.out.println("   Step 2: Browse available items for " + student.getCourse());
+        System.out.println("   Step 1: Select [2] Stock Page from homepage");
+        System.out.println("   Step 2: Select [4] Reserve Item");
+        System.out.println("   Step 3: View available items for " + student.getCourse());
         System.out.println("           • You can reserve items for YOUR COURSE");
         System.out.println("           • You can also reserve STI SPECIAL merchandise");
-        System.out.println("   Step 3: Note the item code (e.g., 1001, 2002)");
-        System.out.println("   Step 4: Enter item code or [0] to go back");
-        System.out.println("   Step 5: Select your size (XS, S, M, L, XL, XXL, One Size)");
-        System.out.println("   Step 6: Enter quantity (must not exceed available stock)");
-        System.out.println("   Step 7: Review details and confirm (y/n)");
-        System.out.println("   Step 8: Receive your Reservation ID");
+        System.out.println("   Step 4: Note the item code (e.g., 1001, 2002)");
+        System.out.println("   Step 5: Enter item code or [0] to go back");
+        System.out.println("   Step 6: Select your size (XS, S, M, L, XL, XXL, One Size)");
+        System.out.println("   Step 7: Enter quantity (must not exceed available stock)");
+        System.out.println("   Step 8: Review details and confirm (y/n)");
+        System.out.println("   Step 9: Receive your Reservation ID");
         System.out.println("           • Save this ID to track your order!");
         
         System.out.println("\nSTOCK PAGE:");
@@ -128,43 +130,70 @@ public class StudentInterface {
         System.out.println("       • Anniversary Shirts, PE Uniforms, Washday Shirts, etc.");
         System.out.println("   [3] Search by Code - Find specific item using code (1000-9999)");
         System.out.println("       • Enter item code or [0] to go back");
+        System.out.println("   [4] Reserve Item - Make a new reservation");
         System.out.println("   [0] Back - Return to homepage");
         
-        System.out.println("\nYOUR RESERVATIONS:");
+        System.out.println("\nRESERVATION STATUS (Option [1] from Homepage):");
         System.out.println("   [1] View All Reservations - See complete history");
         System.out.println("   [2] View Pending - See reservations awaiting approval");
         System.out.println("   [3] Cancel Reservation - Cancel a pending reservation");
-        System.out.println("       • You can only cancel PENDING reservations");
+        System.out.println("       • You can only cancel PENDING and UNPAID reservations");
         System.out.println("       • Stock will be returned to inventory");
+        System.out.println("   [4] Return Item (Refund) - Return completed items within 10 days");
+        System.out.println("       • Items must be in original condition");
+        System.out.println("       • Full refund will be processed");
         System.out.println("   [0] Back - Return to homepage");
+        
+        System.out.println("\nPAYMENTS AND RECEIPTS (Option [3] from Homepage):");
+        System.out.println("   [1] Payment Status - Check payment status of your reservations");
+        System.out.println("   [2] View Receipts - See your payment receipts");
+        System.out.println("   [3] Pickup Item - Confirm item pickup after payment");
+        System.out.println("   [4] Back - Return to main homepage");
         
         System.out.println("\nRESERVATION STATUS MEANINGS:");
         System.out.println("   PENDING - Your reservation is awaiting admin approval");
         System.out.println("   APPROVED - READY FOR PICKUP - Your items are ready! Go pickup");
         System.out.println("   COMPLETED - You have successfully picked up your items");
         System.out.println("   CANCELLED - Reservation was cancelled");
+        System.out.println("   RETURNED - REFUNDED - Item returned and refund processed");
+        
+        System.out.println("\n✓ RETURN POLICY (NEW!):");
+        System.out.println("    You have 10 DAYS from pickup to return items for a full refund");
+        System.out.println("    Items must be in ORIGINAL CONDITION (unworn, tags attached)");
+        System.out.println("    Return requests must be made through Admin/Staff");
+        System.out.println("    After 10 days, returns will NOT be accepted");
+        System.out.println("    Stock will be restored to inventory upon return");
+        
+        System.out.println("\n✓ RETURN POLICY (NEW!):");
+        System.out.println("    You have 10 DAYS from pickup to return items for a full refund");
+        System.out.println("    Items must be in ORIGINAL CONDITION (unworn, tags attached)");
+        System.out.println("    Return requests must be made through Admin/Staff");
+        System.out.println("    After 10 days, returns will NOT be accepted");
+        System.out.println("    Stock will be restored to inventory upon return");
         
         System.out.println("\n TIPS FOR SUCCESSFUL ORDERING:");
-        System.out.println("   ✓ Check available stock before reserving");
-        System.out.println("   ✓ Double-check your size selection");
-        System.out.println("   ✓ Save your Reservation ID for tracking");
-        System.out.println("   ✓ Check 'Your Reservations' regularly for status updates");
-        System.out.println("   ✓ When status is 'APPROVED - READY FOR PICKUP', go to pickup location");
-        System.out.println("   ✓ Bring your Student ID and Reservation ID for pickup");
-        System.out.println("   ✓ Payment is required during merchandise pickup");
+        System.out.println("    Check available stock before reserving");
+        System.out.println("    Double-check your size selection");
+        System.out.println("    Save your Reservation ID for tracking");
+        System.out.println("    Check 'Reservation Status' regularly for updates");
+        System.out.println("    When status is 'APPROVED - READY FOR PICKUP', go to cashier");
+        System.out.println("    Bring your Student ID and Reservation ID for payment");
+        System.out.println("    Payment is required during merchandise pickup");
+        System.out.println("    Keep items in original condition for 10-day return period");
         
         System.out.println("\n IMPORTANT NOTES:");
-        System.out.println("   • You can only reserve items for YOUR course (" + student.getCourse() + ")");
-        System.out.println("   • STI Special items are available to ALL students");
-        System.out.println("   • Sizes available: XS, S, M, L, XL, XXL, One Size");
-        System.out.println("   • Items must be collected within 7 days of approval");
-        System.out.println("   • You can cancel PENDING reservations anytime");
-        System.out.println("   • Cannot cancel APPROVED or COMPLETED reservations");
+        System.out.println("    You can only reserve items for YOUR course (" + student.getCourse() + ")");
+        System.out.println("    STI Special items are available to ALL students");
+        System.out.println("    Sizes available: XS, S, M, L, XL, XXL, One Size");
+        System.out.println("    Items must be collected within 7 days of approval");
+        System.out.println("    You can cancel PENDING and UNPAID reservations anytime");
+        System.out.println("    Cannot cancel PAID or COMPLETED reservations");
+        System.out.println("    Returns accepted within 10 days of pickup (COMPLETED status)");
         
         System.out.println("\n NEED HELP?");
-        System.out.println("   • Contact your admin if you have questions");
-        System.out.println("   • Check stock availability before reserving");
-        System.out.println("   • Use [0] anytime to safely go back");
+        System.out.println("    Contact your admin if you have questions");
+        System.out.println("    Check stock availability before reserving");
+        System.out.println("    Use [0] anytime to safely go back");
         
         System.out.println("\n" + "=".repeat(80));
         System.out.println("Press [0] to go back...");
@@ -250,11 +279,11 @@ public class StudentInterface {
                         qty,
                         totalPrice
                     );
-                    System.out.println("\n✓ Reservation created successfully!");
+                    System.out.println("\n Reservation created successfully!");
                     System.out.println("Reservation ID: " + res.getReservationId());
                     System.out.println("Total Amount: ₱" + totalPrice);
                     System.out.println("Payment Status: UNPAID");
-                    System.out.println("\n⚠ IMPORTANT: Please proceed to CASHIER to make payment!");
+                    System.out.println("\n IMPORTANT!!: Please proceed to CASHIER to make payment!");
                     System.out.println("Status: " + res.getStatus());
                     
                     // Ask if user wants to reserve another item after successful reservation
@@ -327,7 +356,7 @@ public class StudentInterface {
             boolean isSameCourse = studentCourse.equalsIgnoreCase(itemCourse);
             
             if (!isSameCourse && !isStiSpecial) {
-                System.out.println("\n⚠ ERROR: You can only search for items within your own course.");
+                System.out.println("\n ERROR!: You can only search for items within your own course.");
                 System.out.println("Your course: " + studentCourse);
                 System.out.println("Item course: " + itemCourse);
                 System.out.println("\nPlease search for items belonging to your course or STI SPECIAL items.");
@@ -349,15 +378,25 @@ public class StudentInterface {
             System.out.println("[1] View All Reservations");
             System.out.println("[2] View Pending");
             System.out.println("[3] Cancel Reservation");
+            System.out.println("[4] Return Item (Refund)");
             System.out.println("[0] Back");
             
-            int choice = validator.getValidInteger("Enter choice: ", 0, 3);
+            int choice = validator.getValidInteger("Enter choice: ", 0, 4);
             
             switch (choice) {
                 case 0: return;
-                case 1: reservationManager.displayReservationsByStudent(student.getStudentId()); break;
-                case 2: displayPendingReservations(); break;
+                case 1: 
+                    reservationManager.displayReservationsByStudent(student.getStudentId());
+                    System.out.println("\nPress [0] to go back...");
+                    validator.getValidInteger("", 0, 0);
+                    break;
+                case 2: 
+                    displayPendingReservations();
+                    System.out.println("\nPress [0] to go back...");
+                    validator.getValidInteger("", 0, 0);
+                    break;
                 case 3: cancelReservation(); break;
+                case 4: returnItem(); break;
             }
         }
     }
@@ -365,34 +404,132 @@ public class StudentInterface {
     private void displayPendingReservations() {
         List<Reservation> all = reservationManager.getReservationsByStudent(student.getStudentId());
         System.out.println("\n=== PENDING RESERVATIONS ===");
-        boolean found = false;
+        
+        List<Reservation> pendingList = new ArrayList<>();
         for (Reservation r : all) {
             if (r.getStatus().equals("PENDING")) {
-                System.out.println(r);
-                found = true;
+                pendingList.add(r);
             }
         }
-        if (!found) {
+        
+        if (pendingList.isEmpty()) {
             System.out.println("No pending reservations.");
+            return;
+        }
+        
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Payment  | Method     | Status");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------|------------|------------------------------");
+        for (Reservation r : pendingList) {
+            System.out.println(r);
         }
     }
 
     private void cancelReservation() {
         reservationManager.displayReservationsByStudent(student.getStudentId());
-        int id = validator.getValidInteger("Enter Reservation ID to cancel (0 to go back): ", 0, 9999);
-        if (id == 0) return;
+        int id = validator.getValidInteger("\nEnter Reservation ID to cancel (0 to go back): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
 
         Reservation r = reservationManager.findReservationById(id);
         if (r != null && r.getStudentId().equals(student.getStudentId())) {
+            // Check if reservation is already paid
+            if (r.isPaid()) {
+                System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+                System.out.println("Reason: You have already paid for this reservation.");
+                System.out.println("Please contact the cashier or admin for assistance.");
+                return;
+            }
+            
             if (validator.getValidYesNo("Cancel this reservation?")) {
                 if (reservationManager.cancelReservation(id, "Cancelled by student")) {
                     Item item = inventoryManager.findItemByCode(r.getItemCode());
                     if (item != null) item.addQuantity(r.getQuantity());
-                    System.out.println("Reservation cancelled.");
+                    System.out.println("✓ Reservation cancelled.");
                 }
             }
         } else {
             System.out.println("Invalid reservation ID.");
+        }
+    }
+    
+    private void returnItem() {
+        System.out.println("\n=== RETURN ITEM (REFUND) ===");
+        
+        List<Reservation> myReservations = reservationManager.getReservationsByStudent(student.getStudentId());
+        List<Reservation> eligibleForReturn = new ArrayList<>();
+        
+        // Filter completed items eligible for return
+        for (Reservation r : myReservations) {
+            if (r.getStatus().equals("COMPLETED") && r.isEligibleForReturn()) {
+                eligibleForReturn.add(r);
+            }
+        }
+        
+        if (eligibleForReturn.isEmpty()) {
+            System.out.println("No items eligible for return.");
+            System.out.println("\nℹ Note: Only completed items within 10 days of pickup can be returned.");
+            return;
+        }
+        
+        System.out.println("\n=== ITEMS ELIGIBLE FOR RETURN ===");
+        System.out.println("ID   | Item Name                 | Size | Qty | Total    | Days Left | Completed Date");
+        System.out.println("-----|---------------------------|------|-----|----------|-----------|-------------------");
+        for (Reservation r : eligibleForReturn) {
+            System.out.printf("%-4d | %-25s | %-4s | %-3d | ₱%-7.2f | %-9d | %s\n",
+                r.getReservationId(), 
+                r.getItemName(),
+                r.getSize(),
+                r.getQuantity(), 
+                r.getTotalPrice(),
+                r.getDaysUntilReturnExpires(),
+                r.getCompletedDate() != null ? r.getCompletedDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : "N/A");
+        }
+        
+        int id = validator.getValidInteger("\nEnter Reservation ID to return (0 to cancel): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
+        Reservation r = reservationManager.findReservationById(id);
+        
+        if (r == null || !r.getStudentId().equals(student.getStudentId())) {
+            System.out.println("Invalid reservation ID.");
+            return;
+        }
+        
+        if (!r.getStatus().equals("COMPLETED")) {
+            System.out.println("⚠ This item cannot be returned - it's not yet completed.");
+            return;
+        }
+        
+        if (!r.isEligibleForReturn()) {
+            System.out.println("⚠ This item is no longer eligible for return.");
+            System.out.println("The 10-day return period has expired.");
+            return;
+        }
+        
+        System.out.println("\n=== RETURN DETAILS ===");
+        System.out.println("Item: " + r.getItemName());
+        System.out.println("Size: " + r.getSize());
+        System.out.println("Quantity: " + r.getQuantity());
+        System.out.println("Refund Amount: ₱" + r.getTotalPrice());
+        System.out.println("Days Remaining: " + r.getDaysUntilReturnExpires() + " days");
+        
+        System.out.println("\n⚠ RETURN REQUIREMENTS:");
+        System.out.println("  • Item must be in original condition");
+        System.out.println("  • All tags and packaging must be intact");
+        System.out.println("  • Item must not have been worn or used");
+        
+        if (validator.getValidYesNo("\nDo you want to proceed with the return?")) {
+            System.out.println("\n✓ Return request submitted!");
+            System.out.println("✓ Please bring the item to the Admin or Staff for inspection.");
+            System.out.println("✓ Once approved, you will receive a refund of ₱" + r.getTotalPrice());
+            System.out.println("\nℹ Note: Go to Admin/Staff to complete the return process.");
+        } else {
+            System.out.println("Return cancelled.");
         }
     }
     
@@ -445,19 +582,19 @@ public class StudentInterface {
         System.out.println("Unpaid Reservations: " + unpaidCount + " (₱" + String.format("%.2f", totalUnpaid) + ")");
         
         if (unpaidCount > 0) {
-            System.out.println("\n⚠ IMPORTANT: You have " + unpaidCount + " UNPAID reservation(s)!");
+            System.out.println("\n IMPORTANT: You have " + unpaidCount + " UNPAID reservation(s)!");
             System.out.println("   Total amount to pay: ₱" + String.format("%.2f", totalUnpaid));
             System.out.println("   Please proceed to the CASHIER to make payment.");
             System.out.println("   Your items cannot be approved for pickup until payment is completed.");
         } else {
-            System.out.println("\n✓ All your reservations are paid!");
+            System.out.println("\n All your reservations are paid!");
         }
         
         System.out.println("\n=== PAYMENT METHODS AVAILABLE ===");
-        System.out.println("   • CASH - Pay at cashier counter");
-        System.out.println("   • GCASH - Mobile payment");
-        System.out.println("   • CARD - Credit/Debit card payment");
-        System.out.println("   • BANK - Bank transfer");
+        System.out.println("    CASH - Pay at cashier counter");
+        System.out.println("    GCASH - Mobile payment");
+        System.out.println("    CARD - Credit/Debit card payment");
+        System.out.println("    BANK - Bank transfer");
         
         System.out.println("\n=== PAYMENT PROCESS ===");
         System.out.println("   1. Go to the CASHIER");
@@ -538,7 +675,7 @@ public class StudentInterface {
         System.out.println("Total Paid: ₱" + r.getTotalPrice());
         System.out.println("Payment Method: " + r.getPaymentMethod());
         
-        System.out.println("\n⚠ By confirming pickup, you acknowledge:");
+        System.out.println("\n By confirming pickup, you acknowledge:");
         System.out.println("   • You have received all items in good condition");
         System.out.println("   • The transaction will be marked as COMPLETED");
         System.out.println("   • Items were already removed from inventory during approval");
@@ -547,6 +684,12 @@ public class StudentInterface {
             // Mark as completed (stock was already deducted during staff approval)
             reservationManager.updateReservationStatus(reservationId, "COMPLETED", "Picked up by student");
             
+            // Set the completed date for return eligibility tracking
+            r.setCompletedDate(java.time.LocalDateTime.now());
+            
+            // Save the reservation with updated completed date
+            reservationManager.saveToDatabase();
+            
             // Find and update existing receipt instead of creating a new one
             Receipt existingReceipt = receiptManager.findPendingReceiptByItemAndBuyer(
                 r.getItemCode(), 
@@ -554,8 +697,8 @@ public class StudentInterface {
             );
             
             if (existingReceipt != null) {
-                // Update the existing receipt with payment method
-                receiptManager.updatePaymentStatus(existingReceipt.getReceiptId(), r.getPaymentMethod());
+                // Update the existing receipt status to COMPLETED
+                receiptManager.updatePaymentStatus(existingReceipt.getReceiptId(), "COMPLETED");
                 System.out.println("\n✓ Pickup confirmed successfully!");
                 System.out.println("✓ Reservation marked as COMPLETED");
                 System.out.println("✓ Receipt updated - ID: " + existingReceipt.getReceiptId());
@@ -565,8 +708,13 @@ public class StudentInterface {
                 System.out.println("⚠ Warning: No pending receipt found for this reservation");
             }
             
+            System.out.println("\nℹ RETURN POLICY:");
+            System.out.println("  • You have 10 days from today to return this item for a full refund");
+            System.out.println("  • After 10 days, returns will not be accepted");
+            System.out.println("  • Items must be in original condition for return");
+            
             System.out.println("\nThank you for using STI ProWear System!");
-            System.out.println("Enjoy your items! 🎉");
+            System.out.println("Enjoy your items! ");
         } else {
             System.out.println("Pickup cancelled.");
         }

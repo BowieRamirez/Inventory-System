@@ -1,0 +1,2 @@
+02000284710|Ramirez2|BSIT|Bowie|Ramirez|Male|true
+02000242424|Lebwrong|BSIT|Jims|Lebron|Male|true

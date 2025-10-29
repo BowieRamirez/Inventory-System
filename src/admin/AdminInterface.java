@@ -2,7 +2,9 @@ package admin;
 
 import inventory.InventoryManager;
 import inventory.ReservationManager;
+import inventory.ReceiptManager;
 import inventory.Reservation;
+import inventory.Receipt;
 import inventory.Item;
 import utils.InputValidator;
 import student.Student;
@@ -12,13 +14,15 @@ import java.util.List;
 public class AdminInterface {
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
+    private ReceiptManager receiptManager;
     private InputValidator validator;
     private List<Student> registeredStudents;
 
     public AdminInterface(InventoryManager inventoryManager, ReservationManager reservationManager, 
-                          InputValidator validator, List<Student> registeredStudents) {
+                          ReceiptManager receiptManager, InputValidator validator, List<Student> registeredStudents) {
         this.inventoryManager = inventoryManager;
         this.reservationManager = reservationManager;
+        this.receiptManager = receiptManager;
         this.validator = validator;
         this.registeredStudents = registeredStudents;
     }
@@ -60,7 +64,7 @@ public class AdminInterface {
         while (true) {
             System.out.println("\n=== ACCOUNT MANAGEMENT ===");
             System.out.println("[1] Change User Password");
-            System.out.println("[2] Delete Account");
+            System.out.println("[2] Activate/Deactivate Account");
             System.out.println("[3] View All Accounts");
             System.out.println("[0] Back to Admin Main Page");
             
@@ -69,7 +73,7 @@ public class AdminInterface {
             switch (choice) {
                 case 0: return;
                 case 1: changeUserPassword(); break;
-                case 2: deleteAccount(); break;
+                case 2: manageAccountStatus(); break;
                 case 3: viewAllAccounts(); break;
             }
         }
@@ -84,17 +88,18 @@ public class AdminInterface {
             return;
         }
         
-        System.out.println("\nID   | Student ID    | Name                           | Course    | Gender");
-        System.out.println("-----|---------------|--------------------------------|-----------|--------");
+        System.out.println("\nID   | Student ID    | Name                           | Course    | Gender | Status");
+        System.out.println("-------|---------------|--------------------------------|-----------|--------|-------------");
 
         int count = 1;
         for (Student student : registeredStudents) {
-            System.out.printf("%-4d | %-13s | %-30s | %-9s | %-6s\n",
+            System.out.printf("%-4d | %-13s | %-30s | %-9s | %-6s | %-12s\n",
                 count++,
                 student.getStudentId(),
                 student.getFullName(),
                 student.getCourse(),
-                student.getGender());
+                student.getGender(),
+                student.getAccountStatus());
         }
         
         System.out.println("\nPress Enter to go back...");
@@ -138,22 +143,23 @@ public class AdminInterface {
         
         if (validator.getValidYesNo("Confirm password change for " + student.getFullName() + "?")) {
             student.setPassword(newPassword);
+            utils.FileStorage.updateStudent(registeredStudents, student);
             System.out.println("✓ Password changed successfully!");
+            System.out.println("✓ Changes saved to database.");
         } else {
             System.out.println("Password change cancelled.");
         }
     }
     
-    private void deleteAccount() {
-        System.out.println("\n=== DELETE ACCOUNT ===");
-        System.out.println("⚠ WARNING: This action cannot be undone!");
+    private void manageAccountStatus() {
+        System.out.println("\n=== ACTIVATE/DEACTIVATE ACCOUNT ===");
         
         if (registeredStudents.isEmpty()) {
             System.out.println("No registered students found.");
             return;
         }
         
-        String studentId = validator.getValidStudentId("Enter Student ID to delete (or 0 to cancel): ");
+        String studentId = validator.getValidStudentId("Enter Student ID (or 0 to cancel): ");
         if (studentId.equals("0")) {
             System.out.println("Operation cancelled.");
             return;
@@ -169,13 +175,39 @@ public class AdminInterface {
         System.out.println("Student ID: " + student.getStudentId());
         System.out.println("Name: " + student.getFullName());
         System.out.println("Course: " + student.getCourse());
+        System.out.println("Current Status: " + student.getAccountStatus());
         
-        if (validator.getValidYesNo("\n⚠ Are you absolutely sure you want to delete this account?")) {
-            registeredStudents.remove(student);
-            System.out.println("✓ Account deleted successfully!");
-            System.out.println("Remaining accounts: " + registeredStudents.size());
+        // Determine action based on current status
+        if (student.isActive()) {
+            // Account is active, offer to deactivate
+            System.out.println("\n⚠ DEACTIVATE ACCOUNT");
+            System.out.println("This will prevent the student from logging in.");
+            System.out.println("Use this when a student is not enrolled anymore.");
+            
+            if (validator.getValidYesNo("\nAre you sure you want to deactivate this account?")) {
+                student.setActive(false);
+                utils.FileStorage.updateStudent(registeredStudents, student);
+                System.out.println("✓ Account deactivated successfully!");
+                System.out.println("✓ Changes saved to database.");
+                System.out.println("The student can no longer log in until reactivated.");
+            } else {
+                System.out.println("Account deactivation cancelled.");
+            }
         } else {
-            System.out.println("Account deletion cancelled.");
+            // Account is deactivated, offer to reactivate
+            System.out.println("\n✓ REACTIVATE ACCOUNT");
+            System.out.println("This will allow the student to log in again.");
+            System.out.println("Use this when a student enrolls again.");
+            
+            if (validator.getValidYesNo("\nAre you sure you want to reactivate this account?")) {
+                student.setActive(true);
+                utils.FileStorage.updateStudent(registeredStudents, student);
+                System.out.println("✓ Account reactivated successfully!");
+                System.out.println("✓ Changes saved to database.");
+                System.out.println("The student can now log in again.");
+            } else {
+                System.out.println("Account reactivation cancelled.");
+            }
         }
     }
     
@@ -199,10 +231,9 @@ public class AdminInterface {
         System.out.println("   - All actions require confirmation (y/n) for safety");
         
         System.out.println("\nUSER RESERVATIONS MANAGEMENT:");
-        System.out.println("   [1] View All - See all student reservations");
-        System.out.println("   [2] View Pending - Filter pending reservations");
-        System.out.println("   [3] Update Status - Change reservation status");
-        System.out.println("   [4] Cancel Reservation - Remove reservation");
+    System.out.println("   [1] View All - See all student reservations");
+    System.out.println("   [2] View Pending - Filter pending reservations");
+    System.out.println("   [3] Cancel Reservation - Remove reservation");
         
         System.out.println("\nSTOCK PAGE:");
         System.out.println("   [1] View All - Display entire inventory");
@@ -215,8 +246,12 @@ public class AdminInterface {
         System.out.println("   [3] Update Quantity - Change stock levels");
         
         System.out.println("\nACCOUNT MANAGEMENT:");
-        System.out.println("   - View all registered student accounts");
-        System.out.println("   - Staff and Cashier CANNOT access this");
+        System.out.println("   [1] Change User Password - Reset student account passwords");
+        System.out.println("   [2] Activate/Deactivate Account - Manage student account access");
+        System.out.println("       • Deactivate when student is not enrolled (prevents login)");
+        System.out.println("       • Reactivate when student enrolls again (restores access)");
+        System.out.println("   [3] View All Accounts - See all registered students and their status");
+        System.out.println("   • Staff and Cashier CANNOT access this feature");
         
         System.out.println("\n" + "=".repeat(80));
         System.out.println("Press [0] to go back...");
@@ -228,18 +263,26 @@ public class AdminInterface {
             System.out.println("\n=== USER RESERVATIONS ===");
             System.out.println("[1] View All");
             System.out.println("[2] View Pending");
-            System.out.println("[3] Update Status");
-            System.out.println("[4] Cancel Reservation");
+            System.out.println("[3] Cancel Reservation");
+            System.out.println("[4] Process Returns/Refunds");
             System.out.println("[0] Back");
             
             int choice = validator.getValidInteger("Enter choice: ", 0, 4);
             
             switch (choice) {
                 case 0: return;
-                case 1: reservationManager.displayAllReservations(); break;
-                case 2: displayPending(); break;
-                case 3: updateStatus(); break;
-                case 4: cancelRes(); break;
+                case 1: 
+                    reservationManager.displayAllReservations();
+                    System.out.println("\nPress [0] to go back...");
+                    validator.getValidInteger("", 0, 0);
+                    break;
+                case 2: 
+                    displayPending(); 
+                    System.out.println("\nPress [0] to go back...");
+                    validator.getValidInteger("", 0, 0);
+                    break;
+                case 3: cancelRes(); break;
+                case 4: processReturnsRefunds(); break;
             }
         }
     }
@@ -291,27 +334,69 @@ public class AdminInterface {
         
         System.out.println("\nℹ Note: Only PAID reservations can be approved for pickup.");
         
-        int id = validator.getValidInteger("Enter Reservation ID: ", 1000, 9999);
+        int id = validator.getValidInteger("Enter Reservation ID (or 0 to cancel): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
         Reservation r = reservationManager.findReservationById(id);
         if (r == null) {
             System.out.println("Not found.");
             return;
         }
         
-        // Check if reservation is already COMPLETED
+        // Check if reservation is COMPLETED - handle return/refund eligibility
         if (r.getStatus().equals("COMPLETED")) {
-            System.out.println("\n⚠ ERROR: Cannot update status!");
-            System.out.println("Reason: This reservation is already COMPLETED.");
-            System.out.println("Completed reservations are final and cannot be modified.");
-            return;
-        }
-        
-        // Check if user has already paid - cannot cancel paid reservations
-        if (r.isPaid() && r.getStatus().equals("CANCELLED")) {
-            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
-            System.out.println("Reason: Student has already paid for this reservation.");
-            System.out.println("Contact the student or process a refund if needed.");
-            return;
+            if (r.isEligibleForReturn()) {
+                long daysLeft = r.getDaysUntilReturnExpires();
+                System.out.println("\n=== RETURN/REFUND OPTION AVAILABLE ===");
+                System.out.println("This item was picked up and is eligible for return.");
+                System.out.println("Days remaining for return: " + daysLeft + " days");
+                System.out.println("\nWould you like to process a return and refund?");
+                
+                if (validator.getValidYesNo("Process return/refund?")) {
+                    System.out.println("\n=== RETURN CONFIRMATION ===");
+                    System.out.println("Student: " + r.getStudentName());
+                    System.out.println("Item: " + r.getItemName());
+                    System.out.println("Quantity: " + r.getQuantity());
+                    System.out.println("Refund Amount: ₱" + r.getTotalPrice());
+                    
+                    if (validator.getValidYesNo("\nConfirm return and issue refund?")) {
+                        // Change status to RETURNED
+                        reservationManager.updateReservationStatus(id, "RETURNED - REFUNDED", "Item returned within 10 days");
+                        
+                        // Restock the item by size
+                        boolean restocked = inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
+                        if (restocked) {
+                            System.out.println("✓ Item restocked: " + r.getQuantity() + " units added back to inventory");
+                        } else {
+                            System.out.println("⚠ Warning: Could not restock item to inventory");
+                        }
+                        
+                        // Update receipt status to RETURNED
+                        Receipt receipt = receiptManager.findReceiptByItemAndBuyer(r.getItemCode(), r.getStudentName());
+                        if (receipt != null) {
+                            receiptManager.updatePaymentStatus(receipt.getReceiptId(), "RETURNED - REFUNDED");
+                            System.out.println("✓ Receipt updated to: RETURNED - REFUNDED");
+                        }
+                        
+                        System.out.println("✓ Return processed successfully!");
+                        System.out.println("✓ Status updated to: RETURNED - REFUNDED");
+                        System.out.println("✓ Refund Amount: ₱" + r.getTotalPrice());
+                        System.out.println("\nℹ Please process the refund payment to the student.");
+                    }
+                }
+                return;
+            } else {
+                System.out.println("\n⚠ ERROR: Cannot modify this reservation!");
+                System.out.println("Reason: This reservation is COMPLETED.");
+                if (r.getCompletedDate() != null) {
+                    System.out.println("The 10-day return period has expired.");
+                }
+                System.out.println("No changes can be made to this transaction.");
+                return;
+            }
         }
         
         System.out.println("\n=== CURRENT RESERVATION ===");
@@ -324,62 +409,60 @@ public class AdminInterface {
         System.out.println("Current Status: " + r.getStatus());
         
         System.out.println("\n=== SELECT NEW STATUS ===");
-        System.out.println("[1] PENDING");
-        System.out.println("[2] APPROVED - READY FOR PICKUP");
-        System.out.println("[4] CANCELLED");
+        System.out.println("[1] CANCELLED");
         System.out.println("[0] Cancel");
-        System.out.println("\nNote: Status automatically changes to COMPLETED when student picks up.");
-        
-        int status = validator.getValidInteger("Select status: ", 0, 4);
+
+        int status = validator.getValidInteger("Select status: ", 0, 1);
         if (status == 0) return;
-        
-        if (status == 3) {
-            System.out.println("\n⚠ Cannot manually set to COMPLETED.");
-            System.out.println("Status automatically changes to COMPLETED when student picks up the item.");
-            return;
-        }
-        
-        String newStatus = switch (status) {
-            case 1 -> "PENDING";
-            case 2 -> "APPROVED - READY FOR PICKUP";
-            case 4 -> "CANCELLED";
-            default -> r.getStatus();
-        };
-        
+
+        String newStatus = "CANCELLED";
+
         // Check if trying to cancel a paid reservation
-        if (newStatus.equals("CANCELLED") && r.isPaid()) {
+        if (r.isPaid()) {
             System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
             System.out.println("Reason: Student has already paid for this reservation.");
             System.out.println("Contact the student or process a refund if needed.");
             return;
         }
-        
-        // Check if trying to approve for pickup without payment
-        if (newStatus.equals("APPROVED - READY FOR PICKUP") && !r.isPaid()) {
-            System.out.println("\n⚠ ERROR: Cannot approve for pickup!");
-            System.out.println("Reason: Student has not paid yet.");
-            System.out.println("Student must pay at CASHIER first.");
-            return;
-        }
-        
+
         if (validator.getValidYesNo("Confirm status change to: " + newStatus + "?")) {
-            if (newStatus.equals("APPROVED - READY FOR PICKUP")) {
-                // Use approveReservation to properly deduct stock
-                if (reservationManager.approveReservation(id, "")) {
-                    System.out.println("✓ Status updated to: " + newStatus);
-                    System.out.println("✓ Stock deducted successfully");
-                } else {
-                    System.out.println("❌ Failed to approve reservation - insufficient stock");
-                }
-            } else {
-                reservationManager.updateReservationStatus(id, newStatus, "");
-                System.out.println("✓ Status updated to: " + newStatus);
-            }
+            reservationManager.updateReservationStatus(id, newStatus, "");
+            System.out.println("✓ Status updated to: " + newStatus);
         }
     }
 
     private void cancelRes() {
-        int id = validator.getValidInteger("Enter ID to cancel: ", 1000, 9999);
+        // Display all reservations in table format
+        System.out.println("\n=== ALL RESERVATIONS ===");
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+        
+        if (allReservations.isEmpty()) {
+            System.out.println("No reservations found.");
+            return;
+        }
+        
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Payment  | Method     | Status");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------|------------|----------");
+        
+        for (Reservation r : allReservations) {
+            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %-8s | %-10s | %-10s\n",
+                r.getReservationId(),
+                truncate(r.getStudentName(), 15),
+                r.getStudentId(),
+                r.getItemCode(),
+                truncate(r.getItemName(), 25),
+                r.getQuantity(),
+                r.getTotalPrice(),
+                r.isPaid() ? "PAID" : "UNPAID",
+                r.getPaymentMethod(),
+                r.getStatus());
+        }
+        
+        int id = validator.getValidInteger("Enter ID to cancel (or 0 to go back): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
         
         // Check if reservation exists and if it's paid
         Reservation r = reservationManager.findReservationById(id);
@@ -390,7 +473,7 @@ public class AdminInterface {
         
         // Check if user has already paid
         if (r.isPaid()) {
-            System.out.println("\n⚠ ERROR: Cannot cancel paid reservation!");
+            System.out.println("\n ERROR: Cannot cancel paid reservation!");
             System.out.println("Reason: Student has already paid for this reservation.");
             System.out.println("Contact the student or process a refund if needed.");
             return;
@@ -400,6 +483,100 @@ public class AdminInterface {
             if (reservationManager.cancelReservation(id, "Cancelled by admin")) {
                 System.out.println("Cancelled.");
             }
+        }
+    }
+
+    private void processReturnsRefunds() {
+        System.out.println("\n=== PROCESS RETURNS/REFUNDS ===");
+        
+        // Get all COMPLETED reservations that are eligible for return
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+        List<Reservation> eligibleReturns = new java.util.ArrayList<>();
+        
+        for (Reservation r : allReservations) {
+            if (r.getStatus().equals("COMPLETED") && r.isEligibleForReturn()) {
+                eligibleReturns.add(r);
+            }
+        }
+        
+        if (eligibleReturns.isEmpty()) {
+            System.out.println("\nNo items eligible for return/refund at this time.");
+            System.out.println("\nℹ Items can be returned within 10 days of pickup.");
+            System.out.println("\nPress [0] to go back...");
+            validator.getValidInteger("", 0, 0);
+            return;
+        }
+        
+        System.out.println("\n=== ITEMS ELIGIBLE FOR RETURN ===");
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Days Left");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------");
+        
+        for (Reservation r : eligibleReturns) {
+            long daysLeft = r.getDaysUntilReturnExpires();
+            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %d days\n",
+                r.getReservationId(),
+                truncate(r.getStudentName(), 15),
+                r.getStudentId(),
+                r.getItemCode(),
+                truncate(r.getItemName(), 25),
+                r.getQuantity(),
+                r.getTotalPrice(),
+                daysLeft);
+        }
+        
+        int id = validator.getValidInteger("\nEnter Reservation ID to process return (0 to cancel): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
+        Reservation r = reservationManager.findReservationById(id);
+        if (r == null) {
+            System.out.println("Reservation not found.");
+            return;
+        }
+        
+        if (!r.getStatus().equals("COMPLETED")) {
+            System.out.println("\n⚠ ERROR: Only COMPLETED items can be returned.");
+            return;
+        }
+        
+        if (!r.isEligibleForReturn()) {
+            System.out.println("\n⚠ ERROR: Return period has expired (10 days limit).");
+            return;
+        }
+        
+        System.out.println("\n=== RETURN CONFIRMATION ===");
+        System.out.println("Student: " + r.getStudentName() + " (" + r.getStudentId() + ")");
+        System.out.println("Item: " + r.getItemName() + " (Size: " + r.getSize() + ")");
+        System.out.println("Quantity: " + r.getQuantity());
+        System.out.println("Refund Amount: ₱" + r.getTotalPrice());
+        System.out.println("Payment Method: " + r.getPaymentMethod());
+        
+        if (validator.getValidYesNo("\nConfirm return and issue refund?")) {
+            // Change status to RETURNED
+            reservationManager.updateReservationStatus(id, "RETURNED - REFUNDED", "Item returned within 10 days");
+            
+            // Restock the item by size
+            boolean restocked = inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
+            if (restocked) {
+                System.out.println("✓ Item restocked: " + r.getQuantity() + " units added back to inventory");
+            } else {
+                System.out.println("⚠ Warning: Could not restock item to inventory");
+            }
+            
+            // Update receipt status to RETURNED
+            Receipt receipt = receiptManager.findReceiptByItemAndBuyer(r.getItemCode(), r.getStudentName());
+            if (receipt != null) {
+                receiptManager.updatePaymentStatus(receipt.getReceiptId(), "RETURNED - REFUNDED");
+                System.out.println("✓ Receipt updated to: RETURNED - REFUNDED");
+            }
+            
+            System.out.println("✓ Return processed successfully!");
+            System.out.println("✓ Refund Amount: ₱" + r.getTotalPrice());
+            System.out.println("\n⚠ Please process the refund payment to the student.");
+        } else {
+            System.out.println("Return cancelled.");
         }
     }
 

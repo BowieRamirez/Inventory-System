@@ -32,7 +32,7 @@ public class Item {
     
     @Override
     public String toString() {
-        return String.format("%-7d | %-40s | %-35s | %-20s | %-9d | ₱%9.2f",
+        return String.format("%-1d | %-40s  | %-35s  | %-20s  | %-9d  | ₱%9.2f",
             code, name, course, size, quantity, price);
     }
 }

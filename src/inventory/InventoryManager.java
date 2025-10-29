@@ -48,7 +48,7 @@ public class InventoryManager {
     public List<Item> getItemsByCourse(String course) {
         List<Item> result = new ArrayList<>();
         for (Item item : inventory) {
-            if (item.getCourse().equalsIgnoreCase(course)) {
+            if (item.getCourse().equalsIgnoreCase(course) && item.getQuantity() > 0) {
                 result.add(item);
             }
         }
@@ -70,8 +70,8 @@ public class InventoryManager {
         }
         
         System.out.println("\n=== ALL ITEMS ===");
-        System.out.println("Code     | Name                                    | Course                     | Size                                                      | Price");
-        System.out.println("---------|------------------------------------------|----------------------------|-----------------------------------------------------------|------------");
+        System.out.println("Code     | Name                                     | Course                      | Size                                                       | Price");
+        System.out.println("---------|------------------------------------------|-----------------------------|------------------------------------------------------------|-------------");
         
         for (Map.Entry<String, List<Item>> entry : groupedItems.entrySet()) {
             List<Item> variants = entry.getValue();
@@ -88,7 +88,7 @@ public class InventoryManager {
             }
             
             // Display one row per item group
-            System.out.printf("%-8d | %-40s | %-26s | %-57s | ₱%-10.2f\n",
+            System.out.printf("%-8d | %-40s | %-27s | %-58s | ₱%-11.2f\n",
                 firstItem.getCode(),
                 firstItem.getName(),
                 firstItem.getCourse(),
@@ -112,8 +112,8 @@ public class InventoryManager {
         }
         
         System.out.println("\n=== ITEMS FOR " + course + " ===");
-        System.out.println("Code     | Name                                    | Course                     | Size                                                      | Price");
-        System.out.println("---------|------------------------------------------|----------------------------|-----------------------------------------------------------|------------");
+        System.out.println("Code     | Name                                     | Course                      | Size                                                       | Price");
+        System.out.println("---------|------------------------------------------|-----------------------------|------------------------------------------------------------|-------------");
         
         for (Map.Entry<String, List<Item>> entry : groupedItems.entrySet()) {
             List<Item> variants = entry.getValue();
@@ -130,7 +130,7 @@ public class InventoryManager {
             }
             
             // Display one row per item group
-            System.out.printf("%-8d | %-40s | %-26s | %-57s | ₱%-10.2f\n",
+            System.out.printf("%-8d | %-40s | %-27s | %-58s | ₱%-11.2f\n",
                 firstItem.getCode(),
                 firstItem.getName(),
                 firstItem.getCourse(),
@@ -206,6 +206,11 @@ public class InventoryManager {
         }
         return false;
     }
+    
+    // ✅ Restock item (used for returns/refunds)
+    public boolean restockItem(int code, String size, int quantity) {
+        return addStock(code, size, quantity);
+    }
 
 
     public List<String> getAvailableCourses() {
@@ -227,23 +232,5 @@ public class InventoryManager {
             }
         }
         return variants;
-    }
-    
-    // Rebuild HashMap from inventory list (useful for data integrity)
-    public void rebuildHashMap() {
-        itemByCodeMap.clear();
-        for (Item item : inventory) {
-            itemByCodeMap.put(item.getCode(), item);
-        }
-    }
-    
-    // Get inventory size for debugging
-    public int getInventorySize() {
-        return inventory.size();
-    }
-    
-    // Get HashMap size for debugging
-    public int getHashMapSize() {
-        return itemByCodeMap.size();
     }
 }

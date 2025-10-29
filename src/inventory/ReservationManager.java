@@ -1,15 +1,28 @@
 package inventory;
 
+import utils.FileStorage;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ReservationManager {
     private List<Reservation> reservations = new ArrayList<>();
-    private int nextReservationId = 1001;
+    private int nextReservationId = 5001; // Start at 5001 to avoid conflict with item IDs
     private InventoryManager inventoryManager; // link inventory
 
     public ReservationManager(InventoryManager inventoryManager) {
         this.inventoryManager = inventoryManager;
+        loadReservations();
+    }
+    
+    private void loadReservations() {
+        this.reservations = FileStorage.loadReservations();
+        if (!reservations.isEmpty()) {
+            this.nextReservationId = FileStorage.getNextReservationId(reservations);
+        }
+    }
+    
+    private void saveReservations() {
+        FileStorage.saveReservations(reservations);
     }
     
     public Reservation createReservation(String studentName, String studentId, String course,
@@ -24,6 +37,7 @@ public class ReservationManager {
         Reservation reservation = new Reservation(nextReservationId++, studentName, studentId, 
                                                    course, itemCode, itemName, quantity, totalPrice, size);
         reservations.add(reservation);
+        saveReservations();
         return reservation;
     }
 
@@ -34,6 +48,7 @@ public class ReservationManager {
             boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
             if (deducted) {
                 r.setStatus("APPROVED - READY FOR PICKUP");
+                saveReservations();
                 return true;
             } else {
                 System.out.println("Error: Not enough stock for approval of reservation " + reservationId);
@@ -70,6 +85,7 @@ public class ReservationManager {
         if (r != null && !r.getStatus().equals("COMPLETED")) {
             r.setStatus("CANCELLED");
             r.setReason(reason);
+            saveReservations();
             return true;
         }
         return false;
@@ -82,6 +98,7 @@ public class ReservationManager {
             if (reason != null && !reason.isEmpty()) {
                 r.setReason(reason);
             }
+            saveReservations();
             return true;
         }
         return false;
@@ -129,6 +146,19 @@ public class ReservationManager {
         if (r != null && !r.isPaid()) {
             r.setPaid(true);
             r.setPaymentMethod(paymentMethod);
+            
+            // Automatically approve for pickup when payment is made
+            if ("PENDING".equals(r.getStatus())) {
+                // Deduct stock from inventory
+                boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
+                if (deducted) {
+                    r.setStatus("APPROVED - READY FOR PICKUP");
+                } else {
+                    System.out.println("⚠ Warning: Payment processed but insufficient stock. Admin approval required.");
+                }
+            }
+            
+            saveReservations();
             return true;
         }
         return false;
@@ -152,5 +182,10 @@ public class ReservationManager {
             }
         }
         return paidPending;
+    }
+    
+    // Save reservations when external modifications are made
+    public void saveToDatabase() {
+        saveReservations();
     }
 }

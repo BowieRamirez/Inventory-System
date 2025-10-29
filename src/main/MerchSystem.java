@@ -35,8 +35,13 @@ public class MerchSystem {
         this.receiptManager = new ReceiptManager();
         this.validator = new InputValidator(this.scanner);
         this.registeredStudents = new ArrayList<>();
-        // Removed student loading from file - accounts only exist in memory now
+        // Load students from database
+        loadStudentsFromDatabase();
         loadInventoryFromFile();
+    }
+    
+    private void loadStudentsFromDatabase() {
+        this.registeredStudents = FileStorage.loadStudents();
     }
     
     private void loadInventoryFromFile() {
@@ -92,114 +97,163 @@ public class MerchSystem {
     }
     
     private void handleMaintenanceLogin() {
-        System.out.println("\n=== MAINTENANCE LOGIN ===");
-        System.out.println("Admin access for system maintenance");
-        System.out.println("Enter [0] at any time to return to main menu.");
-        
-        String username = validator.getValidNonEmptyString("Username: ", "Username");
-        if (username.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
-        
-        String password = validator.getValidNonEmptyString("Password: ", "Password");
-        if (password.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
-        
-        Admin admin = new Admin(username, password);
-        if (admin.authenticate()) {
-            System.out.println("Login successful! Welcome Admin");
-            AdminInterface adminInterface = new AdminInterface(inventoryManager, reservationManager, validator, registeredStudents);
-            adminInterface.showMenu();
-        } else {
-            System.out.println("Invalid credentials.");
-            validator.waitForEnter("Press Enter to return to main menu...");
+        while (true) {
+            System.out.println("\n=== MAINTENANCE LOGIN ===");
+            System.out.println("Admin access for system maintenance");
+            System.out.println("Enter [0] at any time to return to main menu.");
+            
+            String username = validator.getValidNonEmptyString("Username: ", "Username");
+            if (username.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            
+            String password = validator.getValidNonEmptyString("Password: ", "Password");
+            if (password.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            
+            Admin admin = new Admin(username, password);
+            if (admin.authenticate()) {
+                System.out.println("Login successful! Welcome Admin");
+                AdminInterface adminInterface = new AdminInterface(inventoryManager, reservationManager, receiptManager, validator, registeredStudents);
+                adminInterface.showMenu();
+                return; // Exit after successful login and logout
+            } else {
+                System.out.println("Invalid credentials.");
+                System.out.println("\nPress Enter to try again or Press [0] to return to main menu...");
+                
+                String choice = scanner.nextLine().trim();
+                if (choice.equals("0")) {
+                    System.out.println("Returning to main menu...");
+                    return;
+                }
+                // Loop continues to retry login
+            }
         }
     }
     
     private void handleStaffLogin() {
-        System.out.println("\n=== PURCHASING & ASSET MANAGEMENT OFFICER LOGIN ===");
-        System.out.println("Staff access for purchasing and asset management");
-        System.out.println("Enter [0] at any time to return to main menu.");
-        
-        String username = validator.getValidNonEmptyString("Username: ", "Username");
-        if (username.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
-        
-        String password = validator.getValidNonEmptyString("Password: ", "Password");
-        if (password.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
-        
-        Staff staff = new Staff(username, password);
-        if (staff.authenticate()) {
-            System.out.println("Login successful! Welcome Staff");
-            StaffInterface staffInterface = new StaffInterface(inventoryManager, reservationManager, validator);
-            staffInterface.showMenu();
-        } else {
-            System.out.println("Invalid credentials.");
-            validator.waitForEnter("Press Enter to return to main menu...");
+        while (true) {
+            System.out.println("\n=== PURCHASING & ASSET MANAGEMENT OFFICER LOGIN ===");
+            System.out.println("Staff access for purchasing and asset management");
+            System.out.println("Enter [0] at any time to return to main menu.");
+            
+            String username = validator.getValidNonEmptyString("Username: ", "Username");
+            if (username.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            
+            String password = validator.getValidNonEmptyString("Password: ", "Password");
+            if (password.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            
+            Staff staff = new Staff(username, password);
+            if (staff.authenticate()) {
+                System.out.println("Login successful! Welcome Staff");
+                StaffInterface staffInterface = new StaffInterface(inventoryManager, reservationManager, receiptManager, validator);
+                staffInterface.showMenu();
+                return; // Exit after successful login and logout
+            } else {
+                System.out.println("Invalid credentials.");
+                System.out.println("\nPress Enter to try again or Press [0] to return to main menu...");
+                
+                String choice = scanner.nextLine().trim();
+                if (choice.equals("0")) {
+                    System.out.println("Returning to main menu...");
+                    return;
+                }
+                // Loop continues to retry login
+            }
         }
     }
     
     private void handleCashierLogin() {
-        System.out.println("\n=== CASHIER LOGIN ===");
-        System.out.println("Cashier access for transaction management");
-        System.out.println("Enter [0] at any time to return to main menu.");
-        
-        String username = validator.getValidNonEmptyString("Username: ", "Username");
-        if (username.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
-        
-        String password = validator.getValidNonEmptyString("Password: ", "Password");
-        if (password.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
-        
-        Cashier cashier = new Cashier(username, password);
-        if (cashier.authenticate()) {
-            System.out.println("Login successful! Welcome Cashier");
-            CashierInterface cashierInterface = new CashierInterface(reservationManager, receiptManager, validator);
-            cashierInterface.showMenu();
-        } else {
-            System.out.println("Invalid credentials.");
-            validator.waitForEnter("Press Enter to return to main menu...");
+        while (true) {
+            System.out.println("\n=== CASHIER LOGIN ===");
+            System.out.println("Cashier access for transaction management");
+            System.out.println("Enter [0] at any time to return to main menu.");
+            
+            String username = validator.getValidNonEmptyString("Username: ", "Username");
+            if (username.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            
+            String password = validator.getValidNonEmptyString("Password: ", "Password");
+            if (password.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            
+            Cashier cashier = new Cashier(username, password);
+            if (cashier.authenticate()) {
+                System.out.println("Login successful! Welcome Cashier");
+                CashierInterface cashierInterface = new CashierInterface(reservationManager, receiptManager, validator);
+                cashierInterface.showMenu();
+                return; // Exit after successful login and logout
+            } else {
+                System.out.println("Invalid credentials.");
+                System.out.println("\nPress Enter to try again or Press [0] to return to main menu...");
+                
+                String choice = scanner.nextLine().trim();
+                if (choice.equals("0")) {
+                    System.out.println("Returning to main menu...");
+                    return;
+                }
+                // Loop continues to retry login
+            }
         }
     }
     
     private void handleStudentLogin() {
-        System.out.println("\n--- Student Login ---");
-        System.out.println("Enter [0] at any time to return to main menu.");
+        while (true) {
+            System.out.println("\n--- Student Login ---");
+            System.out.println("Enter [0] at any time to return to main menu.");
 
-        String studentId = validator.getValidStudentId("Student ID: ");
-        if (studentId.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
+            String studentId = validator.getValidStudentId("Student ID: ");
+            if (studentId.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
 
-        String password = validator.getValidNonEmptyString("Password: ", "Password");
-        if (password.equals("0")) {
-            System.out.println("Returning to main menu...");
-            return;
-        }
+            String password = validator.getValidNonEmptyString("Password: ", "Password");
+            if (password.equals("0")) {
+                System.out.println("Returning to main menu...");
+                return;
+            }
 
-        Student student = findStudentByCredentials(studentId, password);
-        if (student != null) {
-            System.out.println("Login successful! Welcome " + student.getFullName());
-            StudentInterface studentInterface = new StudentInterface(inventoryManager, reservationManager, receiptManager, validator, student);
-            studentInterface.showMenu();
-        } else {
-            System.out.println("Invalid credentials or student ID. Please check your information.");
-            System.out.println("If you don't have an account, please sign up first.");
-            validator.waitForEnter("Press Enter to return to main menu...");
+            Student student = findStudentByCredentials(studentId, password);
+            if (student != null) {
+                // Check if account is active
+                if (!student.isActive()) {
+                    System.out.println("⚠ Your account has been deactivated.");
+                    System.out.println("This may be because you are not currently enrolled.");
+                    System.out.println("Please contact the admin to reactivate your account.");
+                    validator.waitForEnter("Press Enter to return to main menu...");
+                    return;
+                }
+                
+                System.out.println("Login successful! Welcome " + student.getFullName());
+                StudentInterface studentInterface = new StudentInterface(inventoryManager, reservationManager, receiptManager, validator, student);
+                studentInterface.showMenu();
+                return; // Exit after successful login and logout
+            } else {
+                System.out.println("Invalid credentials or student ID. Please check your information.");
+                System.out.println("If you don't have an account, please sign up first.");
+                System.out.println("\nPress Enter to try again or Press [0] to return to main menu...");
+                
+                String choice = scanner.nextLine().trim();
+                if (choice.equals("0")) {
+                    System.out.println("Returning to main menu...");
+                    return;
+                }
+                // Loop continues to retry login
+            }
         }
     }
     
@@ -284,10 +338,10 @@ public class MerchSystem {
 
     // Create Student with username left blank (studentId is used for login)
     Student newStudent = new Student(studentId, password, course, firstName, lastName, gender);
-        registeredStudents.add(newStudent);
+        FileStorage.addStudent(registeredStudents, newStudent);
         
         System.out.println("Account created successfully!");
-        System.out.println("NOTE: Your account is stored in memory only and will be lost when the system exits.");
+        System.out.println("✓ Your account has been saved to the database.");
         System.out.println("Welcome, " + newStudent.getFullName() + "!");
         System.out.println("Student ID: " + studentId);
         System.out.println("Course: " + course);

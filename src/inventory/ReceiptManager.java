@@ -6,7 +6,17 @@ import java.util.*;
 public class ReceiptManager {
     private Map<Integer, Receipt> receipts; // HashMap for efficient lookup
     private int nextReceiptId;
-    private static final String RECEIPTS_FILE = "src/database/data/receipts.txt";
+    private static final String RECEIPTS_FILE = getReceiptsFilePath();
+    
+    private static String getReceiptsFilePath() {
+        // Try src/database/data first (when running from project root)
+        File file = new File("src/database/data/receipts.txt");
+        if (file.getParentFile().exists()) {
+            return "src/database/data/receipts.txt";
+        }
+        // Otherwise use database/data (when running from src directory)
+        return "database/data/receipts.txt";
+    }
     
     public ReceiptManager() {
         this.receipts = new HashMap<>();
@@ -17,6 +27,7 @@ public class ReceiptManager {
     // Load receipts from file
     private void loadReceipts() {
         File file = new File(RECEIPTS_FILE);
+        System.out.println("DEBUG: Loading receipts from: " + file.getAbsolutePath());
         if (!file.exists()) {
             System.out.println("No existing receipts database. Starting fresh.");
             return;
@@ -26,6 +37,8 @@ public class ReceiptManager {
             String line;
             int count = 0;
             while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue; // Skip empty lines
                 Receipt receipt = Receipt.fromFileFormat(line);
                 if (receipt != null) {
                     receipts.put(receipt.getReceiptId(), receipt);
@@ -39,6 +52,7 @@ public class ReceiptManager {
             System.out.println("Loaded " + count + " receipts from database.");
         } catch (IOException e) {
             System.out.println("Error loading receipts: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -54,9 +68,12 @@ public class ReceiptManager {
                     writer.write(receipt.toFileFormat());
                     writer.newLine();
                 }
+                writer.flush(); // Ensure data is written to disk
             }
+            System.out.println("DEBUG: Receipts saved successfully to " + file.getAbsolutePath());
         } catch (IOException e) {
             System.out.println("Error saving receipts: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -68,7 +85,9 @@ public class ReceiptManager {
         Receipt receipt = new Receipt(receiptId, dateOrdered, paymentStatus, 
                                       quantity, amount, itemCode, itemName, size, buyerName);
         receipts.put(receiptId, receipt);
+        System.out.println("DEBUG: Creating receipt ID " + receiptId + " for " + buyerName);
         saveReceipts();
+        System.out.println("DEBUG: Receipt " + receiptId + " saved. Total receipts in memory: " + receipts.size());
         return receipt;
     }
     
@@ -122,12 +141,13 @@ public class ReceiptManager {
         return mostRecent;
     }
     
-    // Find receipt with "Waiting for Approval" status by item code and buyer
+    // Find receipt with "Waiting for Approval" or "APPROVED - READY FOR PICKUP" status by item code and buyer
     public Receipt findPendingReceiptByItemAndBuyer(int itemCode, String buyerName) {
         for (Receipt receipt : receipts.values()) {
             if (receipt.getItemCode() == itemCode && 
                 receipt.getBuyerName().equalsIgnoreCase(buyerName) &&
-                receipt.getPaymentStatus().equals("Waiting for Approval")) {
+                (receipt.getPaymentStatus().equals("Waiting for Approval") ||
+                 receipt.getPaymentStatus().equals("APPROVED - READY FOR PICKUP"))) {
                 return receipt;
             }
         }

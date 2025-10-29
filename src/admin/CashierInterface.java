@@ -60,30 +60,43 @@ public class CashierInterface {
         System.out.println("=".repeat(80));
         
         System.out.println("\nNAVIGATION BASICS:");
-        System.out.println("   • Use number keys (0-3) to select menu options");
-        System.out.println("   • Press [0] to go back to the previous menu");
-        System.out.println("   • All actions require confirmation (y/n) for safety");
+        System.out.println("    Use number keys (0-4) to select menu options");
+        System.out.println("    Press [0] to go back to the previous menu");
+        System.out.println("    All actions require confirmation (y/n) for safety");
         
-        System.out.println("\nUSER RESERVATIONS MANAGEMENT:");
-        System.out.println("   [1] View All - See all student reservations with full details");
-        System.out.println("   [2] View Pending - Filter and view only pending reservations");
-        System.out.println("   [3] Update Status - Change reservation status:");
-        System.out.println("       • PENDING - Initial status when student reserves");
-        System.out.println("       • APPROVED - READY FOR PICKUP - Notify student to pickup");
-        System.out.println("       • COMPLETED - Mark when student has picked up items");
-        System.out.println("       • CANCELLED - Cancel the reservation");
-        System.out.println("   [4] Cancel Reservation - Remove a reservation from the system");
-        System.out.println("   [0] Back - Return to main menu");
+        System.out.println("\nPROCESS PAYMENT:");
+        System.out.println("    Enter student's reservation ID to process payment");
+        System.out.println("    Verify student information and order details");
+        System.out.println("    Process payment and generate receipt");
+        System.out.println("    Mark reservation as COMPLETED after payment");
+        System.out.println("    Student must have APPROVED - READY FOR PICKUP status to pay");
+        
+        System.out.println("\nVIEW ALL RESERVATIONS:");
+        System.out.println("    See all student reservations with full details");
+        System.out.println("    Check reservation status (PENDING, APPROVED, COMPLETED, CANCELLED)");
+        System.out.println("    Find reservation IDs for payment processing");
+        
+        System.out.println("\nPAYMENT PROCESS WORKFLOW:");
+        System.out.println("   Step 1: Student arrives with Reservation ID");
+        System.out.println("   Step 2: Select [2] Process Payment from menu");
+        System.out.println("   Step 3: Enter the student's Reservation ID");
+        System.out.println("   Step 4: Verify the student's information and items");
+        System.out.println("   Step 5: Collect payment from student");
+        System.out.println("   Step 6: System generates receipt automatically");
+        System.out.println("   Step 7: Reservation marked as COMPLETED");
         
         System.out.println("\nTIPS & BEST PRACTICES:");
-        System.out.println("   • Regularly check pending reservations");
-        System.out.println("   • Update status to 'APPROVED - READY FOR PICKUP' when ready");
-        System.out.println("   • Mark as 'COMPLETED' only after student pickup");
-        System.out.println("   • Use [0] anytime to safely go back or cancel operations");
+        System.out.println("    Verify student ID before processing payment");
+        System.out.println("    Double-check order details with student");
+        System.out.println("    Ensure correct amount is collected");
+        System.out.println("    Print or provide receipt to student");
+        System.out.println("    Use [0] anytime to safely go back or cancel operations");
         
         System.out.println("\nIMPORTANT NOTES:");
-        System.out.println("   • Students can only reserve items for their course + STI Special");
-        System.out.println("   • Payment is required during merchandise pickup");
+        System.out.println("    Only APPROVED reservations can be processed for payment");
+        System.out.println("    Students can only reserve items for their course + STI Special");
+        System.out.println("    Payment is required during merchandise pickup");
+        System.out.println("    Cashier CANNOT access Account Management or modify inventory");
         
         System.out.println("\n" + "=".repeat(80));
         System.out.println("Press [0] to go back...");
@@ -119,7 +132,12 @@ public class CashierInterface {
     }
 
     private void updateStatus() {
-        int id = validator.getValidInteger("Enter Reservation ID: ", 1000, 9999);
+        int id = validator.getValidInteger("Enter Reservation ID (or 0 to cancel): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
         Reservation r = reservationManager.findReservationById(id);
         if (r == null) {
             System.out.println("Not found.");
@@ -148,7 +166,12 @@ public class CashierInterface {
     }
 
     private void cancelRes() {
-        int id = validator.getValidInteger("Enter ID to cancel: ", 1000, 9999);
+        int id = validator.getValidInteger("Enter ID to cancel (or 0 to cancel): ", 0, 9999);
+        if (id == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
         if (validator.getValidYesNo("Confirm cancellation?")) {
             if (reservationManager.cancelReservation(id, "Cancelled by cashier")) {
                 System.out.println("Cancelled.");
@@ -195,29 +218,23 @@ public class CashierInterface {
         System.out.println("Quantity: " + r.getQuantity());
         System.out.println("Total Amount: ₱" + r.getTotalPrice());
         
-        System.out.println("\n=== SELECT PAYMENT METHOD ===");
-        System.out.println("[1] Cash");
-        System.out.println("[2] GCash");
-        System.out.println("[3] Card");
-        System.out.println("[4] Bank Transfer");
-        System.out.println("[0] Cancel");
+        System.out.println("\n=== PAYMENT METHOD ===");
+        System.out.println("Payment Method: CASH ONLY");
         
-        int paymentChoice = validator.getValidInteger("Select payment method: ", 0, 4);
-        if (paymentChoice == 0) return;
+        String paymentMethod = "CASH";
         
-        String paymentMethod = switch (paymentChoice) {
-            case 1 -> "CASH";
-            case 2 -> "GCASH";
-            case 3 -> "CARD";
-            case 4 -> "BANK";
-            default -> "CASH";
-        };
-        
-        if (validator.getValidYesNo("\nConfirm payment of ₱" + r.getTotalPrice() + " via " + paymentMethod + "?")) {
+        if (validator.getValidYesNo("\nConfirm payment of ₱" + r.getTotalPrice() + " via CASH?")) {
             if (reservationManager.markAsPaid(reservationId, paymentMethod)) {
-                // Create receipt in database
+                // Get updated reservation to check status
+                r = reservationManager.findReservationById(reservationId);
+                
+                // Create receipt in database with updated status
+                String receiptStatus = r.getStatus().equals("APPROVED - READY FOR PICKUP") 
+                    ? "APPROVED - READY FOR PICKUP" 
+                    : "Waiting for Approval";
+                    
                 Receipt receipt = receiptManager.createReceipt(
-                    "Waiting for Approval", 
+                    receiptStatus, 
                     r.getQuantity(), 
                     r.getTotalPrice(), 
                     r.getItemCode(),
@@ -229,7 +246,15 @@ public class CashierInterface {
                 // Generate and display receipt
                 printReceipt(r, paymentMethod, receipt.getReceiptId());
                 System.out.println("\n✓ Receipt ID: " + receipt.getReceiptId() + " has been saved to database.");
-                System.out.println("⚠ Student can now wait for Admin/Staff approval for pickup.");
+                
+                if (r.getStatus().equals("APPROVED - READY FOR PICKUP")) {
+                    System.out.println("✓ Payment successful! Reservation automatically approved.");
+                    System.out.println("✓ Status: APPROVED - READY FOR PICKUP");
+                    System.out.println("⚠ Student can now pickup the item.");
+                } else {
+                    System.out.println("⚠ Payment successful but stock insufficient.");
+                    System.out.println("⚠ Student must wait for Admin/Staff approval for pickup.");
+                }
             } else {
                 System.out.println("Failed to process payment.");
             }
@@ -254,6 +279,7 @@ public class CashierInterface {
         System.out.println("ITEM DETAILS:");
         System.out.println("  Item Code  : " + r.getItemCode());
         System.out.println("  Item Name  : " + r.getItemName());
+        System.out.println("  Size       : " + r.getSize());
         System.out.println("  Quantity   : " + r.getQuantity());
         System.out.println("  Unit Price : ₱" + String.format("%.2f", r.getTotalPrice() / r.getQuantity()));
         System.out.println("-".repeat(60));
@@ -271,8 +297,8 @@ public class CashierInterface {
         System.out.println("           Thank you for your purchase!                  ");
         System.out.println("      Please keep this receipt for your records.         ");
         System.out.println("=".repeat(60));
-        System.out.println("\n✓ Receipt printed successfully!");
-        System.out.println("✓ Payment processed: ₱" + String.format("%.2f", r.getTotalPrice()));
+        System.out.println("\n Receipt printed successfully!");
+        System.out.println(" Payment processed: ₱" + String.format("%.2f", r.getTotalPrice()));
     }
     
     private void viewUnpaidReservations() {

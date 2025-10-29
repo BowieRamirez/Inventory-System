@@ -12,6 +12,7 @@ public class Reservation {
     private String itemName;
     private int quantity;
     private LocalDateTime reservationTime;
+    private LocalDateTime completedDate;
     private String status;
     private String reason;
     private boolean isPaid;
@@ -27,7 +28,7 @@ public class Reservation {
         this.itemCode = itemCode;
         this.itemName = itemName;
         this.quantity = quantity;
-        this.size = size; // ✅ add this
+        this.size = size;
         this.totalPrice = totalPrice;
         this.reservationTime = LocalDateTime.now();
         this.status = "PENDING";
@@ -43,6 +44,7 @@ public class Reservation {
     public String getItemName() { return itemName; }
     public int getQuantity() { return quantity; }
     public LocalDateTime getReservationTime() { return reservationTime; }
+    public LocalDateTime getCompletedDate() { return completedDate; }
     public String getStatus() { return status; }
     public String getReason() { return reason; }
     public boolean isPaid() { return isPaid; }
@@ -50,14 +52,31 @@ public class Reservation {
     public double getTotalPrice() { return totalPrice; }
     
     public void setStatus(String status) { this.status = status; }
-    public void setQuantity(int quantity) { this.quantity = quantity; }
     public void setReason(String reason) { this.reason = reason; }
     public void setPaid(boolean paid) { this.isPaid = paid; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public void setCompletedDate(LocalDateTime completedDate) { this.completedDate = completedDate; }
     
     public String getFormattedTime() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         return reservationTime.format(formatter);
+    }
+    
+    public boolean isEligibleForReturn() {
+        if (completedDate == null || !status.equals("COMPLETED")) {
+            return false;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        return completedDate.plusDays(10).isAfter(now);
+    }
+    
+    public long getDaysUntilReturnExpires() {
+        if (completedDate == null) {
+            return 0;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiryDate = completedDate.plusDays(10);
+        return java.time.temporal.ChronoUnit.DAYS.between(now, expiryDate);
     }
     
     @Override
