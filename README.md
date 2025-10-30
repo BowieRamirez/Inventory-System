@@ -114,7 +114,7 @@ Browse items, create reservations, and track orders.
 | **Java** | 21 (LTS) | Core programming language |
 | **JavaFX** | 21.0.1 | GUI framework |
 | **AtlantaFX** | 2.0.1 | Modern theme library |
-| **Maven** | 3.9.5+ | Build tool & dependency management |
+| **Maven** | 3.9.11+ | Build tool & dependency management |
 | **File Storage** | CSV/TXT | Data persistence |
 
 ---
