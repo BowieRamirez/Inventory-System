@@ -30,7 +30,7 @@ public class StaffInterface {
             System.out.println("[1] Help");
             System.out.println("[2] User Reservations");
             System.out.println("[3] Stock Page");
-            System.out.println("[4] Add/Remove Item");
+            System.out.println("[4] Stock Management");
             System.out.println("[5] Process Returns/Refunds");
             System.out.println("[6] Logout");
             System.out.println("[0] Exit");
@@ -96,7 +96,8 @@ public class StaffInterface {
             System.out.println("\n=== USER RESERVATIONS ===");
             System.out.println("[1] View All");
             System.out.println("[2] View Pending");
-            System.out.println("[3] Cancel Reservation");
+            System.out.println("[3] Approve Reservation");
+            System.out.println("[4] Cancel Reservation");
             System.out.println("[0] Back");
             
             int choice = validator.getValidInteger("Enter choice: ", 0, 4);
@@ -113,7 +114,8 @@ public class StaffInterface {
                     System.out.println("\nPress [0] to go back...");
                     validator.getValidInteger("", 0, 0);
                     break;
-                case 3: cancelRes(); break;
+                case 3: approveReservation(); break;
+                case 4: cancelRes(); break;
             }
         }
     }
@@ -133,7 +135,76 @@ public class StaffInterface {
             System.out.println(r);
         }
         
-        System.out.println("\nℹ Note: Only PAID reservations can be approved for pickup.");
+        System.out.println("\nℹ Note: Use [3] Approve Reservation to approve pending reservations.");
+    }
+
+    private void approveReservation() {
+        System.out.println("\n=== APPROVE RESERVATION ===");
+        
+        // Display pending reservations
+        List<Reservation> pending = reservationManager.getPendingReservations();
+        
+        if (pending.isEmpty()) {
+            System.out.println("No pending reservations to approve.");
+            return;
+        }
+        
+        System.out.println("\nPENDING RESERVATIONS:");
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Status");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------");
+        for (Reservation r : pending) {
+            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %-10s\n",
+                r.getReservationId(),
+                truncate(r.getStudentName(), 15),
+                r.getStudentId(),
+                r.getItemCode(),
+                truncate(r.getItemName(), 25),
+                r.getQuantity(),
+                r.getTotalPrice(),
+                r.getStatus());
+        }
+        
+        int reservationId = validator.getValidInteger("\nEnter Reservation ID to approve (or 0 to cancel): ", 0, 9999);
+        
+        if (reservationId == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+        
+        Reservation r = reservationManager.findReservationById(reservationId);
+        
+        if (r == null) {
+            System.out.println("Reservation not found.");
+            return;
+        }
+        
+        if (!r.getStatus().equals("PENDING")) {
+            System.out.println("This reservation is not pending. Current status: " + r.getStatus());
+            return;
+        }
+        
+        // Display reservation details
+        System.out.println("\n=== RESERVATION DETAILS ===");
+        System.out.println("Reservation ID: " + r.getReservationId());
+        System.out.println("Student: " + r.getStudentName() + " (" + r.getStudentId() + ")");
+        System.out.println("Course: " + r.getCourse());
+        System.out.println("Item: " + r.getItemName() + " (Code: " + r.getItemCode() + ")");
+        System.out.println("Size: " + r.getSize());
+        System.out.println("Quantity: " + r.getQuantity());
+        System.out.println("Total Price: ₱" + r.getTotalPrice());
+        System.out.println("Current Status: " + r.getStatus());
+        
+        if (validator.getValidYesNo("\nApprove this reservation for payment?")) {
+            if (reservationManager.approveReservation(reservationId, r.getSize())) {
+                System.out.println("\n✓ Reservation approved!");
+                System.out.println("✓ Status changed to: APPROVED - WAITING FOR PAYMENT");
+                System.out.println("✓ Student can now go to CASHIER to pay");
+            } else {
+                System.out.println("\n✗ Failed to approve reservation.");
+            }
+        } else {
+            System.out.println("Approval cancelled.");
+        }
     }
 
     private void updateStatus() {
@@ -320,31 +391,38 @@ public class StaffInterface {
     private void processReturnsRefunds() {
         System.out.println("\n=== PROCESS RETURNS/REFUNDS ===");
         
-        // Get all COMPLETED reservations that are eligible for return
+        // Get all RETURN REQUESTED reservations
         List<Reservation> allReservations = reservationManager.getAllReservations();
-        List<Reservation> eligibleReturns = new java.util.ArrayList<>();
+        List<Reservation> returnRequests = new java.util.ArrayList<>();
         
         for (Reservation r : allReservations) {
-            if (r.getStatus().equals("COMPLETED") && r.isEligibleForReturn()) {
-                eligibleReturns.add(r);
+            if (r.getStatus().equals("RETURN REQUESTED") && r.isEligibleForReturn()) {
+                returnRequests.add(r);
             }
         }
         
-        if (eligibleReturns.isEmpty()) {
-            System.out.println("\nNo items eligible for return/refund at this time.");
-            System.out.println("\nℹ Items can be returned within 10 days of pickup.");
+        if (returnRequests.isEmpty()) {
+            System.out.println("\nNo return requests pending approval.");
+            System.out.println("\nℹ Students must first submit a return request from their interface.");
             System.out.println("\nPress [0] to go back...");
             validator.getValidInteger("", 0, 0);
             return;
         }
         
-        System.out.println("\n=== ITEMS ELIGIBLE FOR RETURN ===");
-        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Days Left");
-        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------");
+        System.out.println("\n=== PENDING RETURN REQUESTS ===");
+        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Return Reason");
+        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|---------------------------");
         
-        for (Reservation r : eligibleReturns) {
-            long daysLeft = r.getDaysUntilReturnExpires();
-            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %d days\n",
+        for (Reservation r : returnRequests) {
+            // Extract return reason from the reason field
+            String reason = r.getReason();
+            if (reason != null && reason.contains("Reason: ")) {
+                reason = reason.substring(reason.indexOf("Reason: ") + 8);
+            } else {
+                reason = "Not specified";
+            }
+            
+            System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-7.2f | %-25s\n",
                 r.getReservationId(),
                 truncate(r.getStudentName(), 15),
                 r.getStudentId(),
@@ -352,10 +430,10 @@ public class StaffInterface {
                 truncate(r.getItemName(), 25),
                 r.getQuantity(),
                 r.getTotalPrice(),
-                daysLeft);
+                truncate(reason, 25));
         }
         
-        int id = validator.getValidInteger("\nEnter Reservation ID to process return (0 to cancel): ", 0, 9999);
+        int id = validator.getValidInteger("\nEnter Reservation ID to approve return (0 to cancel): ", 0, 9999);
         if (id == 0) {
             System.out.println("Operation cancelled.");
             return;
@@ -367,8 +445,9 @@ public class StaffInterface {
             return;
         }
         
-        if (!r.getStatus().equals("COMPLETED")) {
-            System.out.println("\n⚠ ERROR: Only COMPLETED items can be returned.");
+        if (!r.getStatus().equals("RETURN REQUESTED")) {
+            System.out.println("\n⚠ ERROR: This item does not have a return request.");
+            System.out.println("Current status: " + r.getStatus());
             return;
         }
         
@@ -377,21 +456,43 @@ public class StaffInterface {
             return;
         }
         
-        System.out.println("\n=== RETURN CONFIRMATION ===");
+        // Extract return reason
+        String returnReason = r.getReason();
+        if (returnReason != null && returnReason.contains("Reason: ")) {
+            returnReason = returnReason.substring(returnReason.indexOf("Reason: ") + 8);
+        } else {
+            returnReason = "Not specified";
+        }
+        
+        System.out.println("\n=== RETURN APPROVAL ===");
         System.out.println("Student: " + r.getStudentName() + " (" + r.getStudentId() + ")");
         System.out.println("Item: " + r.getItemName() + " (Size: " + r.getSize() + ")");
         System.out.println("Quantity: " + r.getQuantity());
         System.out.println("Refund Amount: ₱" + r.getTotalPrice());
         System.out.println("Payment Method: " + r.getPaymentMethod());
+        System.out.println("Return Reason: " + returnReason);
+        System.out.println("Days Since Pickup: " + (10 - r.getDaysUntilReturnExpires()) + " days");
         
-        if (validator.getValidYesNo("\nConfirm return and issue refund?")) {
-            // Change status to RETURNED
-            reservationManager.updateReservationStatus(id, "RETURNED - REFUNDED", "Item returned within 10 days");
+        if (validator.getValidYesNo("\nApprove return and issue refund?")) {
+            // Change status to RETURNED with reason
+            String returnMessage = "Item returned within 10 days - Reason: " + returnReason;
+            reservationManager.updateReservationStatus(id, "RETURNED - REFUNDED", returnMessage);
             
             // Restock the item by size
             boolean restocked = inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
             if (restocked) {
                 System.out.println("✓ Item restocked: " + r.getQuantity() + " units added back to inventory");
+                
+                // Log the user return
+                utils.StockReturnLogger.logUserReturn(
+                    r.getStudentId(),
+                    r.getStudentName(),
+                    r.getItemCode(),
+                    r.getItemName(),
+                    r.getSize(),
+                    r.getQuantity(),
+                    returnReason
+                );
             } else {
                 System.out.println("⚠ Warning: Could not restock item to inventory");
             }
@@ -450,10 +551,10 @@ public class StaffInterface {
 
     private void showAddRemoveMenu() {
         while (true) {
-            System.out.println("\n=== ADD/REMOVE ITEM ===");
-            System.out.println("[1] Add Item");
-            System.out.println("[2] Remove Item");
-            System.out.println("[3] Update Quantity");
+            System.out.println("\n=== STOCK MANAGEMENT ===");
+            System.out.println("[1] Add New Item - Add completely new item to inventory");
+            System.out.println("[2] Return Stock - Remove stock with reason (logged)");
+            System.out.println("[3] View Stock Logs - See all stock changes (transparency)");
             System.out.println("[0] Back");
             
             int choice = validator.getValidInteger("Enter choice: ", 0, 3);
@@ -461,8 +562,11 @@ public class StaffInterface {
             switch (choice) {
                 case 0: return;
                 case 1: addItem(); break;
-                case 2: removeItem(); break;
-                case 3: updateQuantity(); break;
+                case 2: returnStock(); break;
+                case 3: utils.StockReturnLogger.displayStockReturnLogs(); 
+                        System.out.println("\nPress [0] to go back...");
+                        validator.getValidInteger("", 0, 0);
+                        break;
             }
         }
     }
@@ -489,39 +593,113 @@ public class StaffInterface {
         }
     }
 
-    private void removeItem() {
-        int code = validator.getValidInteger("Enter item code to remove: ", 1000, 9999);
-        Item item = inventoryManager.findItemByCode(code);
+    private void returnStock() {
+        System.out.println("\n=== RETURN STOCK ===");
+        System.out.println("Remove stock items from inventory with reason logging");
+        System.out.println("[0] Back to previous menu");
         
+        // First, select course
+        String course = validator.getValidCourse("Select course (BSIT, BSCS, BSIS, 0 to go back): ");
+        if (course.equals("0")) {
+            System.out.println("Returning to menu...");
+            return;
+        }
+        
+        // Display items for selected course
+        inventoryManager.displayItemsByCourse(course);
+        
+        List<Item> courseItems = inventoryManager.getItemsByCourse(course);
+        if (courseItems.isEmpty()) {
+            System.out.println("No items available for this course.");
+            return;
+        }
+        
+        int code = validator.getValidInteger("\nItem code (1000-9999, 0 to go back): ", 0, 9999);
+        if (code == 0) {
+            System.out.println("Returning to menu...");
+            return;
+        }
+        
+        Item item = inventoryManager.findItemByCode(code);
         if (item == null) {
             System.out.println("Item not found.");
             return;
         }
         
-        System.out.println("Item to remove: " + item);
-        if (validator.getValidYesNo("Confirm removal?")) {
-            inventoryManager.removeItem(code);
-            System.out.println("Item removed successfully!");
-        }
-    }
-
-    private void updateQuantity() {
-        int code = validator.getValidInteger("Enter item code: ", 1000, 9999);
-        Item item = inventoryManager.findItemByCode(code);
-        
-        if (item == null) {
-            System.out.println("Item not found.");
+        // Validate that the item belongs to the selected course
+        if (!item.getCourse().equalsIgnoreCase(course)) {
+            System.out.println("Error: This item does not belong to the selected course (" + course + ").");
             return;
         }
         
-        System.out.println("Current item: " + item);
-        System.out.println("Current quantity: " + item.getQuantity());
+        System.out.println("\n=== ITEM DETAILS ===");
+        System.out.println("Code: " + item.getCode());
+        System.out.println("Name: " + item.getName());
+        System.out.println("Course: " + item.getCourse());
+        System.out.println("Size: " + item.getSize());
+        System.out.println("Current Quantity: " + item.getQuantity());
+        System.out.println("Price: ₱" + item.getPrice());
         
-        int newQty = validator.getValidInteger("Enter new quantity: ", 0, 10000);
+        int returnQty = validator.getValidInteger("\nQuantity to return (0 to cancel): ", 0, item.getQuantity());
+        if (returnQty == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
         
-        if (validator.getValidYesNo("Confirm quantity update?")) {
+        // Ask for return reason
+        System.out.println("\n=== RETURN REASON ===");
+        System.out.println("Please select the reason for returning stock:");
+        System.out.println("[1] Defective - Item has defects or quality issues");
+        System.out.println("[2] Damaged - Item was damaged during storage/handling");
+        System.out.println("[3] Expired/Outdated - Item is no longer current");
+        System.out.println("[4] Overstock - Excess inventory being returned");
+        System.out.println("[5] Wrong Item - Item ordered/received in error");
+        System.out.println("[6] Other - Different reason");
+        System.out.println("[0] Cancel - Go back");
+        
+        int reasonChoice = validator.getValidInteger("Enter reason (0-6): ", 0, 6);
+        
+        if (reasonChoice == 0) {
+            System.out.println("Stock return cancelled.");
+            return;
+        }
+        
+        String returnReason = switch (reasonChoice) {
+            case 1 -> "Defective";
+            case 2 -> "Damaged";
+            case 3 -> "Expired/Outdated";
+            case 4 -> "Overstock";
+            case 5 -> "Wrong Item";
+            case 6 -> "Other";
+            default -> "Not specified";
+        };
+        
+        System.out.println("\n=== CONFIRMATION ===");
+        System.out.println("Item: " + item.getName() + " (" + item.getSize() + ")");
+        System.out.println("Quantity to return: " + returnQty);
+        System.out.println("Reason: " + returnReason);
+        System.out.println("New quantity will be: " + (item.getQuantity() - returnQty));
+        
+        if (validator.getValidYesNo("\nConfirm stock return?")) {
+            // Update inventory
+            int newQty = item.getQuantity() - returnQty;
             inventoryManager.updateItemQuantity(code, newQty);
-            System.out.println("Quantity updated successfully!");
+            
+            // Log the return
+            utils.StockReturnLogger.logStockReturn(
+                "Staff",
+                item.getCode(),
+                item.getName(),
+                item.getSize(),
+                returnQty,
+                returnReason
+            );
+            
+            System.out.println("\n✓ Stock returned successfully!");
+            System.out.println("✓ Quantity reduced from " + item.getQuantity() + " to " + newQty);
+            System.out.println("✓ Return logged for transparency");
+        } else {
+            System.out.println("Stock return cancelled.");
         }
     }
     

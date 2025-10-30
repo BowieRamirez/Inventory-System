@@ -58,26 +58,18 @@ public class MerchSystem {
         
         while (true) {
             showMainLogin();
-            int choice = validator.getValidInteger("Enter your choice: ", 0, 5);
-            
+            int choice = validator.getValidInteger("Enter your choice: ", 0, 2);
+
             switch (choice) {
                 case 0:
                     System.out.println("Thank you for using STI ProWear System!");
                     System.exit(0);
                     break;
                 case 1:
-                    handleMaintenanceLogin();
-                    break;
-                case 2:
-                    handleCashierLogin();
-                    break;
-                case 3:
-                    handleStaffLogin();
-                    break;
-                case 4:
+                    // Single login entry (student or role-based quick-login)
                     handleStudentLogin();
                     break;
-                case 5:
+                case 2:
                     handleStudentSignup();
                     break;
             }
@@ -88,11 +80,8 @@ public class MerchSystem {
         System.out.println("\n=================================");
         System.out.println("           LOGIN");
         System.out.println("=================================");
-        System.out.println("[1] Maintenance");
-        System.out.println("[2] Cashier");
-        System.out.println("[3] Purchasing & Asset Management Officer");
-        System.out.println("[4] Student Login");
-        System.out.println("[5] Student Signup");
+        System.out.println("[1] Login");
+        System.out.println("[2] Signup");
         System.out.println("[0] Exit");
     }
     
@@ -214,11 +203,65 @@ public class MerchSystem {
         while (true) {
             System.out.println("\n--- Student Login ---");
             System.out.println("Enter [0] at any time to return to main menu.");
-
-            String studentId = validator.getValidStudentId("Student ID: ");
-            if (studentId.equals("0")) {
+            // Accept either a student ID (numeric) or role keywords: admin, staff, cashier
+            String idInput = validator.getValidNonEmptyString("Student ID: ", "Student ID");
+            if (idInput.equals("0")) {
                 System.out.println("Returning to main menu...");
                 return;
+            }
+
+            String lower = idInput.trim().toLowerCase();
+
+            // Role-based quick login from this prompt
+            if (lower.equals("admin") || lower.equals("staff") || lower.equals("cashier")) {
+                String password = validator.getValidNonEmptyString("Password: ", "Password");
+                if (password.equals("0")) {
+                    System.out.println("Returning to main menu...");
+                    return;
+                }
+
+                if (lower.equals("admin")) {
+                    Admin admin = new Admin("admin", password);
+                    if (admin.authenticate()) {
+                        System.out.println("Login successful! Welcome Admin");
+                        AdminInterface adminInterface = new AdminInterface(inventoryManager, reservationManager, receiptManager, validator, registeredStudents);
+                        adminInterface.showMenu();
+                        return;
+                    }
+                } else if (lower.equals("staff")) {
+                    Staff staff = new Staff("staff", password);
+                    if (staff.authenticate()) {
+                        System.out.println("Login successful! Welcome Staff");
+                        StaffInterface staffInterface = new StaffInterface(inventoryManager, reservationManager, receiptManager, validator);
+                        staffInterface.showMenu();
+                        return;
+                    }
+                } else { // cashier
+                    Cashier cashier = new Cashier("cashier", password);
+                    if (cashier.authenticate()) {
+                        System.out.println("Login successful! Welcome Cashier");
+                        CashierInterface cashierInterface = new CashierInterface(reservationManager, receiptManager, validator);
+                        cashierInterface.showMenu();
+                        return;
+                    }
+                }
+
+                System.out.println("Invalid credentials for role: " + idInput + ".");
+                System.out.println("Press Enter to try again or Press [0] to return to main menu...");
+                String choice = scanner.nextLine().trim();
+                if (choice.equals("0")) {
+                    System.out.println("Returning to main menu...");
+                    return;
+                }
+                continue; // retry
+            }
+
+            // Otherwise treat as student ID
+            String studentId = idInput.trim();
+            // Basic validation: must be digits and length between 10 and 12
+            if (!studentId.matches("\\d+") || studentId.length() < 10 || studentId.length() > 12) {
+                System.out.println("Invalid Student ID format. Please enter a valid numeric Student ID (10-12 digits).");
+                continue;
             }
 
             String password = validator.getValidNonEmptyString("Password: ", "Password");
@@ -237,7 +280,7 @@ public class MerchSystem {
                     validator.waitForEnter("Press Enter to return to main menu...");
                     return;
                 }
-                
+
                 System.out.println("Login successful! Welcome " + student.getFullName());
                 StudentInterface studentInterface = new StudentInterface(inventoryManager, reservationManager, receiptManager, validator, student);
                 studentInterface.showMenu();
@@ -246,7 +289,7 @@ public class MerchSystem {
                 System.out.println("Invalid credentials or student ID. Please check your information.");
                 System.out.println("If you don't have an account, please sign up first.");
                 System.out.println("\nPress Enter to try again or Press [0] to return to main menu...");
-                
+
                 String choice = scanner.nextLine().trim();
                 if (choice.equals("0")) {
                     System.out.println("Returning to main menu...");

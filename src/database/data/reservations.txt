@@ -1,1 +1,1 @@
-5001|Ramirez, Bowie|02000287410|BSIT|1001|IT/Eng Gray 3/4 Polo (Male)|1|450.0|XL|RETURNED - REFUNDED|true|CASH|2025-10-29 23:31:52|2025-10-29 23:30:59|Item returned within 10 days
+5001|Ramirez, Bowie|02000284710|BSIT|1001|IT/Eng Gray 3/4 Polo (Male)|1|450.0|XL|RETURNED - REFUNDED|true|CASH|2025-10-30 20:31:17|2025-10-30 20:33:04|Item returned within 10 days - Reason: Damaged Item

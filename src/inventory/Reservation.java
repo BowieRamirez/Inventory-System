@@ -63,7 +63,11 @@ public class Reservation {
     }
     
     public boolean isEligibleForReturn() {
-        if (completedDate == null || !status.equals("COMPLETED")) {
+        if (completedDate == null) {
+            return false;
+        }
+        // Allow returns for COMPLETED or RETURN REQUESTED status
+        if (!status.equals("COMPLETED") && !status.equals("RETURN REQUESTED")) {
             return false;
         }
         LocalDateTime now = LocalDateTime.now();

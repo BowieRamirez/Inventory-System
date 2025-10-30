@@ -152,10 +152,12 @@ public class StudentInterface {
         
         System.out.println("\nRESERVATION STATUS MEANINGS:");
         System.out.println("   PENDING - Your reservation is awaiting admin approval");
-        System.out.println("   APPROVED - READY FOR PICKUP - Your items are ready! Go pickup");
+        System.out.println("   APPROVED - WAITING FOR PAYMENT - Approved! Go to cashier to pay");
+        System.out.println("   PAID - READY FOR PICKUP - Your items are ready! Go pickup");
         System.out.println("   COMPLETED - You have successfully picked up your items");
-        System.out.println("   CANCELLED - Reservation was cancelled");
+        System.out.println("   RETURN REQUESTED - You submitted a return request, waiting for admin approval");
         System.out.println("   RETURNED - REFUNDED - Item returned and refund processed");
+        System.out.println("   CANCELLED - Reservation was cancelled");
         
         System.out.println("\n✓ RETURN POLICY (NEW!):");
         System.out.println("    You have 10 DAYS from pickup to return items for a full refund");
@@ -176,9 +178,9 @@ public class StudentInterface {
         System.out.println("    Double-check your size selection");
         System.out.println("    Save your Reservation ID for tracking");
         System.out.println("    Check 'Reservation Status' regularly for updates");
-        System.out.println("    When status is 'APPROVED - READY FOR PICKUP', go to cashier");
+        System.out.println("    When status is 'APPROVED - WAITING FOR PAYMENT', go to cashier");
         System.out.println("    Bring your Student ID and Reservation ID for payment");
-        System.out.println("    Payment is required during merchandise pickup");
+        System.out.println("    After payment, status changes to 'PAID - READY FOR PICKUP'");
         System.out.println("    Keep items in original condition for 10-day return period");
         
         System.out.println("\n IMPORTANT NOTES:");
@@ -523,11 +525,44 @@ public class StudentInterface {
         System.out.println("  • All tags and packaging must be intact");
         System.out.println("  • Item must not have been worn or used");
         
+        // Ask for return reason
+        System.out.println("\n=== REASON FOR RETURN ===");
+        System.out.println("Please select the reason for your return:");
+        System.out.println("[1] Damaged Item - Item received with defects or damage");
+        System.out.println("[2] Wrong Size - Size does not fit properly");
+        System.out.println("[3] Changed Mind - No longer want the item");
+        System.out.println("[4] Other - Different reason");
+        System.out.println("[0] Cancel - Go back");
+        
+        int reasonChoice = validator.getValidInteger("Enter reason (0-4): ", 0, 4);
+        
+        if (reasonChoice == 0) {
+            System.out.println("Return cancelled.");
+            return;
+        }
+        
+        String returnReason = switch (reasonChoice) {
+            case 1 -> "Damaged Item";
+            case 2 -> "Wrong Size";
+            case 3 -> "Changed Mind";
+            case 4 -> "Other";
+            default -> "Not specified";
+        };
+        
+        System.out.println("\nYou selected: " + returnReason);
+        
         if (validator.getValidYesNo("\nDo you want to proceed with the return?")) {
+            // Update status to RETURN REQUESTED with reason
+            String returnMessage = "Return requested - Reason: " + returnReason;
+            reservationManager.updateReservationStatus(id, "RETURN REQUESTED", returnMessage);
+            
             System.out.println("\n✓ Return request submitted!");
+            System.out.println("✓ Return Reason: " + returnReason);
+            System.out.println("✓ Status changed to: RETURN REQUESTED");
             System.out.println("✓ Please bring the item to the Admin or Staff for inspection.");
             System.out.println("✓ Once approved, you will receive a refund of ₱" + r.getTotalPrice());
             System.out.println("\nℹ Note: Go to Admin/Staff to complete the return process.");
+            System.out.println("ℹ Note: They will verify your return reason and item condition.");
         } else {
             System.out.println("Return cancelled.");
         }
@@ -597,12 +632,12 @@ public class StudentInterface {
         System.out.println("    BANK - Bank transfer");
         
         System.out.println("\n=== PAYMENT PROCESS ===");
-        System.out.println("   1. Go to the CASHIER");
-        System.out.println("   2. Provide your Reservation ID and Student ID");
-        System.out.println("   3. Choose your payment method");
-        System.out.println("   4. Complete the payment");
-        System.out.println("   5. Wait for Admin/Staff to approve your order for pickup");
-        System.out.println("   6. Pickup your items when status shows 'APPROVED - READY FOR PICKUP'");
+        System.out.println("   1. Wait for Admin/Staff to approve your reservation");
+        System.out.println("   2. Once approved, status changes to 'APPROVED - WAITING FOR PAYMENT'");
+        System.out.println("   3. Go to the CASHIER with your Reservation ID and Student ID");
+        System.out.println("   4. Complete the payment (CASH only)");
+        System.out.println("   5. Status changes to 'PAID - READY FOR PICKUP'");
+        System.out.println("   6. Go to [3] Pickup Item to collect your order");
         
         System.out.println("\n" + "=".repeat(80));
         System.out.println("Press [0] to go back...");
@@ -615,9 +650,9 @@ public class StudentInterface {
         List<Reservation> myReservations = reservationManager.getReservationsByStudent(student.getStudentId());
         List<Reservation> readyForPickup = new java.util.ArrayList<>();
         
-        // Filter only approved and paid reservations
+        // Filter only paid and ready for pickup reservations
         for (Reservation r : myReservations) {
-            if (r.getStatus().equals("APPROVED - READY FOR PICKUP") && r.isPaid()) {
+            if (r.getStatus().equals("PAID - READY FOR PICKUP") && r.isPaid()) {
                 readyForPickup.add(r);
             }
         }
@@ -656,10 +691,13 @@ public class StudentInterface {
             return;
         }
         
-        // Verify it's approved and paid
-        if (!r.getStatus().equals("APPROVED - READY FOR PICKUP")) {
-            System.out.println("This item is not yet approved for pickup.");
+        // Verify it's paid and ready for pickup
+        if (!r.getStatus().equals("PAID - READY FOR PICKUP")) {
+            System.out.println("This item is not yet ready for pickup.");
             System.out.println("Current status: " + r.getStatus());
+            if (r.getStatus().equals("APPROVED - WAITING FOR PAYMENT")) {
+                System.out.println("Please pay at CASHIER first!");
+            }
             return;
         }
         
@@ -681,7 +719,7 @@ public class StudentInterface {
         System.out.println("   • Items were already removed from inventory during approval");
         
         if (validator.getValidYesNo("\nConfirm that you have picked up these items?")) {
-            // Mark as completed (stock was already deducted during staff approval)
+            // Mark as completed (stock was already deducted during payment)
             reservationManager.updateReservationStatus(reservationId, "COMPLETED", "Picked up by student");
             
             // Set the completed date for return eligibility tracking
@@ -689,6 +727,16 @@ public class StudentInterface {
             
             // Save the reservation with updated completed date
             reservationManager.saveToDatabase();
+            
+            // Log the user pickup (stock decrease already happened at payment)
+            utils.StockReturnLogger.logUserCompletion(
+                r.getStudentId(),
+                r.getStudentName(),
+                r.getItemCode(),
+                r.getItemName(),
+                r.getSize(),
+                r.getQuantity()
+            );
             
             // Find and update existing receipt instead of creating a new one
             Receipt existingReceipt = receiptManager.findPendingReceiptByItemAndBuyer(
@@ -795,8 +843,10 @@ public class StudentInterface {
         System.out.println("  Current Status: " + r.getStatus());
         if (r.getStatus().equals("PENDING")) {
             System.out.println("  Next Step: Wait for Admin/Staff approval");
-        } else if (r.getStatus().equals("APPROVED - READY FOR PICKUP")) {
-            System.out.println("  Next Step: Go to [7] Pickup Item to collect your order");
+        } else if (r.getStatus().equals("APPROVED - WAITING FOR PAYMENT")) {
+            System.out.println("  Next Step: Go to CASHIER to pay");
+        } else if (r.getStatus().equals("PAID - READY FOR PICKUP")) {
+            System.out.println("  Next Step: Go to [3] Pickup Item to collect your order");
         } else if (r.getStatus().equals("COMPLETED")) {
             System.out.println("  Order Complete: Item has been picked up");
         }

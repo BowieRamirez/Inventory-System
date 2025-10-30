@@ -44,15 +44,11 @@ public class ReservationManager {
     public boolean approveReservation(int reservationId, String size) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "PENDING".equals(r.getStatus())) {
-            // Use the size from the reservation object, not the parameter
-            boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
-            if (deducted) {
-                r.setStatus("APPROVED - READY FOR PICKUP");
-                saveReservations();
-                return true;
-            } else {
-                System.out.println("Error: Not enough stock for approval of reservation " + reservationId);
-            }
+            // Don't deduct stock yet - only mark as approved for payment
+            // Stock will be deducted when cashier processes payment
+            r.setStatus("APPROVED - WAITING FOR PAYMENT");
+            saveReservations();
+            return true;
         }
         return false;
     }
@@ -143,23 +139,20 @@ public class ReservationManager {
     
     public boolean markAsPaid(int reservationId, String paymentMethod) {
         Reservation r = findReservationById(reservationId);
-        if (r != null && !r.isPaid()) {
+        if (r != null && !r.isPaid() && "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus())) {
             r.setPaid(true);
             r.setPaymentMethod(paymentMethod);
             
-            // Automatically approve for pickup when payment is made
-            if ("PENDING".equals(r.getStatus())) {
-                // Deduct stock from inventory
-                boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
-                if (deducted) {
-                    r.setStatus("APPROVED - READY FOR PICKUP");
-                } else {
-                    System.out.println("⚠ Warning: Payment processed but insufficient stock. Admin approval required.");
-                }
+            // Deduct stock from inventory when payment is processed
+            boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
+            if (deducted) {
+                r.setStatus("PAID - READY FOR PICKUP");
+                saveReservations();
+                return true;
+            } else {
+                System.out.println("⚠ Error: Insufficient stock. Cannot process payment.");
+                return false;
             }
-            
-            saveReservations();
-            return true;
         }
         return false;
     }

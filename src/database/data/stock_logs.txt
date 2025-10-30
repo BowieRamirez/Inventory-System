@@ -1,0 +1,4 @@
+Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
+2025-10-30 20:33:04|Ramirez, Bowie|1001|IT/Eng Gray 3/4 Polo (Male)|XL|-1|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-10-30 20:35:24|Ramirez, Bowie|1001|IT/Eng Gray 3/4 Polo (Male)|XL|+1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Damaged Item
+2025-10-30 20:42:12|Admin|1130|Sanji|L|+1|STAFF_RETURN|Damaged

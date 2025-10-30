@@ -6,6 +6,7 @@ import inventory.ReceiptManager;
 import inventory.Reservation;
 import inventory.Receipt;
 import utils.InputValidator;
+import java.util.ArrayList;
 import java.util.List;
 
 public class CashierInterface {
@@ -68,8 +69,8 @@ public class CashierInterface {
         System.out.println("    Enter student's reservation ID to process payment");
         System.out.println("    Verify student information and order details");
         System.out.println("    Process payment and generate receipt");
-        System.out.println("    Mark reservation as COMPLETED after payment");
-        System.out.println("    Student must have APPROVED - READY FOR PICKUP status to pay");
+        System.out.println("    After payment, status changes to PAID - READY FOR PICKUP");
+        System.out.println("    Student must have APPROVED - WAITING FOR PAYMENT status to pay");
         
         System.out.println("\nVIEW ALL RESERVATIONS:");
         System.out.println("    See all student reservations with full details");
@@ -146,16 +147,18 @@ public class CashierInterface {
         
         System.out.println("Current: " + r);
         System.out.println("\n[1] PENDING");
-        System.out.println("[2] APPROVED - READY FOR PICKUP");
-        System.out.println("[3] COMPLETED");
-        System.out.println("[4] CANCELLED");
+        System.out.println("[2] APPROVED - WAITING FOR PAYMENT");
+        System.out.println("[3] PAID - READY FOR PICKUP");
+        System.out.println("[4] COMPLETED");
+        System.out.println("[5] CANCELLED");
         
-        int status = validator.getValidInteger("Select status: ", 1, 4);
+        int status = validator.getValidInteger("Select status: ", 1, 5);
         String newStatus = switch (status) {
             case 1 -> "PENDING";
-            case 2 -> "APPROVED - READY FOR PICKUP";
-            case 3 -> "COMPLETED";
-            case 4 -> "CANCELLED";
+            case 2 -> "APPROVED - WAITING FOR PAYMENT";
+            case 3 -> "PAID - READY FOR PICKUP";
+            case 4 -> "COMPLETED";
+            case 5 -> "CANCELLED";
             default -> r.getStatus();
         };
         
@@ -184,14 +187,28 @@ public class CashierInterface {
         
         List<Reservation> unpaid = reservationManager.getUnpaidReservations();
         if (unpaid.isEmpty()) {
-            System.out.println("No unpaid reservations found.");
+            System.out.println("No reservations waiting for payment.");
             return;
         }
         
-        System.out.println("\nUnpaid Reservations:");
+        // Filter only APPROVED - WAITING FOR PAYMENT status
+        List<Reservation> awaitingPayment = new ArrayList<>();
+        for (Reservation r : unpaid) {
+            if ("APPROVED - WAITING FOR PAYMENT".equals(r.getStatus())) {
+                awaitingPayment.add(r);
+            }
+        }
+        
+        if (awaitingPayment.isEmpty()) {
+            System.out.println("No reservations approved and waiting for payment.");
+            System.out.println("Note: Admin/Staff must approve reservations before payment can be processed.");
+            return;
+        }
+        
+        System.out.println("\nReservations Approved and Waiting for Payment:");
         System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Status");
         System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|------------------------------");
-        for (Reservation r : unpaid) {
+        for (Reservation r : awaitingPayment) {
             System.out.printf("%-4d | %-15s | %-12s | %-6d | %-25s | %-3d | ₱%-8.2f | %s\n",
                 r.getReservationId(), r.getStudentName(), r.getStudentId(), 
                 r.getItemCode(), r.getItemName(), r.getQuantity(), r.getTotalPrice(), r.getStatus());
@@ -203,6 +220,11 @@ public class CashierInterface {
         Reservation r = reservationManager.findReservationById(reservationId);
         if (r == null) {
             System.out.println("Reservation not found.");
+            return;
+        }
+        
+        if (!r.getStatus().equals("APPROVED - WAITING FOR PAYMENT")) {
+            System.out.println("Error: This reservation must be approved by Admin/Staff before payment.");
             return;
         }
         
@@ -229,8 +251,8 @@ public class CashierInterface {
                 r = reservationManager.findReservationById(reservationId);
                 
                 // Create receipt in database with updated status
-                String receiptStatus = r.getStatus().equals("APPROVED - READY FOR PICKUP") 
-                    ? "APPROVED - READY FOR PICKUP" 
+                String receiptStatus = r.getStatus().equals("PAID - READY FOR PICKUP") 
+                    ? "PAID - READY FOR PICKUP" 
                     : "Waiting for Approval";
                     
                 Receipt receipt = receiptManager.createReceipt(
@@ -247,13 +269,13 @@ public class CashierInterface {
                 printReceipt(r, paymentMethod, receipt.getReceiptId());
                 System.out.println("\n✓ Receipt ID: " + receipt.getReceiptId() + " has been saved to database.");
                 
-                if (r.getStatus().equals("APPROVED - READY FOR PICKUP")) {
-                    System.out.println("✓ Payment successful! Reservation automatically approved.");
-                    System.out.println("✓ Status: APPROVED - READY FOR PICKUP");
-                    System.out.println("⚠ Student can now pickup the item.");
+                if (r.getStatus().equals("PAID - READY FOR PICKUP")) {
+                    System.out.println("✓ Payment successful!");
+                    System.out.println("✓ Status: PAID - READY FOR PICKUP");
+                    System.out.println("✓ Stock deducted from inventory.");
+                    System.out.println("✓ Student can now pickup the item.");
                 } else {
-                    System.out.println("⚠ Payment successful but stock insufficient.");
-                    System.out.println("⚠ Student must wait for Admin/Staff approval for pickup.");
+                    System.out.println("⚠ Payment processed but status update failed.");
                 }
             } else {
                 System.out.println("Failed to process payment.");
@@ -287,12 +309,12 @@ public class CashierInterface {
         System.out.println("  Subtotal   : ₱" + String.format("%.2f", r.getTotalPrice()));
         System.out.println("  TOTAL      : ₱" + String.format("%.2f", r.getTotalPrice()));
         System.out.println("  Method     : " + paymentMethod);
-        System.out.println("  Status     : PAID");
+        System.out.println("  Status     : PAID - READY FOR PICKUP");
         System.out.println("-".repeat(60));
         System.out.println("NEXT STEPS:");
-        System.out.println("  1. Wait for Admin/Staff approval");
-        System.out.println("  2. Check your reservation status regularly");
-        System.out.println("  3. Pickup when status is 'APPROVED - READY FOR PICKUP'");
+        System.out.println("  1. Your item is now READY FOR PICKUP!");
+        System.out.println("  2. Go to Student Interface > [3] Pickup Item");
+        System.out.println("  3. Provide your Reservation ID to complete pickup");
         System.out.println("-".repeat(60));
         System.out.println("           Thank you for your purchase!                  ");
         System.out.println("      Please keep this receipt for your records.         ");
