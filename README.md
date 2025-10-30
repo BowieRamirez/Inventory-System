@@ -363,38 +363,5 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 👨‍💻 Author
-
-**Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
-
----
-
-## 🙏 Acknowledgments
-
-- **JavaFX** - Modern Java GUI framework
-- **AtlantaFX** - Beautiful theme library
-- **Eclipse Temurin** - Open-source JDK distribution
-- **Apache Maven** - Build automation tool
-
----
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [Issues](https://github.com/yourusername/Inventory-System/issues) page
-2. Create a new issue with detailed information
-3. Contact the development team
-
----
-
 **Made with ❤️ for STI ProWear**
 
