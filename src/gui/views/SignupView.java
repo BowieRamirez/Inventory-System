@@ -1,0 +1,193 @@
+package gui.views;
+
+import gui.controllers.SignupController;
+import gui.utils.GUIValidator;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+
+/**
+ * SignupView - Student registration screen
+ * 
+ * Provides a form for new students to create an account
+ */
+public class SignupView {
+    
+    private BorderPane view;
+    private TextField studentIdField;
+    private TextField firstNameField;
+    private TextField lastNameField;
+    private ComboBox<String> courseComboBox;
+    private ComboBox<String> genderComboBox;
+    private PasswordField passwordField;
+    private PasswordField confirmPasswordField;
+    private Button signupButton;
+    private Button backButton;
+    private SignupController controller;
+    
+    public SignupView() {
+        controller = new SignupController();
+        initializeView();
+    }
+    
+    private void initializeView() {
+        // Main container
+        view = new BorderPane();
+        view.setStyle("-fx-background-color: -color-bg-default;");
+        
+        // Center content
+        VBox centerBox = new VBox(20);
+        centerBox.setAlignment(Pos.CENTER);
+        centerBox.setPadding(new Insets(30));
+        
+        // Signup card
+        VBox signupCard = new VBox(20);
+        signupCard.setAlignment(Pos.CENTER_LEFT);
+        signupCard.setPadding(new Insets(40));
+        signupCard.setMaxWidth(500);
+        signupCard.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 12px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);"
+        );
+        
+        // Title
+        Label titleLabel = new Label("Create Student Account");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        // Student ID field
+        VBox studentIdBox = createFieldBox("Student ID (10-12 digits)", 
+            studentIdField = new TextField(), "Enter your student ID");
+        
+        // First Name field
+        VBox firstNameBox = createFieldBox("First Name", 
+            firstNameField = new TextField(), "Enter your first name");
+        
+        // Last Name field
+        VBox lastNameBox = createFieldBox("Last Name", 
+            lastNameField = new TextField(), "Enter your last name");
+        
+        // Course selection
+        VBox courseBox = new VBox(8);
+        Label courseLabel = new Label("Course");
+        courseLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
+        courseComboBox = new ComboBox<>();
+        courseComboBox.getItems().addAll(GUIValidator.getAllCourses());
+        courseComboBox.setPromptText("Select your course");
+        courseComboBox.setPrefHeight(40);
+        courseComboBox.setMaxWidth(Double.MAX_VALUE);
+        courseBox.getChildren().addAll(courseLabel, courseComboBox);
+        
+        // Gender selection
+        VBox genderBox = new VBox(8);
+        Label genderLabel = new Label("Gender");
+        genderLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
+        genderComboBox = new ComboBox<>();
+        genderComboBox.getItems().addAll("Male", "Female");
+        genderComboBox.setPromptText("Select gender");
+        genderComboBox.setPrefHeight(40);
+        genderComboBox.setMaxWidth(Double.MAX_VALUE);
+        genderBox.getChildren().addAll(genderLabel, genderComboBox);
+        
+        // Password field
+        VBox passwordBox = createFieldBox("Password (min. 6 characters)", 
+            passwordField = new PasswordField(), "Enter password");
+        
+        // Confirm Password field
+        VBox confirmPasswordBox = createFieldBox("Confirm Password", 
+            confirmPasswordField = new PasswordField(), "Re-enter password");
+        
+        // Buttons
+        HBox buttonBox = new HBox(15);
+        buttonBox.setAlignment(Pos.CENTER);
+        
+        signupButton = new Button("Create Account");
+        signupButton.setPrefWidth(180);
+        signupButton.setPrefHeight(40);
+        signupButton.setStyle(
+            "-fx-background-color: #1A7F37;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;"
+        );
+        signupButton.setOnAction(e -> handleSignup());
+        
+        backButton = new Button("Back to Login");
+        backButton.setPrefWidth(180);
+        backButton.setPrefHeight(40);
+        backButton.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-border-color: #0969DA;" +
+            "-fx-border-width: 2px;" +
+            "-fx-text-fill: #0969DA;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-cursor: hand;"
+        );
+        backButton.setOnAction(e -> controller.navigateToLogin());
+        
+        buttonBox.getChildren().addAll(signupButton, backButton);
+        
+        // Add all to signup card
+        signupCard.getChildren().addAll(
+            titleLabel,
+            new Separator(),
+            studentIdBox,
+            firstNameBox,
+            lastNameBox,
+            courseBox,
+            genderBox,
+            passwordBox,
+            confirmPasswordBox,
+            buttonBox
+        );
+        
+        centerBox.getChildren().add(signupCard);
+        view.setCenter(centerBox);
+    }
+    
+    /**
+     * Create a labeled field box
+     */
+    private VBox createFieldBox(String labelText, TextField field, String promptText) {
+        VBox box = new VBox(8);
+        Label label = new Label(labelText);
+        label.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
+        field.setPromptText(promptText);
+        field.setPrefHeight(40);
+        field.setStyle("-fx-font-size: 14px;");
+        box.getChildren().addAll(label, field);
+        return box;
+    }
+    
+    /**
+     * Handle signup button click
+     */
+    private void handleSignup() {
+        String studentId = studentIdField.getText().trim();
+        String firstName = firstNameField.getText().trim();
+        String lastName = lastNameField.getText().trim();
+        String course = courseComboBox.getValue();
+        String gender = genderComboBox.getValue();
+        String password = passwordField.getText();
+        String confirmPassword = confirmPasswordField.getText();
+        
+        controller.handleSignup(studentId, firstName, lastName, course, gender, password, confirmPassword);
+    }
+    
+    /**
+     * Get the view node
+     */
+    public BorderPane getView() {
+        return view;
+    }
+}
+

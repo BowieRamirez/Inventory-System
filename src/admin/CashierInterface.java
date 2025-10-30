@@ -1,6 +1,5 @@
 package admin;
 
-import inventory.InventoryManager;
 import inventory.ReservationManager;
 import inventory.ReceiptManager;
 import inventory.Reservation;
