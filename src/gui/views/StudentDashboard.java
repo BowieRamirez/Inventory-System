@@ -38,6 +38,7 @@ public class StudentDashboard {
     public StudentDashboard(Student student) {
         this.student = student;
         controller = new StudentDashboardController(student);
+        controller.setRefreshCallback(() -> showMyReservations());
         initializeView();
     }
     

@@ -2,6 +2,7 @@ package gui.controllers;
 
 import inventory.InventoryManager;
 import inventory.ReservationManager;
+import inventory.ReceiptManager;
 import inventory.Item;
 import inventory.Reservation;
 import student.Student;
@@ -29,11 +30,17 @@ public class AdminDashboardController {
     
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
+    private ReceiptManager receiptManager;
     private List<Student> students;
-    
+
     public AdminDashboardController() {
         inventoryManager = new InventoryManager();
         reservationManager = new ReservationManager(inventoryManager);
+        receiptManager = new ReceiptManager();
+
+        // Link receipt manager to reservation manager for synchronization
+        reservationManager.setReceiptManager(receiptManager);
+
         loadStudents();
     }
     
@@ -323,6 +330,7 @@ public class AdminDashboardController {
         Button approvedBtn = new Button("Approved");
         Button paidBtn = new Button("Paid");
         Button completedBtn = new Button("Completed");
+        Button returnRequestsBtn = new Button("Return Requests");
         Button cancelledBtn = new Button("Cancelled");
         Button refreshBtn = new Button("🔄 Refresh");
 
@@ -331,10 +339,11 @@ public class AdminDashboardController {
         styleActionButton(approvedBtn, "#1A7F37");
         styleActionButton(paidBtn, "#8250DF");
         styleActionButton(completedBtn, "#0969DA");
+        styleActionButton(returnRequestsBtn, "#BF8700");
         styleActionButton(cancelledBtn, "#CF222E");
         styleActionButton(refreshBtn, "#6E7781");
 
-        filterBar.getChildren().addAll(allBtn, pendingBtn, approvedBtn, paidBtn, completedBtn, cancelledBtn, refreshBtn);
+        filterBar.getChildren().addAll(allBtn, pendingBtn, approvedBtn, paidBtn, completedBtn, returnRequestsBtn, cancelledBtn, refreshBtn);
 
         // Create reservations table
         TableView<Reservation> table = new TableView<>();
@@ -399,8 +408,16 @@ public class AdminDashboardController {
                 } else {
                     Reservation reservation = getTableView().getItems().get(getIndex());
                     if ("PENDING".equals(reservation.getStatus())) {
+                        approveBtn.setText("✓ Approve");
+                        rejectBtn.setText("✗ Reject");
                         approveBtn.setOnAction(e -> handleApproveReservation(reservation, table));
                         rejectBtn.setOnAction(e -> handleRejectReservation(reservation, table));
+                        setGraphic(buttons);
+                    } else if ("RETURN REQUESTED".equals(reservation.getStatus())) {
+                        approveBtn.setText("✓ Approve Return");
+                        rejectBtn.setText("✗ Reject Return");
+                        approveBtn.setOnAction(e -> handleApproveReturn(reservation, table));
+                        rejectBtn.setOnAction(e -> handleRejectReturn(reservation, table));
                         setGraphic(buttons);
                     } else {
                         setGraphic(null);
@@ -408,7 +425,7 @@ public class AdminDashboardController {
                 }
             }
         });
-        actionsCol.setPrefWidth(100);
+        actionsCol.setPrefWidth(150);
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, actionsCol);
 
@@ -440,6 +457,10 @@ public class AdminDashboardController {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "COMPLETED".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(filtered));
+        });
+        returnRequestsBtn.setOnAction(e -> {
+            List<Reservation> filtered = reservationManager.getReturnRequests();
             table.setItems(FXCollections.observableArrayList(filtered));
         });
         cancelledBtn.setOnAction(e -> {
@@ -496,7 +517,55 @@ public class AdminDashboardController {
             }
         });
     }
-    
+
+    /**
+     * Handle approve return request
+     */
+    private void handleApproveReturn(Reservation reservation, TableView<Reservation> table) {
+        boolean confirm = AlertHelper.showConfirmation("Approve Return",
+            "Approve return request for:\n" +
+            "Student: " + reservation.getStudentName() + "\n" +
+            "Item: " + reservation.getItemName() + " (" + reservation.getSize() + ")\n" +
+            "Quantity: " + reservation.getQuantity() + "x\n" +
+            "Refund Amount: ₱" + String.format("%.2f", reservation.getTotalPrice()) + "\n\n" +
+            "Reason: " + (reservation.getReason() != null ? reservation.getReason() : "N/A") + "\n\n" +
+            "This will restock the item and mark as refunded.");
+
+        if (confirm) {
+            boolean success = reservationManager.approveReturn(reservation.getReservationId());
+            if (success) {
+                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                AlertHelper.showSuccess("Success",
+                    "Return approved!\n\n" +
+                    "Item has been restocked and marked as refunded.");
+            } else {
+                AlertHelper.showError("Error", "Failed to approve return. Item may not be restockable.");
+            }
+        }
+    }
+
+    /**
+     * Handle reject return request
+     */
+    private void handleRejectReturn(Reservation reservation, TableView<Reservation> table) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Reject Return");
+        dialog.setHeaderText("Reject return request for: " + reservation.getStudentName());
+        dialog.setContentText("Reason for rejection:");
+
+        dialog.showAndWait().ifPresent(reason -> {
+            if (!reason.isEmpty()) {
+                boolean success = reservationManager.rejectReturn(reservation.getReservationId(), reason);
+                if (success) {
+                    table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                    AlertHelper.showSuccess("Success", "Return request rejected");
+                } else {
+                    AlertHelper.showError("Error", "Failed to reject return request");
+                }
+            }
+        });
+    }
+
     /**
      * Create accounts view
      */

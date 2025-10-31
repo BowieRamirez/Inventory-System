@@ -1,1 +1,1 @@
-5001|Ramirez, Bowie|02000284710|BSIT|1001|IT/Eng Gray 3/4 Polo (Male)|1|450.0|XL|RETURNED - REFUNDED|true|CASH|2025-10-30 20:31:17|2025-10-30 20:33:04|Item returned within 10 days - Reason: Damaged Item
+5001|Lebron, Jims|02000242424|BSIT|1001|IT/Eng Gray 3/4 Polo (Male)|1|450.0|S|RETURNED - REFUNDED|true|CASH|2025-11-01 01:25:54|2025-11-01 01:24:34|Return requested - Reason: di gusto ni bronny james

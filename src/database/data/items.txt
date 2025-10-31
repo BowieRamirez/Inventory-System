@@ -1,5 +1,5 @@
 ItemCode,ItemName,Course,Size,Quantity,Price
-1001,IT/Eng Gray 3/4 Polo (Male),BSIT,S,47,450.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,S,45,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,44,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,L,56,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,XL,39,450.00

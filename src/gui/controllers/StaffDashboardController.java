@@ -2,6 +2,7 @@ package gui.controllers;
 
 import inventory.InventoryManager;
 import inventory.ReservationManager;
+import inventory.ReceiptManager;
 import inventory.Item;
 import inventory.Reservation;
 import gui.utils.AlertHelper;
@@ -25,10 +26,15 @@ public class StaffDashboardController {
 
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
+    private ReceiptManager receiptManager;
 
     public StaffDashboardController() {
         inventoryManager = new InventoryManager();
         reservationManager = new ReservationManager(inventoryManager);
+        receiptManager = new ReceiptManager();
+
+        // Link receipt manager to reservation manager for synchronization
+        reservationManager.setReceiptManager(receiptManager);
 
         // Load data
         inventoryManager.getAllItems().forEach(item -> {});
@@ -45,14 +51,16 @@ public class StaffDashboardController {
         Button allBtn = new Button("All");
         Button pendingBtn = new Button("Pending");
         Button approvedBtn = new Button("Approved");
+        Button returnRequestsBtn = new Button("Return Requests");
         Button refreshBtn = new Button("🔄 Refresh");
 
         styleActionButton(allBtn, "#0969DA");
         styleActionButton(pendingBtn, "#BF8700");
         styleActionButton(approvedBtn, "#1A7F37");
+        styleActionButton(returnRequestsBtn, "#BF8700");
         styleActionButton(refreshBtn, "#6E7781");
 
-        filterBar.getChildren().addAll(allBtn, pendingBtn, approvedBtn, refreshBtn);
+        filterBar.getChildren().addAll(allBtn, pendingBtn, approvedBtn, returnRequestsBtn, refreshBtn);
 
         // Create reservations table
         TableView<Reservation> table = new TableView<>();
@@ -117,8 +125,16 @@ public class StaffDashboardController {
                 } else {
                     Reservation reservation = getTableView().getItems().get(getIndex());
                     if ("PENDING".equals(reservation.getStatus())) {
+                        approveBtn.setText("✓ Approve");
+                        rejectBtn.setText("✗ Reject");
                         approveBtn.setOnAction(e -> handleApproveReservation(reservation, table));
                         rejectBtn.setOnAction(e -> handleRejectReservation(reservation, table));
+                        setGraphic(buttons);
+                    } else if ("RETURN REQUESTED".equals(reservation.getStatus())) {
+                        approveBtn.setText("✓ Approve Return");
+                        rejectBtn.setText("✗ Reject Return");
+                        approveBtn.setOnAction(e -> handleApproveReturn(reservation, table));
+                        rejectBtn.setOnAction(e -> handleRejectReturn(reservation, table));
                         setGraphic(buttons);
                     } else {
                         setGraphic(null);
@@ -126,7 +142,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        actionsCol.setPrefWidth(100);
+        actionsCol.setPrefWidth(150);
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, actionsCol);
 
@@ -146,6 +162,10 @@ public class StaffDashboardController {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> r.getStatus().contains("APPROVED"))
                 .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(filtered));
+        });
+        returnRequestsBtn.setOnAction(e -> {
+            List<Reservation> filtered = reservationManager.getReturnRequests();
             table.setItems(FXCollections.observableArrayList(filtered));
         });
         refreshBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations())));
@@ -196,7 +216,55 @@ public class StaffDashboardController {
             }
         });
     }
-    
+
+    /**
+     * Handle approve return request
+     */
+    private void handleApproveReturn(Reservation reservation, TableView<Reservation> table) {
+        boolean confirm = AlertHelper.showConfirmation("Approve Return",
+            "Approve return request for:\n" +
+            "Student: " + reservation.getStudentName() + "\n" +
+            "Item: " + reservation.getItemName() + " (" + reservation.getSize() + ")\n" +
+            "Quantity: " + reservation.getQuantity() + "x\n" +
+            "Refund Amount: ₱" + String.format("%.2f", reservation.getTotalPrice()) + "\n\n" +
+            "Reason: " + (reservation.getReason() != null ? reservation.getReason() : "N/A") + "\n\n" +
+            "This will restock the item and mark as refunded.");
+
+        if (confirm) {
+            boolean success = reservationManager.approveReturn(reservation.getReservationId());
+            if (success) {
+                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                AlertHelper.showSuccess("Success",
+                    "Return approved!\n\n" +
+                    "Item has been restocked and marked as refunded.");
+            } else {
+                AlertHelper.showError("Error", "Failed to approve return. Item may not be restockable.");
+            }
+        }
+    }
+
+    /**
+     * Handle reject return request
+     */
+    private void handleRejectReturn(Reservation reservation, TableView<Reservation> table) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Reject Return");
+        dialog.setHeaderText("Reject return request for: " + reservation.getStudentName());
+        dialog.setContentText("Reason for rejection:");
+
+        dialog.showAndWait().ifPresent(reason -> {
+            if (!reason.isEmpty()) {
+                boolean success = reservationManager.rejectReturn(reservation.getReservationId(), reason);
+                if (success) {
+                    table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                    AlertHelper.showSuccess("Success", "Return request rejected");
+                } else {
+                    AlertHelper.showError("Error", "Failed to reject return request");
+                }
+            }
+        });
+    }
+
     public Node createInventoryView() {
         VBox container = new VBox(15);
         container.setPadding(new Insets(20));

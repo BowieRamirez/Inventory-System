@@ -32,6 +32,9 @@ public class CashierDashboardController {
         reservationManager = new ReservationManager(inventoryManager);
         receiptManager = new ReceiptManager();
 
+        // Link receipt manager to reservation manager for synchronization
+        reservationManager.setReceiptManager(receiptManager);
+
         // Load data
         inventoryManager.getAllItems().forEach(item -> {});
     }

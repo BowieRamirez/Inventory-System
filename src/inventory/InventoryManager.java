@@ -10,6 +10,17 @@ public class InventoryManager {
     public InventoryManager() {
         inventory = new ArrayList<>();
         itemByCodeMap = new HashMap<>();
+        loadItemsFromFile();
+    }
+
+    /**
+     * Load all items from file during initialization
+     */
+    private void loadItemsFromFile() {
+        List<Item> loadedItems = FileStorage.loadItems();
+        for (Item item : loadedItems) {
+            loadItem(item);
+        }
     }
     
     // Load items from file without saving (used during initialization)
@@ -48,7 +59,9 @@ public class InventoryManager {
     public List<Item> getItemsByCourse(String course) {
         List<Item> result = new ArrayList<>();
         for (Item item : inventory) {
-            if (item.getCourse().equalsIgnoreCase(course) && item.getQuantity() > 0) {
+            // Show items that match the student's course OR are "STI Special" (universal items)
+            if ((item.getCourse().equalsIgnoreCase(course) || item.getCourse().equalsIgnoreCase("STI Special"))
+                && item.getQuantity() > 0) {
                 result.add(item);
             }
         }
