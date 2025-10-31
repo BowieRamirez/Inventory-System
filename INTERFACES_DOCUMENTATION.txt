@@ -1,0 +1,584 @@
+================================================================================
+        MERCHSYSTEM - COMPLETE INTERFACE DOCUMENTATION
+================================================================================
+Date: October 30, 2025
+Version: 2.0 (Multi-Stage Approval with Stock Logging)
+================================================================================
+
+TABLE OF CONTENTS
+================================================================================
+1. ADMIN INTERFACE
+2. STAFF INTERFACE
+3. CASHIER INTERFACE
+4. STUDENT INTERFACE
+5. FUNCTION DETAILS AND WORKFLOWS
+
+================================================================================
+1. ADMIN INTERFACE
+================================================================================
+Default Login: admin / admin123
+
+MAIN MENU OPTIONS:
+--------------------------------------------------------------------------------
+[1] View Reservations
+    └─ Submenu:
+       [1] View All Reservations
+           • Displays all student reservations across all statuses
+           • Shows: ID, Student Name, Item, Quantity, Price, Status, Payment
+           • Filters and displays reservations by status
+       
+       [2] Approve Reservation
+           • Shows all PENDING reservations waiting for approval
+           • Displays student details, item info, and order details
+           • Admin enters Reservation ID to approve
+           • Changes status: PENDING → APPROVED - WAITING FOR PAYMENT
+           • Enables reservation to proceed to payment stage
+       
+       [3] Process Returns/Refunds
+           • Displays all RETURN REQUESTED reservations
+           • Shows student's return reason (Damaged/Wrong Size/Defective/Changed Mind)
+           • Admin enters Reservation ID to approve return
+           • Restores stock back to inventory
+           • Changes status: RETURN REQUESTED → RETURNED - REFUNDED
+           • Logs return to stock_logs.txt with USER_RETURN action
+       
+       [0] Back to Main Menu
+
+[2] Shop Items
+    • Browse all available merchandise
+    • View items by course (BSIT, BSCS, BSIS)
+    • See item details: Code, Name, Size, Quantity, Price
+    • Grouped display showing all size variants with quantities
+
+[3] View Receipts
+    • Displays all transaction receipts
+    • Shows: Receipt ID, Date, Payment Status, Quantity, Amount, Item, Buyer
+    • Complete transaction history
+
+[4] Stock Management
+    └─ Submenu:
+       [1] Add New Item - Add completely new item to inventory
+           • Enter item code (1000-9999, unique)
+           • Enter item name
+           • Select course (BSIT, BSCS, BSIS)
+           • Select size (XS, S, M, L, XL, XXL, 2XL, 3XL, Free Size)
+           • Enter quantity (1-1000)
+           • Enter price
+           • Confirm addition
+           • Item saved to items.txt
+       
+       [2] Return Stock - Remove stock with reason (logged)
+           *** NEW: COURSE-BASED SELECTION PROCESS ***
+           Step 1: Select course (BSIT, BSCS, BSIS, or 0 to go back)
+           Step 2: System displays formatted table of all items for selected course
+                   Table shows: Code | Name | Course | Size (Qty) | Price
+           Step 3: Enter item code from the displayed table
+           Step 4: System validates item belongs to selected course
+           Step 5: View item details (Code, Name, Course, Size, Current Qty, Price)
+           Step 6: Enter quantity to return (0 to cancel, max = current qty)
+           Step 7: Select return reason:
+                   [1] Defective - Item has defects or quality issues
+                   [2] Damaged - Item was damaged during storage/handling
+                   [3] Expired/Outdated - Item is no longer current
+                   [4] Overstock - Excess inventory being returned
+                   [5] Wrong Item - Item ordered/received in error
+                   [6] Other - Different reason
+                   [0] Cancel - Go back
+           Step 8: Review confirmation (Item, Quantity, Reason, New Quantity)
+           Step 9: Confirm stock return
+           Step 10: Stock reduced from inventory
+           Step 11: Logged to stock_logs.txt with STAFF_RETURN action
+                    Format: Timestamp|Admin|Code|ItemName|Size|-Qty|STAFF_RETURN|Reason
+       
+       [3] View Stock Logs - See all stock changes (transparency)
+           • Displays complete stock movement history
+           • Shows all three action types:
+             - STAFF_RETURN: Admin/Staff returned stock with reason
+             - USER_PICKUP: Student completed pickup (stock decreased)
+             - USER_RETURN: Admin/Staff approved student return (stock restored)
+           • Format: Timestamp | Performer | Code | Item | Size | Stock Change | Action | Details
+           • Provides complete audit trail
+       
+       [0] Back to Main Menu
+
+[5] Student Management
+    └─ Submenu:
+       [1] Register Student
+           • Enter student ID
+           • Enter password
+           • Select course (BSIT, BSCS, BSIS)
+           • Enter first name
+           • Enter last name
+           • Select gender (Male, Female, Other)
+           • Account automatically set to Active
+           • Student can immediately login
+       
+       [2] View All Students
+           • Displays all registered students
+           • Shows: ID, Name, Course, Gender, Status (Active/Inactive)
+           • Complete student directory
+       
+       [3] Deactivate Student
+           • Enter student ID to deactivate
+           • Prevents student from logging in
+           • Useful for graduated or suspended students
+       
+       [4] Activate Student
+           • Enter student ID to activate
+           • Re-enables login access
+           • Restores full system access
+       
+       [0] Back to Main Menu
+
+[0] Logout
+    • Exit admin account
+    • Return to main login screen
+
+================================================================================
+2. STAFF INTERFACE
+================================================================================
+Default Login: staff / staff123
+
+MAIN MENU OPTIONS:
+--------------------------------------------------------------------------------
+[1] View Reservations
+    └─ Submenu:
+       [1] View All Reservations
+           • Displays all student reservations across all statuses
+           • Shows: ID, Student Name, Item, Quantity, Price, Status, Payment
+           • Identical to Admin view
+       
+       [2] Approve Reservation
+           • Shows all PENDING reservations waiting for approval
+           • Displays student details, item info, and order details
+           • Staff enters Reservation ID to approve
+           • Changes status: PENDING → APPROVED - WAITING FOR PAYMENT
+           • Enables reservation to proceed to payment stage
+       
+       [3] Process Returns/Refunds
+           • Displays all RETURN REQUESTED reservations
+           • Shows student's return reason
+           • Staff enters Reservation ID to approve return
+           • Restores stock back to inventory
+           • Changes status: RETURN REQUESTED → RETURNED - REFUNDED
+           • Logs return to stock_logs.txt with USER_RETURN action
+       
+       [0] Back to Main Menu
+
+[2] Shop Items
+    • Browse all available merchandise
+    • View items by course (BSIT, BSCS, BSIS)
+    • See item details: Code, Name, Size, Quantity, Price
+    • Grouped display showing all size variants
+
+[3] View Receipts
+    • Displays all transaction receipts
+    • Shows: Receipt ID, Date, Payment Status, Quantity, Amount, Item, Buyer
+    • Complete transaction history
+
+[4] Stock Management
+    └─ Submenu:
+       [1] Add New Item - Add completely new item to inventory
+           • Same functionality as Admin
+           • Enter item code, name, course, size, quantity, price
+           • Item saved to items.txt
+       
+       [2] Return Stock - Remove stock with reason (logged)
+           *** NEW: COURSE-BASED SELECTION PROCESS ***
+           Step 1: Select course (BSIT, BSCS, BSIS, or 0 to go back)
+           Step 2: System displays formatted table of all items for selected course
+           Step 3: Enter item code from the displayed table
+           Step 4: System validates item belongs to selected course
+           Step 5: View item details
+           Step 6: Enter quantity to return
+           Step 7: Select return reason (6 options)
+           Step 8: Review confirmation
+           Step 9: Confirm stock return
+           Step 10: Stock reduced and logged to stock_logs.txt
+           • Same functionality as Admin
+       
+       [3] View Stock Logs - See all stock changes (transparency)
+           • Displays complete stock movement history
+           • Shows STAFF_RETURN, USER_PICKUP, USER_RETURN actions
+           • Same functionality as Admin
+       
+       [0] Back to Main Menu
+
+[0] Logout
+    • Exit staff account
+    • Return to main login screen
+
+DIFFERENCES FROM ADMIN:
+--------------------------------------------------------------------------------
+✗ Cannot access Student Management (Register, View, Activate/Deactivate)
+✓ All other functions identical to Admin
+
+================================================================================
+3. CASHIER INTERFACE
+================================================================================
+Default Login: cashier / cashier123
+
+MAIN MENU OPTIONS:
+--------------------------------------------------------------------------------
+[1] Process Payment
+    • Displays ONLY "APPROVED - WAITING FOR PAYMENT" reservations
+    • Shows: Reservation ID, Student Name, Item Details, Total Amount
+    • Cashier enters Reservation ID to process
+    • Payment method: CASH ONLY (hardcoded)
+    • Upon payment:
+      1. Stock deducted from inventory
+      2. Receipt generated with unique ID
+      3. Status changes: APPROVED - WAITING FOR PAYMENT → PAID - READY FOR PICKUP
+      4. Receipt saved to receipts.txt
+    • Confirmation message displayed with receipt details
+
+[2] View Receipts
+    • Displays all transaction receipts
+    • Shows: Receipt ID, Date, Payment Status, Quantity, Amount, Item, Buyer
+    • Read-only view of transaction history
+
+[0] Logout
+    • Exit cashier account
+    • Return to main login screen
+
+LIMITATIONS:
+--------------------------------------------------------------------------------
+✗ Cannot view all reservations (only approved ones waiting for payment)
+✗ Cannot approve reservations
+✗ Cannot manage inventory
+✗ Cannot process returns/refunds
+✗ Cannot manage students
+✓ Can ONLY process payments and view receipts
+
+================================================================================
+4. STUDENT INTERFACE
+================================================================================
+Login: Student ID / Password (registered by Admin)
+
+MAIN MENU OPTIONS:
+--------------------------------------------------------------------------------
+[1] Shop Items
+    • Browse available merchandise for student's course
+    • Displays items filtered by student's enrolled course
+    • Shows: Code, Name, Size, Quantity Available, Price
+    • Student can view what's available before reserving
+
+[2] Reserve Item
+    • Enter item code (1000-9999)
+    • System displays item details if found
+    • Enter size (XS, S, M, L, XL, XXL, 2XL, 3XL, Free Size)
+    • System checks size availability
+    • Enter quantity (must be ≤ available stock)
+    • System calculates total price
+    • Confirm reservation
+    • Creates reservation with PENDING status
+    • Reservation must be approved by Admin/Staff before payment
+    • NOTE: Stock NOT deducted yet (deducted only after payment)
+
+[3] View My Reservations
+    • Displays all reservations for logged-in student
+    • Shows: ID, Item, Quantity, Total, Size, Status, Payment Status
+    • Lists all statuses:
+      - PENDING - Waiting for admin/staff approval
+      - APPROVED - WAITING FOR PAYMENT - Ready to pay at cashier
+      - PAID - READY FOR PICKUP - Paid, waiting for student pickup
+      - COMPLETED - Order complete, item picked up
+      - RETURN REQUESTED - Student requested return
+      - RETURNED - REFUNDED - Return approved and refunded
+    • Complete personal order history
+
+[4] Pickup Item
+    • Displays only "PAID - READY FOR PICKUP" reservations
+    • Shows reservations ready to be collected
+    • Enter Reservation ID to pickup
+    • System displays item details for confirmation
+    • Confirm pickup
+    • Status changes: PAID - READY FOR PICKUP → COMPLETED
+    • Pickup logged to stock_logs.txt with USER_PICKUP action
+    • Format: Timestamp|StudentName|Code|ItemName|Size|-Qty|USER_PICKUP|Student completed pickup
+
+[5] Return Item
+    • Displays only "COMPLETED" reservations (eligible for return)
+    • Student can only return items they've picked up
+    • Enter Reservation ID to return
+    • System displays item details
+    • Student selects return reason:
+      [1] Damaged Item - Item received was damaged
+      [2] Wrong Size - Size doesn't fit properly
+      [3] Defective Item - Item has defects or issues
+      [4] Changed Mind - No longer want the item
+      [0] Cancel
+    • Confirm return request
+    • Status changes: COMPLETED → RETURN REQUESTED
+    • Reason saved in reservation record
+    • Waits for Admin/Staff to approve return
+    • NOTE: Stock NOT restored yet (restored only after admin approval)
+
+[0] Logout
+    • Exit student account
+    • Return to main login screen
+
+STUDENT WORKFLOW SUMMARY:
+--------------------------------------------------------------------------------
+1. Shop Items (browse)
+2. Reserve Item (creates PENDING reservation)
+   ↓
+3. Wait for Admin/Staff approval (APPROVED - WAITING FOR PAYMENT)
+   ↓
+4. Go to Cashier for payment (PAID - READY FOR PICKUP)
+   ↓
+5. Pickup Item (COMPLETED)
+   ↓
+6. (Optional) Return Item if needed (RETURN REQUESTED → RETURNED - REFUNDED)
+
+================================================================================
+5. FUNCTION DETAILS AND WORKFLOWS
+================================================================================
+
+COMPLETE RESERVATION LIFECYCLE:
+--------------------------------------------------------------------------------
+Stage 1: RESERVATION CREATION (Student)
+  • Student browses items by their course
+  • Selects item, size, and quantity
+  • System validates availability
+  • Creates reservation with PENDING status
+  • Stock remains unchanged
+
+Stage 2: APPROVAL (Admin/Staff)
+  • Admin/Staff views pending reservations
+  • Reviews student details and order information
+  • Approves reservation
+  • Status: PENDING → APPROVED - WAITING FOR PAYMENT
+  • Stock still unchanged
+  • Student can now proceed to payment
+
+Stage 3: PAYMENT (Cashier)
+  • Cashier views approved reservations
+  • Processes payment (CASH ONLY)
+  • Stock DEDUCTED from inventory
+  • Receipt generated and saved
+  • Status: APPROVED - WAITING FOR PAYMENT → PAID - READY FOR PICKUP
+  • Student notified item is ready
+
+Stage 4: PICKUP (Student)
+  • Student views paid reservations
+  • Confirms pickup
+  • Status: PAID - READY FOR PICKUP → COMPLETED
+  • Pickup logged to stock_logs.txt (USER_PICKUP action)
+  • Transaction complete
+
+Stage 5: RETURN (Optional - Student + Admin/Staff)
+  Part A - Student Requests:
+    • Student views completed orders
+    • Selects item to return
+    • Chooses return reason (4 options)
+    • Status: COMPLETED → RETURN REQUESTED
+    • Stock NOT restored yet
+  
+  Part B - Admin/Staff Approves:
+    • Admin/Staff views return requests
+    • Sees student's return reason
+    • Approves return
+    • Stock RESTORED to inventory
+    • Status: RETURN REQUESTED → RETURNED - REFUNDED
+    • Return logged to stock_logs.txt (USER_RETURN action)
+    • Refund processed
+
+STOCK MANAGEMENT WORKFLOW:
+--------------------------------------------------------------------------------
+Add New Item (Admin/Staff):
+  1. Select "Stock Management" → "Add New Item"
+  2. Enter unique item code (1000-9999)
+  3. Enter item details (name, course, size, quantity, price)
+  4. Confirm addition
+  5. Item added to items.txt
+  6. Immediately available for reservation
+
+Return Stock (Admin/Staff) - COURSE-BASED:
+  1. Select "Stock Management" → "Return Stock"
+  2. *** NEW STEP: Select course (BSIT, BSCS, BSIS)
+  3. *** System displays formatted table of items for that course
+  4. *** Shows: Code, Name, Course, Size availability, Price
+  5. Enter item code from displayed table
+  6. *** System validates item belongs to selected course
+  7. View item details and current stock
+  8. Enter quantity to return
+  9. Select return reason from 6 options:
+     - Defective
+     - Damaged
+     - Expired/Outdated
+     - Overstock
+     - Wrong Item
+     - Other
+  10. Review confirmation details
+  11. Confirm return
+  12. Stock reduced from inventory
+  13. Logged to stock_logs.txt with STAFF_RETURN action
+  14. Format: Timestamp|AdminName|Code|Item|Size|-Qty|STAFF_RETURN|Reason
+
+STOCK LOGGING SYSTEM:
+--------------------------------------------------------------------------------
+Purpose: Complete transparency of all inventory movements
+
+Three Action Types:
+  1. STAFF_RETURN
+     • Triggered when: Admin/Staff returns stock
+     • Stock Change: Negative (-)
+     • Details: Return reason logged
+     • Format: [Timestamp]|[Admin/Staff Name]|[Code]|[Item]|[Size]|[-Qty]|STAFF_RETURN|[Reason]
+  
+  2. USER_PICKUP
+     • Triggered when: Student picks up paid item
+     • Stock Change: Negative (-)
+     • Details: "Student completed pickup"
+     • Format: [Timestamp]|[Student Name]|[Code]|[Item]|[Size]|[-Qty]|USER_PICKUP|Student completed pickup
+  
+  3. USER_RETURN
+     • Triggered when: Admin/Staff approves student return
+     • Stock Change: Positive (+)
+     • Details: Student's return reason logged
+     • Format: [Timestamp]|[Admin/Staff Name]|[Code]|[Item]|[Size]|[+Qty]|USER_RETURN|Student return - [Reason]
+
+Log File Location: src/database/data/stock_logs.txt
+
+Viewing Logs:
+  • Admin/Staff → Stock Management → View Stock Logs
+  • Displays formatted table of all stock movements
+  • Shows: Timestamp, Performer, Code, Item, Size, Stock Change, Action, Details
+  • Provides complete audit trail
+
+VALIDATION RULES:
+--------------------------------------------------------------------------------
+Item Code:
+  • Must be 4 digits (1000-9999)
+  • Must be unique
+  • Cannot be 0000
+
+Course:
+  • Only accepts: BSIT, BSCS, BSIS
+  • Case-insensitive
+
+Size:
+  • Only accepts: XS, S, M, L, XL, XXL, 2XL, 3XL, Free Size
+  • Case-insensitive
+
+Quantity:
+  • Must be positive integer
+  • Cannot exceed available stock (for reservations)
+  • Cannot exceed current quantity (for stock returns)
+
+Price:
+  • Must be positive decimal
+  • Format: ₱XXX.XX
+
+Student ID:
+  • Must be unique
+  • Cannot be empty
+
+Password:
+  • Cannot be empty
+  • No encryption (plain text storage)
+
+STATUS TRANSITIONS:
+--------------------------------------------------------------------------------
+Valid Status Flow:
+  PENDING
+    ↓ (Admin/Staff approves)
+  APPROVED - WAITING FOR PAYMENT
+    ↓ (Cashier processes payment)
+  PAID - READY FOR PICKUP
+    ↓ (Student picks up)
+  COMPLETED
+    ↓ (Student requests return)
+  RETURN REQUESTED
+    ↓ (Admin/Staff approves)
+  RETURNED - REFUNDED
+
+Invalid Transitions:
+  ✗ Cannot skip stages
+  ✗ Cannot go backwards (except return process)
+  ✗ Cannot pickup without payment
+  ✗ Cannot return without completion
+
+PAYMENT SYSTEM:
+--------------------------------------------------------------------------------
+Payment Method: CASH ONLY (hardcoded)
+
+Receipt Generation:
+  • Automatic receipt ID generation (starts at 10000000)
+  • Contains: Receipt ID, Date, Payment Status, Quantity, Amount, Item Details, Buyer
+  • Saved to: src/database/data/receipts.txt
+  • Format: Pipe-delimited (|)
+
+Stock Deduction Timing:
+  • Stock deducted ONLY when payment is processed
+  • NOT when reservation is created
+  • NOT when admin approves
+  • ONLY at cashier payment stage
+
+SECURITY FEATURES:
+--------------------------------------------------------------------------------
+1. Role-Based Access Control
+   • Each role has specific permissions
+   • Cannot access functions outside role scope
+
+2. Student Account Management
+   • Active/Inactive status
+   • Inactive students cannot login
+   • Admin can activate/deactivate
+
+3. Status Validation
+   • Each function validates reservation status
+   • Prevents operations on wrong status
+   • Ensures proper workflow sequence
+
+4. Stock Validation
+   • Checks availability before reservation
+   • Prevents negative stock
+   • Validates quantity at each stage
+
+5. Input Validation
+   • All inputs validated using InputValidator class
+   • Prevents invalid data entry
+   • Ensures data integrity
+
+ERROR HANDLING:
+--------------------------------------------------------------------------------
+Common Error Messages:
+  • "Item not found" - Invalid item code
+  • "Insufficient stock" - Requested quantity > available
+  • "Invalid size" - Size not available for item
+  • "No reservations found" - No data matching criteria
+  • "Invalid reservation status" - Operation not allowed for current status
+  • "Student account is inactive" - Cannot login
+  • "Invalid credentials" - Wrong username/password
+  • "Code exists!" - Duplicate item code
+  • "Operation cancelled" - User chose to cancel
+  • "Error: This item does not belong to the selected course" - Wrong course selection
+
+DATA PERSISTENCE:
+--------------------------------------------------------------------------------
+All data stored in text files:
+  • src/database/data/students.txt
+  • src/database/data/items.txt
+  • src/database/data/reservations.txt
+  • src/database/data/receipts.txt
+  • src/database/data/stock_logs.txt
+
+Save Operations:
+  • Automatic save after each transaction
+  • No manual save required
+  • Data persists between sessions
+
+Load Operations:
+  • Automatic load on system startup
+  • Reads all data files
+  • Populates in-memory structures
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+For more information, see README.md
+Last Updated: October 30, 2025
+Version: 2.0 (Multi-Stage Approval with Stock Logging)
+================================================================================

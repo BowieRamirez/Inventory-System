@@ -1,2 +1,3 @@
 02000284710|Ramirez123|BSIT|Bowie|Ramirez|Male|true
 02000242424|Lebwrong|BSIT|Jims|Lebron|Male|true
+02000303030|stipin123|BSCS|stephen|curry|Male|true
