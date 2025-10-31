@@ -30,11 +30,10 @@ public class ReservationManager {
                                          int quantity, double totalPrice) {
         boolean available = inventoryManager.reserveItem(itemCode, size, quantity);
         if (!available) {
-            System.out.println("Not enough stock available for " + itemName + " (" + size + ")");
             return null;
         }
 
-        Reservation reservation = new Reservation(nextReservationId++, studentName, studentId, 
+        Reservation reservation = new Reservation(nextReservationId++, studentName, studentId,
                                                    course, itemCode, itemName, quantity, totalPrice, size);
         reservations.add(reservation);
         saveReservations();
@@ -100,32 +99,7 @@ public class ReservationManager {
         return false;
     }
     
-    public void displayAllReservations() {
-        if (reservations.isEmpty()) {
-            System.out.println("No reservations found.");
-            return;
-        }
-        System.out.println("\n=== ALL RESERVATIONS ===");
-        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Payment  | Method     | Status");
-        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------|------------|------------------------------");
-        for (Reservation r : reservations) {
-            System.out.println(r);
-        }
-    }
-    
-    public void displayReservationsByStudent(String studentId) {
-        List<Reservation> studentReservations = getReservationsByStudent(studentId);
-        if (studentReservations.isEmpty()) {
-            System.out.println("No reservations found for student ID: " + studentId);
-            return;
-        }
-        System.out.println("\n=== YOUR RESERVATIONS ===");
-        System.out.println("ID   | Student Name    | Student ID   | Item   | Item Name                 | Qty | Total    | Payment  | Method     | Status");
-        System.out.println("-----|-----------------|--------------|--------|---------------------------|-----|----------|----------|------------|------------------------------");
-        for (Reservation r : studentReservations) {
-            System.out.println(r);
-        }
-    }
+
     
     public List<Reservation> getPendingReservations() {
         List<Reservation> pending = new ArrayList<>();
@@ -150,7 +124,6 @@ public class ReservationManager {
                 saveReservations();
                 return true;
             } else {
-                System.out.println("⚠ Error: Insufficient stock. Cannot process payment.");
                 return false;
             }
         }

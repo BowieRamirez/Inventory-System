@@ -27,19 +27,18 @@ public class FileStorage {
     
     public static List<Item> loadItems() {
         List<Item> items = new ArrayList<>();
-        
+
         if (!ITEMS_FILE.exists()) {
-            System.out.println("Items file not found. Starting with empty inventory.");
             return items;
         }
-        
+
         try (BufferedReader br = new BufferedReader(new FileReader(ITEMS_FILE))) {
             String line = br.readLine(); // Skip header line
-            
+
             while ((line = br.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) continue;
-                
+
                 String[] parts = line.split(",");
                 if (parts.length >= 6) {
                     try {
@@ -49,19 +48,18 @@ public class FileStorage {
                         String size = parts[3].trim();
                         int quantity = Integer.parseInt(parts[4].trim());
                         double price = Double.parseDouble(parts[5].trim());
-                        
+
                         Item item = new Item(itemCode, itemName, course, size, quantity, price);
                         items.add(item);
                     } catch (NumberFormatException e) {
-                        System.err.println("Skipping invalid item line: " + line);
+                        // Skip invalid lines silently
                     }
                 }
             }
-            System.out.println("Loaded " + items.size() + " items from database.");
         } catch (IOException e) {
-            System.err.println("Failed to load items from file: " + e.getMessage());
+            // Failed to load items
         }
-        
+
         return items;
     }
     
@@ -100,10 +98,9 @@ public class FileStorage {
             
             // Force file timestamp update to trigger VS Code refresh
             ITEMS_FILE.setLastModified(System.currentTimeMillis());
-            
+
             return true;
         } catch (IOException e) {
-            System.err.println("Failed to save items to file: " + e.getMessage());
             return false;
         }
     }
@@ -121,33 +118,26 @@ public class FileStorage {
      */
     public static List<Student> loadStudents() {
         List<Student> students = new ArrayList<>();
-        
-        System.out.println("DEBUG: Loading students from: " + STUDENTS_FILE.getAbsolutePath());
-        
+
         if (!STUDENTS_FILE.exists()) {
-            System.out.println("No existing student database. Starting fresh.");
             return students;
         }
-        
+
         try (BufferedReader reader = new BufferedReader(new FileReader(STUDENTS_FILE))) {
             String line;
-            int count = 0;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) continue; // Skip empty lines
-                
+
                 Student student = parseStudent(line);
                 if (student != null) {
                     students.add(student);
-                    count++;
                 }
             }
-            System.out.println("Loaded " + count + " students from database.");
         } catch (IOException e) {
-            System.out.println("Error loading students: " + e.getMessage());
-            e.printStackTrace();
+            // Error loading students
         }
-        
+
         return students;
     }
     
@@ -171,7 +161,6 @@ public class FileStorage {
             student.setActive(isActive);
             return student;
         } catch (Exception e) {
-            System.out.println("Error parsing student line: " + line);
             return null;
         }
     }
@@ -197,12 +186,9 @@ public class FileStorage {
             
             // Force file timestamp update
             STUDENTS_FILE.setLastModified(System.currentTimeMillis());
-            
-            System.out.println("DEBUG: Students saved successfully to " + STUDENTS_FILE.getAbsolutePath());
+
             return true;
         } catch (IOException e) {
-            System.out.println("Error saving students: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -225,11 +211,7 @@ public class FileStorage {
      */
     public static boolean addStudent(List<Student> students, Student newStudent) {
         students.add(newStudent);
-        boolean saved = saveStudents(students);
-        if (saved) {
-            System.out.println("DEBUG: Student " + newStudent.getStudentId() + " added to database.");
-        }
-        return saved;
+        return saveStudents(students);
     }
     
     /**
@@ -258,11 +240,7 @@ public class FileStorage {
         for (int i = 0; i < students.size(); i++) {
             if (students.get(i).getStudentId().equals(updatedStudent.getStudentId())) {
                 students.set(i, updatedStudent);
-                boolean saved = saveStudents(students);
-                if (saved) {
-                    System.out.println("DEBUG: Student " + updatedStudent.getStudentId() + " updated in database.");
-                }
-                return saved;
+                return saveStudents(students);
             }
         }
         return false;
@@ -276,33 +254,26 @@ public class FileStorage {
      */
     public static List<Reservation> loadReservations() {
         List<Reservation> reservations = new ArrayList<>();
-        
-        System.out.println("DEBUG: Loading reservations from: " + RESERVATIONS_FILE.getAbsolutePath());
-        
+
         if (!RESERVATIONS_FILE.exists()) {
-            System.out.println("No existing reservation database. Starting fresh.");
             return reservations;
         }
-        
+
         try (BufferedReader reader = new BufferedReader(new FileReader(RESERVATIONS_FILE))) {
             String line;
-            int count = 0;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) continue; // Skip empty lines
-                
+
                 Reservation reservation = parseReservation(line);
                 if (reservation != null) {
                     reservations.add(reservation);
-                    count++;
                 }
             }
-            System.out.println("Loaded " + count + " reservations from database.");
         } catch (IOException e) {
-            System.out.println("Error loading reservations: " + e.getMessage());
-            e.printStackTrace();
+            // Error loading reservations
         }
-        
+
         return reservations;
     }
     
@@ -313,10 +284,9 @@ public class FileStorage {
     private static Reservation parseReservation(String line) {
         String[] parts = line.split("\\|", -1); // -1 to keep empty trailing fields
         if (parts.length != 15) {
-            System.out.println("Invalid reservation line (expected 15 parts, got " + parts.length + "): " + line);
             return null;
         }
-        
+
         try {
             int reservationId = Integer.parseInt(parts[0]);
             String studentName = parts[1];
@@ -330,35 +300,32 @@ public class FileStorage {
             String status = parts[9];
             boolean isPaid = Boolean.parseBoolean(parts[10]);
             String paymentMethod = parts[11];
-            String reservationTimeStr = parts[12];
             String completedDateStr = parts[13];
             String reason = parts[14];
-            
+
             // Create reservation using reflection to set private fields
-            Reservation reservation = new Reservation(reservationId, studentName, studentId, course, 
+            Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
                                                       itemCode, itemName, quantity, totalPrice, size);
-            
+
             // Set status and payment info
             reservation.setStatus(status);
             reservation.setPaid(isPaid);
             reservation.setPaymentMethod(paymentMethod);
-            
+
             // Set completed date if exists
             if (!completedDateStr.isEmpty()) {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 LocalDateTime completedDate = LocalDateTime.parse(completedDateStr, formatter);
                 reservation.setCompletedDate(completedDate);
             }
-            
+
             // Set reason if exists
             if (!reason.isEmpty()) {
                 reservation.setReason(reason);
             }
-            
+
             return reservation;
         } catch (Exception e) {
-            System.out.println("Error parsing reservation line: " + line);
-            e.printStackTrace();
             return null;
         }
     }
@@ -384,12 +351,9 @@ public class FileStorage {
             
             // Force file timestamp update
             RESERVATIONS_FILE.setLastModified(System.currentTimeMillis());
-            
-            System.out.println("DEBUG: Reservations saved successfully to " + RESERVATIONS_FILE.getAbsolutePath());
+
             return true;
         } catch (IOException e) {
-            System.out.println("Error saving reservations: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }

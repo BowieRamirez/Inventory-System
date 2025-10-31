@@ -66,56 +66,9 @@ public class StockReturnLogger {
                 
                 out.println(logEntry);
             }
-            
+
         } catch (IOException e) {
-            System.err.println("Error logging stock change: " + e.getMessage());
+            // Error logging stock change
         }
-    }
-    
-    public static void displayStockReturnLogs() {
-        File file = new File(LOG_FILE);
-        
-        if (!file.exists()) {
-            System.out.println("\nNo stock logs found.");
-            return;
-        }
-        
-        System.out.println("\n=== STOCK CHANGE LOGS ===");
-        System.out.println("Timestamp           | Performed By       | Code | Item Name                 | Size | Change | Action        | Details");
-        System.out.println("--------------------|-----------------------|------|---------------------------|------|--------|---------------|--------------------------------");
-        
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String line;
-            boolean isHeader = true;
-            
-            while ((line = br.readLine()) != null) {
-                // Skip header line
-                if (isHeader) {
-                    isHeader = false;
-                    continue;
-                }
-                
-                String[] parts = line.split("\\|");
-                if (parts.length >= 8) {
-                    System.out.printf("%-19s | %-21s | %-4s | %-25s | %-4s | %-6s | %-13s | %-30s\n",
-                        parts[0],  // Timestamp
-                        truncate(parts[1], 21),  // Performed By
-                        parts[2],  // Item Code
-                        truncate(parts[3], 25),  // Item Name
-                        parts[4],  // Size
-                        parts[5],  // Stock Change
-                        parts[6],  // Action
-                        truncate(parts[7], 30)); // Details
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading stock logs: " + e.getMessage());
-        }
-    }
-    
-    private static String truncate(String text, int maxLength) {
-        if (text == null) return "";
-        if (text.length() <= maxLength) return text;
-        return text.substring(0, maxLength - 3) + "...";
     }
 }

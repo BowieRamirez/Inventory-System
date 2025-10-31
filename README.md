@@ -8,6 +8,8 @@ A comprehensive **JavaFX-based inventory management system** for STI ProWear, fe
 ![Maven](https://img.shields.io/badge/Maven-3.9.5-red?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
+> **📌 Note:** This is a **GUI-only** application. The legacy console/CLI version has been removed. All functionality is now accessible through the modern JavaFX interface.
+
 ---
 
 ## 📋 Table of Contents
@@ -237,19 +239,17 @@ The system automatically detects the user role based on credentials. No manual r
 ```
 Inventory-System/
 ├── src/
-│   ├── admin/                    # Admin, Staff, Cashier classes
+│   ├── admin/                    # Admin, Staff, Cashier authentication models
 │   │   ├── Admin.java
-│   │   ├── AdminInterface.java
 │   │   ├── Cashier.java
-│   │   ├── CashierInterface.java
-│   │   ├── Staff.java
-│   │   └── StaffInterface.java
-│   ├── database/                 # Data storage
+│   │   └── Staff.java
+│   ├── database/                 # Data storage (text file database)
 │   │   └── data/
 │   │       ├── items.txt
 │   │       ├── students.txt
 │   │       ├── reservations.txt
-│   │       └── receipts.txt
+│   │       ├── receipts.txt
+│   │       └── stock_logs.txt
 │   ├── gui/                      # JavaFX GUI layer
 │   │   ├── controllers/          # Business logic controllers
 │   │   │   ├── AdminDashboardController.java
@@ -274,14 +274,17 @@ Inventory-System/
 │   ├── inventory/                # Inventory management
 │   │   ├── InventoryManager.java
 │   │   ├── Item.java
+│   │   ├── Receipt.java
+│   │   ├── ReceiptManager.java
 │   │   ├── Reservation.java
 │   │   └── ReservationManager.java
-│   ├── student/                  # Student management
-│   │   ├── Student.java
-│   │   └── StudentInterface.java
+│   ├── student/                  # Student domain model
+│   │   └── Student.java
 │   ├── utils/                    # Core utilities
-│   │   ├── FileStorage.java
-│   │   └── ReceiptManager.java
+│   │   ├── FileStorage.java      # Text file database layer
+│   │   ├── InputValidator.java
+│   │   ├── StockReturnLogger.java
+│   │   └── TermsAndConditions.java
 │   └── user/                     # User base classes
 │       └── User.java
 ├── pom.xml                       # Maven configuration

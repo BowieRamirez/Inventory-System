@@ -5,6 +5,7 @@ import inventory.ReservationManager;
 import inventory.Item;
 import inventory.Reservation;
 import student.Student;
+import utils.FileStorage;
 import gui.utils.AlertHelper;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
@@ -196,10 +197,83 @@ public class StudentDashboardController {
      * Handle reserve item
      */
     private void handleReserveItem(Item item) {
-        AlertHelper.showInfo("Reserve Item", 
-            "Reservation feature coming soon!\n\n" +
-            "Item: " + item.getName() + "\n" +
-            "Price: ₱" + String.format("%.2f", item.getPrice()));
+        // Create reservation dialog
+        Dialog<Reservation> dialog = new Dialog<>();
+        dialog.setTitle("Reserve Item");
+        dialog.setHeaderText("Reserve: " + item.getName());
+
+        ButtonType reserveButtonType = new ButtonType("Reserve", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(reserveButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        // Show item details
+        Label itemLabel = new Label(item.getName());
+        itemLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        Label priceLabel = new Label("Price: ₱" + String.format("%.2f", item.getPrice()));
+        Label sizeLabel = new Label("Size: " + item.getSize());
+        Label stockLabel = new Label("Available: " + item.getQuantity());
+
+        // Quantity selector
+        Spinner<Integer> qtySpinner = new Spinner<>(1, item.getQuantity(), 1);
+        qtySpinner.setEditable(true);
+
+        // Total price label
+        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", item.getPrice()));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
+        // Update total when quantity changes
+        qtySpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            double total = item.getPrice() * newVal;
+            totalLabel.setText("Total: ₱" + String.format("%.2f", total));
+        });
+
+        grid.add(itemLabel, 0, 0, 2, 1);
+        grid.add(priceLabel, 0, 1);
+        grid.add(sizeLabel, 1, 1);
+        grid.add(stockLabel, 0, 2, 2, 1);
+        grid.add(new Label("Quantity:"), 0, 3);
+        grid.add(qtySpinner, 1, 3);
+        grid.add(totalLabel, 0, 4, 2, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == reserveButtonType) {
+                int quantity = qtySpinner.getValue();
+                double totalPrice = item.getPrice() * quantity;
+
+                // Create reservation
+                Reservation reservation = reservationManager.createReservation(
+                    student.getFullName(),
+                    student.getStudentId(),
+                    student.getCourse(),
+                    item.getCode(),
+                    item.getName(),
+                    item.getSize(),
+                    quantity,
+                    totalPrice
+                );
+
+                return reservation;
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(reservation -> {
+            if (reservation != null) {
+                AlertHelper.showSuccess("Success",
+                    "Reservation created successfully!\n\n" +
+                    "Reservation ID: " + reservation.getReservationId() + "\n" +
+                    "Status: " + reservation.getStatus() + "\n\n" +
+                    "Please wait for admin approval.");
+            } else {
+                AlertHelper.showError("Error", "Failed to create reservation. Item may be out of stock.");
+            }
+        });
     }
     
     /**
@@ -305,12 +379,147 @@ public class StudentDashboardController {
     public Node createProfileView() {
         VBox container = new VBox(20);
         container.setPadding(new Insets(20));
-        
-        Label label = new Label("Profile (Implementation coming next)");
-        label.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
-        
-        container.getChildren().add(label);
+
+        // Profile card
+        VBox profileCard = new VBox(15);
+        profileCard.setPadding(new Insets(30));
+        profileCard.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 12px;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-radius: 12px;" +
+            "-fx-border-width: 1px;"
+        );
+        profileCard.setMaxWidth(600);
+
+        // Title
+        Label titleLabel = new Label("My Profile");
+        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+
+        // Profile info
+        GridPane infoGrid = new GridPane();
+        infoGrid.setHgap(20);
+        infoGrid.setVgap(15);
+        infoGrid.setPadding(new Insets(20, 0, 0, 0));
+
+        Label idLabel = new Label("Student ID:");
+        idLabel.setStyle("-fx-font-weight: bold;");
+        Label idValue = new Label(student.getStudentId());
+
+        Label nameLabel = new Label("Name:");
+        nameLabel.setStyle("-fx-font-weight: bold;");
+        Label nameValue = new Label(student.getFullName());
+
+        Label courseLabel = new Label("Course:");
+        courseLabel.setStyle("-fx-font-weight: bold;");
+        Label courseValue = new Label(student.getCourse());
+
+        Label genderLabel = new Label("Gender:");
+        genderLabel.setStyle("-fx-font-weight: bold;");
+        Label genderValue = new Label(student.getGender());
+
+        Label statusLabel = new Label("Status:");
+        statusLabel.setStyle("-fx-font-weight: bold;");
+        Label statusValue = new Label(student.getAccountStatus());
+        statusValue.setStyle(student.isActive() ? "-fx-text-fill: #1A7F37;" : "-fx-text-fill: #CF222E;");
+
+        infoGrid.add(idLabel, 0, 0);
+        infoGrid.add(idValue, 1, 0);
+        infoGrid.add(nameLabel, 0, 1);
+        infoGrid.add(nameValue, 1, 1);
+        infoGrid.add(courseLabel, 0, 2);
+        infoGrid.add(courseValue, 1, 2);
+        infoGrid.add(genderLabel, 0, 3);
+        infoGrid.add(genderValue, 1, 3);
+        infoGrid.add(statusLabel, 0, 4);
+        infoGrid.add(statusValue, 1, 4);
+
+        // Change password button
+        Button changePasswordBtn = new Button("Change Password");
+        changePasswordBtn.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 13px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;" +
+            "-fx-padding: 10 20;"
+        );
+        changePasswordBtn.setOnAction(e -> handleChangePassword());
+
+        HBox buttonBox = new HBox(changePasswordBtn);
+        buttonBox.setPadding(new Insets(20, 0, 0, 0));
+
+        profileCard.getChildren().addAll(titleLabel, infoGrid, buttonBox);
+
+        container.getChildren().add(profileCard);
         return container;
+    }
+
+    /**
+     * Handle change password
+     */
+    private void handleChangePassword() {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Change Password");
+        dialog.setHeaderText("Enter your new password");
+
+        ButtonType changeButtonType = new ButtonType("Change", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(changeButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        PasswordField currentPasswordField = new PasswordField();
+        currentPasswordField.setPromptText("Current Password");
+        PasswordField newPasswordField = new PasswordField();
+        newPasswordField.setPromptText("New Password");
+        PasswordField confirmPasswordField = new PasswordField();
+        confirmPasswordField.setPromptText("Confirm New Password");
+
+        grid.add(new Label("Current Password:"), 0, 0);
+        grid.add(currentPasswordField, 1, 0);
+        grid.add(new Label("New Password:"), 0, 1);
+        grid.add(newPasswordField, 1, 1);
+        grid.add(new Label("Confirm Password:"), 0, 2);
+        grid.add(confirmPasswordField, 1, 2);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == changeButtonType) {
+                String current = currentPasswordField.getText();
+                String newPass = newPasswordField.getText();
+                String confirm = confirmPasswordField.getText();
+
+                if (!current.equals(student.getPassword())) {
+                    AlertHelper.showError("Error", "Current password is incorrect");
+                    return null;
+                }
+
+                if (newPass.isEmpty() || newPass.length() < 6) {
+                    AlertHelper.showError("Error", "New password must be at least 6 characters");
+                    return null;
+                }
+
+                if (!newPass.equals(confirm)) {
+                    AlertHelper.showError("Error", "Passwords do not match");
+                    return null;
+                }
+
+                return newPass;
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(newPassword -> {
+            student.setPassword(newPassword);
+            List<Student> students = FileStorage.loadStudents();
+            FileStorage.updateStudent(students, student);
+            AlertHelper.showSuccess("Success", "Password changed successfully!");
+        });
     }
     
     /**
