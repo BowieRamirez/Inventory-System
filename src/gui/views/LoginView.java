@@ -36,47 +36,73 @@ public class LoginView {
         view = new VBox(20);
         view.setAlignment(Pos.CENTER);
         view.setPadding(new Insets(50));
-        view.setStyle("-fx-background-color: -color-bg-default;");
+        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
+        view.setStyle("-fx-background-color: " + bgColor + ";");
         
         // Login card container
         VBox loginCard = new VBox(20);
         loginCard.setAlignment(Pos.CENTER);
         loginCard.setPadding(new Insets(40));
         loginCard.setMaxWidth(450);
+        String cardBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "white";
         loginCard.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-color: " + cardBg + ";" +
             "-fx-background-radius: 12px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);"
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 3);"
         );
         
         // Title
         Label titleLabel = new Label("STI ProWear System");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
-        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#0969DA";
+        titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
         
         // Subtitle
         Label subtitleLabel = new Label("Modern Inventory Management");
         subtitleLabel.setFont(Font.font("System", 14));
-        subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "#656D76";
+        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + ";");
         
         // Username/Student ID field
         VBox usernameBox = new VBox(8);
         Label usernameLabel = new Label("Username / Student ID");
-        usernameLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
+        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
+        usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
         usernameField = new TextField();
         usernameField.setPromptText("Enter username or student ID");
         usernameField.setPrefHeight(40);
-        usernameField.setStyle("-fx-font-size: 14px;");
+        String fieldBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "white";
+        String fieldText = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
+        String fieldBorder = ThemeManager.isDarkMode() ? "-color-border-default" : "#D0D7DE";
+        usernameField.setStyle(
+            "-fx-font-size: 14px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: " + fieldBorder + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-padding: 8px;"
+        );
         usernameBox.getChildren().addAll(usernameLabel, usernameField);
         
         // Password field
         VBox passwordBox = new VBox(8);
         Label passwordLabel = new Label("Password");
-        passwordLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
+        passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
         passwordField = new PasswordField();
         passwordField.setPromptText("Enter password");
         passwordField.setPrefHeight(40);
-        passwordField.setStyle("-fx-font-size: 14px;");
+        passwordField.setStyle(
+            "-fx-font-size: 14px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: " + fieldBorder + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-padding: 8px;"
+        );
         passwordBox.getChildren().addAll(passwordLabel, passwordField);
 
         // Buttons container
@@ -185,6 +211,85 @@ public class LoginView {
     private void toggleTheme() {
         ThemeManager.toggleLightDark();
         themeToggleButton.setText(ThemeManager.isDarkMode() ? "☀ Light Mode" : "🌙 Dark Mode");
+        updateTheme();
+    }
+    
+    /**
+     * Update all theme-dependent colors
+     */
+    private void updateTheme() {
+        // Update main background
+        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
+        view.setStyle("-fx-background-color: " + bgColor + ";");
+        
+        // Update login card
+        VBox loginCard = (VBox) view.getChildren().get(0);
+        String cardBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "white";
+        loginCard.setStyle(
+            "-fx-background-color: " + cardBg + ";" +
+            "-fx-background-radius: 12px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 3);"
+        );
+        
+        // Update title
+        Label titleLabel = (Label) loginCard.getChildren().get(0);
+        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#0969DA";
+        titleLabel.setStyle("-fx-text-fill: " + titleColor + "; -fx-font-size: 28px; -fx-font-weight: bold;");
+        
+        // Update subtitle
+        Label subtitleLabel = (Label) loginCard.getChildren().get(1);
+        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "#656D76";
+        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 14px;");
+        
+        // Update labels
+        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
+        VBox usernameBox = (VBox) loginCard.getChildren().get(3);
+        Label usernameLabel = (Label) usernameBox.getChildren().get(0);
+        usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
+        
+        VBox passwordBox = (VBox) loginCard.getChildren().get(4);
+        Label passwordLabel = (Label) passwordBox.getChildren().get(0);
+        passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
+        
+        // Update text fields
+        String fieldBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "white";
+        String fieldText = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
+        String fieldBorder = ThemeManager.isDarkMode() ? "-color-border-default" : "#D0D7DE";
+        usernameField.setStyle(
+            "-fx-font-size: 14px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: " + fieldBorder + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-padding: 8px;"
+        );
+        passwordField.setStyle(
+            "-fx-font-size: 14px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: " + fieldBorder + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-padding: 8px;"
+        );
+        
+        // Update signup button
+        String signupBorder = ThemeManager.isDarkMode() ? "-color-accent-fg" : "#0969DA";
+        String signupText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "#0969DA";
+        signupButton.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-border-color: " + signupBorder + ";" +
+            "-fx-border-width: 2px;" +
+            "-fx-text-fill: " + signupText + ";" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-cursor: hand;"
+        );
     }
     
     /**

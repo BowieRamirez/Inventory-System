@@ -48,6 +48,22 @@ public class ReservationManager {
         saveReservations();
         return reservation;
     }
+    
+    // Create reservation with bundleId
+    public Reservation createReservation(String studentName, String studentId, String course,
+                                         int itemCode, String itemName, String size,
+                                         int quantity, double totalPrice, String bundleId) {
+        boolean available = inventoryManager.reserveItem(itemCode, size, quantity);
+        if (!available) {
+            return null;
+        }
+
+        Reservation reservation = new Reservation(nextReservationId++, studentName, studentId,
+                                                   course, itemCode, itemName, quantity, totalPrice, size, bundleId);
+        reservations.add(reservation);
+        saveReservations();
+        return reservation;
+    }
 
     public boolean approveReservation(int reservationId, String size) {
         Reservation r = findReservationById(reservationId);

@@ -19,6 +19,7 @@ import javafx.geometry.Pos;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -31,12 +32,37 @@ public class StudentDashboardController {
     private ReservationManager reservationManager;
     private ReceiptManager receiptManager;
     private Runnable refreshCallback;
+    private List<CartItem> cart;  // Shopping cart for bundle purchases with quantities
+    private Runnable cartUpdateCallback;  // Callback to update cart badge
+
+    /**
+     * Inner class to represent an item in the cart with its quantity
+     */
+    private static class CartItem {
+        private Item item;
+        private int quantity;
+        
+        public CartItem(Item item, int quantity) {
+            this.item = item;
+            this.quantity = quantity;
+        }
+        
+        public Item getItem() { return item; }
+        public int getQuantity() { return quantity; }
+        @SuppressWarnings("unused")
+        public void setQuantity(int quantity) { this.quantity = quantity; }
+        
+        public double getTotalPrice() {
+            return item.getPrice() * quantity;
+        }
+    }
 
     public StudentDashboardController(Student student) {
         this.student = student;
         inventoryManager = new InventoryManager();
         reservationManager = new ReservationManager(inventoryManager);
         receiptManager = new ReceiptManager();
+        cart = new java.util.ArrayList<>();
 
         // Link receipt manager to reservation manager for synchronization
         reservationManager.setReceiptManager(receiptManager);
@@ -61,7 +87,7 @@ public class StudentDashboardController {
         welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
         welcomeLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
-        Label subtitleLabel = new Label("Browse available items for " + student.getCourse());
+        Label subtitleLabel = new Label("Browse available uniforms and specials for " + student.getCourse());
         subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
         
         // Filter bar
@@ -71,10 +97,15 @@ public class StudentDashboardController {
         Label filterLabel = new Label("Filter:");
         filterLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
         
-        ComboBox<String> courseFilter = new ComboBox<>();
-        courseFilter.getItems().addAll("All Courses", student.getCourse());
-        courseFilter.setValue(student.getCourse());
-        courseFilter.setPrefWidth(150);
+        ComboBox<String> categoryFilter = new ComboBox<>();
+        categoryFilter.getItems().addAll("All Items", "Uniforms", "Specials");
+        categoryFilter.setValue("All Items");
+        categoryFilter.setPrefWidth(150);
+        
+        ComboBox<String> genderFilter = new ComboBox<>();
+        genderFilter.getItems().addAll("All Genders", "Male", "Female", "Unisex");
+        genderFilter.setValue("All Genders");
+        genderFilter.setPrefWidth(150);
         
         ComboBox<String> sizeFilter = new ComboBox<>();
         sizeFilter.getItems().addAll("All Sizes", "XS", "S", "M", "L", "XL", "XXL", "One Size");
@@ -84,7 +115,7 @@ public class StudentDashboardController {
         Button searchBtn = new Button("🔍 Search");
         styleActionButton(searchBtn, "#0969DA");
         
-        filterBar.getChildren().addAll(filterLabel, courseFilter, sizeFilter, searchBtn);
+        filterBar.getChildren().addAll(filterLabel, categoryFilter, genderFilter, sizeFilter, searchBtn);
         
         // Items grid
         ScrollPane scrollPane = new ScrollPane();
@@ -94,19 +125,81 @@ public class StudentDashboardController {
         FlowPane itemsGrid = new FlowPane(20, 20);
         itemsGrid.setPadding(new Insets(10));
         
-        // Get items for student's course
-        List<Item> items = inventoryManager.getItemsByCourse(student.getCourse());
+        // Get items for student's course (uniforms) and STI Special items
+        List<Item> allItems = inventoryManager.getItemsByCourse(student.getCourse());
+        List<Item> specialItems = inventoryManager.getItemsByCourse("STI Special");
+        allItems.addAll(specialItems);
         
-        if (items.isEmpty()) {
+        // Display all items initially
+        List<Item> displayItems = allItems;
+        
+        if (displayItems.isEmpty()) {
             Label noItems = new Label("No items available for your course yet.");
             noItems.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
             itemsGrid.getChildren().add(noItems);
         } else {
-            for (Item item : items) {
+            for (Item item : displayItems) {
                 VBox itemCard = createItemCard(item);
                 itemsGrid.getChildren().add(itemCard);
             }
         }
+        
+        // Filter method
+        Runnable applyFilters = () -> {
+            String selectedCategory = categoryFilter.getValue();
+            String selectedGender = genderFilter.getValue();
+            String selectedSize = sizeFilter.getValue();
+            
+            List<Item> filteredItems = allItems.stream()
+                .filter(item -> {
+                    // Category filter
+                    boolean categoryMatch = true;
+                    if (selectedCategory != null && selectedCategory.equals("Uniforms")) {
+                        categoryMatch = item.getCourse().equals(student.getCourse());
+                    } else if (selectedCategory != null && selectedCategory.equals("Specials")) {
+                        categoryMatch = item.getCourse().equals("STI Special");
+                    }
+                    
+                    // Gender filter
+                    boolean genderMatch = true;
+                    if (selectedGender != null && !selectedGender.equals("All Genders")) {
+                        if (selectedGender.equals("Male")) {
+                            genderMatch = item.getName().contains("(Male)");
+                        } else if (selectedGender.equals("Female")) {
+                            genderMatch = item.getName().contains("(Female)");
+                        } else if (selectedGender.equals("Unisex")) {
+                            genderMatch = !item.getName().contains("(Male)") && !item.getName().contains("(Female)");
+                        }
+                    }
+                    
+                    // Size filter
+                    boolean sizeMatch = selectedSize == null || selectedSize.equals("All Sizes") || item.getSize().equals(selectedSize);
+                    
+                    return categoryMatch && genderMatch && sizeMatch;
+                })
+                .collect(Collectors.toList());
+            
+            // Update grid
+            itemsGrid.getChildren().clear();
+            if (filteredItems.isEmpty()) {
+                Label noItems = new Label("No items found matching your filters.");
+                noItems.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+                itemsGrid.getChildren().add(noItems);
+            } else {
+                for (Item item : filteredItems) {
+                    VBox itemCard = createItemCard(item);
+                    itemsGrid.getChildren().add(itemCard);
+                }
+            }
+        };
+        
+        // Search/Filter button action
+        searchBtn.setOnAction(e -> applyFilters.run());
+        
+        // Real-time filtering when ComboBox selection changes
+        categoryFilter.setOnAction(e -> applyFilters.run());
+        genderFilter.setOnAction(e -> applyFilters.run());
+        sizeFilter.setOnAction(e -> applyFilters.run());
         
         scrollPane.setContent(itemsGrid);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
@@ -148,6 +241,17 @@ public class StudentDashboardController {
         Label codeLabel = new Label("Code: " + item.getCode());
         codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
         
+        // Category badge
+        Label categoryLabel = new Label(item.getCourse().equals("STI Special") ? "🎉 Special" : "👕 Uniform");
+        categoryLabel.setStyle(
+            "-fx-background-color: " + (item.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
+            "-fx-text-fill: " + (item.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
+            "-fx-padding: 4 8 4 8;" +
+            "-fx-background-radius: 12px;" +
+            "-fx-font-size: 11px;" +
+            "-fx-font-weight: bold;"
+        );
+        
         Label sizeLabel = new Label("Size: " + item.getSize());
         sizeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
         
@@ -168,9 +272,39 @@ public class StudentDashboardController {
             stockLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 12px;");
         }
         
-        // Reserve button
+        // Buttons
+        HBox buttonBox = new HBox(8);
+        buttonBox.setAlignment(Pos.CENTER);
+        
+        // Add to Cart button
+        Button addToCartBtn = new Button("🛒 Add");
+        addToCartBtn.setPrefWidth(100);
+        addToCartBtn.setPrefHeight(35);
+        addToCartBtn.setDisable(item.getQuantity() == 0);
+        
+        if (item.getQuantity() > 0) {
+            addToCartBtn.setStyle(
+                "-fx-background-color: #0969DA;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+        } else {
+            addToCartBtn.setStyle(
+                "-fx-background-color: #6E7781;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 12px;" +
+                "-fx-background-radius: 6px;"
+            );
+        }
+        
+        addToCartBtn.setOnAction(e -> handleAddToCart(item));
+        
+        // Reserve Now button (single item)
         Button reserveBtn = new Button("Reserve");
-        reserveBtn.setMaxWidth(Double.MAX_VALUE);
+        reserveBtn.setPrefWidth(100);
         reserveBtn.setPrefHeight(35);
         reserveBtn.setDisable(item.getQuantity() == 0);
         
@@ -178,7 +312,7 @@ public class StudentDashboardController {
             reserveBtn.setStyle(
                 "-fx-background-color: #0969DA;" +
                 "-fx-text-fill: white;" +
-                "-fx-font-size: 13px;" +
+                "-fx-font-size: 12px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 6px;" +
                 "-fx-cursor: hand;"
@@ -187,24 +321,134 @@ public class StudentDashboardController {
             reserveBtn.setStyle(
                 "-fx-background-color: #6E7781;" +
                 "-fx-text-fill: white;" +
-                "-fx-font-size: 13px;" +
+                "-fx-font-size: 12px;" +
                 "-fx-background-radius: 6px;"
             );
         }
         
         reserveBtn.setOnAction(e -> handleReserveItem(item));
         
+        buttonBox.getChildren().addAll(addToCartBtn, reserveBtn);
+        
         card.getChildren().addAll(
             nameLabel,
+            categoryLabel,
             codeLabel,
             sizeLabel,
             new Separator(),
             priceLabel,
             stockLabel,
-            reserveBtn
+            buttonBox
         );
         
         return card;
+    }
+    
+    /**
+     * Handle add to cart
+     */
+    private void handleAddToCart(Item item) {
+        if (item.getQuantity() == 0) {
+            AlertHelper.showError("Out of Stock", "This item is currently out of stock.");
+            return;
+        }
+        
+        // Check if item already in cart
+        boolean alreadyInCart = cart.stream()
+            .anyMatch(cartItem -> cartItem.getItem().getCode() == item.getCode() && 
+                                 cartItem.getItem().getSize().equals(item.getSize()));
+        
+        if (alreadyInCart) {
+            AlertHelper.showWarning("Already in Cart", 
+                "This item is already in your cart!");
+            return;
+        }
+        
+        // Show quantity selection dialog
+        Dialog<Integer> dialog = new Dialog<>();
+        dialog.setTitle("Add to Cart");
+        dialog.setHeaderText("Add to Cart: " + item.getName() + " (" + item.getSize() + ")");
+
+        ButtonType addButtonType = new ButtonType("Add to Cart", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        // Show item details
+        Label priceLabel = new Label("Price: ₱" + String.format("%.2f", item.getPrice()));
+        priceLabel.setStyle("-fx-font-size: 13px;");
+        Label stockLabel = new Label("Available: " + item.getQuantity());
+        stockLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: -color-fg-muted;");
+
+        // Quantity spinner
+        Spinner<Integer> qtySpinner = new Spinner<>(1, item.getQuantity(), 1);
+        qtySpinner.setEditable(true);
+        qtySpinner.setPrefWidth(100);
+
+        // Total price label
+        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", item.getPrice()));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
+        // Update total when quantity changes
+        qtySpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            double total = item.getPrice() * newVal;
+            totalLabel.setText("Total: ₱" + String.format("%.2f", total));
+        });
+
+        grid.add(priceLabel, 0, 0);
+        grid.add(stockLabel, 0, 1);
+        grid.add(new Label("Quantity:"), 0, 2);
+        grid.add(qtySpinner, 1, 2);
+        grid.add(totalLabel, 0, 3, 2, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == addButtonType) {
+                return qtySpinner.getValue();
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(quantity -> {
+            CartItem cartItem = new CartItem(item, quantity);
+            cart.add(cartItem);
+            AlertHelper.showSuccess("Added to Cart", 
+                quantity + "x " + item.getName() + " (" + item.getSize() + ") added to cart!\n" +
+                "Cart items: " + cart.size());
+            
+            // Update cart badge if callback is set
+            if (cartUpdateCallback != null) {
+                cartUpdateCallback.run();
+            }
+        });
+    }
+    
+    /**
+     * Get cart size
+     */
+    public int getCartSize() {
+        return cart.size();
+    }
+    
+    /**
+     * Set cart update callback
+     */
+    public void setCartUpdateCallback(Runnable callback) {
+        this.cartUpdateCallback = callback;
+    }
+    
+    /**
+     * Clear cart
+     */
+    public void clearCart() {
+        cart.clear();
+        if (cartUpdateCallback != null) {
+            cartUpdateCallback.run();
+        }
     }
     
     /**
@@ -291,6 +535,313 @@ public class StudentDashboardController {
     }
     
     /**
+     * Create cart view - shows all items in cart for bundle purchase
+     */
+    public Node createCartView() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(20));
+        
+        Label titleLabel = new Label("🛒 Shopping Cart");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        if (cart.isEmpty()) {
+            VBox emptyBox = new VBox(15);
+            emptyBox.setAlignment(Pos.CENTER);
+            emptyBox.setPadding(new Insets(50));
+            
+            Label emptyLabel = new Label("🛒 Your cart is empty");
+            emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+            emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+            
+            Label hintLabel = new Label("Add items to your cart from the Shop to reserve multiple items at once!");
+            hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+            hintLabel.setWrapText(true);
+            hintLabel.setMaxWidth(400);
+            hintLabel.setAlignment(Pos.CENTER);
+            
+            emptyBox.getChildren().addAll(emptyLabel, hintLabel);
+            container.getChildren().addAll(titleLabel, emptyBox);
+        } else {
+            // Cart items list
+            VBox cartItemsList = new VBox(15);
+            double totalPrice = 0;
+            int totalQuantity = 0;
+            
+            for (CartItem cartItem : cart) {
+                HBox itemRow = createCartItemRow(cartItem);
+                cartItemsList.getChildren().add(itemRow);
+                totalPrice += cartItem.getTotalPrice();
+                totalQuantity += cartItem.getQuantity();
+            }
+            
+            ScrollPane scrollPane = new ScrollPane(cartItemsList);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+            VBox.setVgrow(scrollPane, Priority.ALWAYS);
+            
+            // Summary panel
+            VBox summaryPanel = new VBox(15);
+            summaryPanel.setPadding(new Insets(20));
+            summaryPanel.setStyle(
+                "-fx-background-color: -color-bg-subtle;" +
+                "-fx-background-radius: 8px;" +
+                "-fx-border-color: -color-border-default;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 8px;"
+            );
+            
+            Label summaryTitle = new Label("Order Summary");
+            summaryTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
+            summaryTitle.setStyle("-fx-text-fill: -color-fg-default;");
+            
+            HBox itemsCount = new HBox();
+            itemsCount.setAlignment(Pos.CENTER_LEFT);
+            Label itemsLabel = new Label("Items:");
+            itemsLabel.setStyle("-fx-text-fill: -color-fg-default;");
+            Region spacer1 = new Region();
+            HBox.setHgrow(spacer1, Priority.ALWAYS);
+            Label itemsValue = new Label(cart.size() + " type(s), " + totalQuantity + " item(s) total");
+            itemsValue.setStyle("-fx-text-fill: -color-fg-muted;");
+            itemsCount.getChildren().addAll(itemsLabel, spacer1, itemsValue);
+            
+            HBox totalRow = new HBox();
+            totalRow.setAlignment(Pos.CENTER_LEFT);
+            Label totalLabel = new Label("Total:");
+            totalLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+            totalLabel.setStyle("-fx-text-fill: -color-fg-default;");
+            Region spacer2 = new Region();
+            HBox.setHgrow(spacer2, Priority.ALWAYS);
+            Label totalValue = new Label("₱" + String.format("%.2f", totalPrice));
+            totalValue.setFont(Font.font("System", FontWeight.BOLD, 20));
+            totalValue.setStyle("-fx-text-fill: #1A7F37;");
+            totalRow.getChildren().addAll(totalLabel, spacer2, totalValue);
+            
+            HBox buttonBox = new HBox(10);
+            buttonBox.setAlignment(Pos.CENTER);
+            
+            Button clearBtn = new Button("Clear Cart");
+            clearBtn.setPrefWidth(150);
+            clearBtn.setPrefHeight(40);
+            clearBtn.setStyle(
+                "-fx-background-color: transparent;" +
+                "-fx-border-color: #CF222E;" +
+                "-fx-border-width: 2px;" +
+                "-fx-text-fill: #CF222E;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-border-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+            clearBtn.setOnAction(e -> {
+                clearCart();
+                // Refresh cart view
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
+            });
+            
+            Button reserveAllBtn = new Button("Reserve Bundle");
+            reserveAllBtn.setPrefWidth(200);
+            reserveAllBtn.setPrefHeight(40);
+            reserveAllBtn.setStyle(
+                "-fx-background-color: #0969DA;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+            reserveAllBtn.setOnAction(e -> handleReserveBundle());
+            
+            buttonBox.getChildren().addAll(clearBtn, reserveAllBtn);
+            
+            summaryPanel.getChildren().addAll(
+                summaryTitle,
+                new Separator(),
+                itemsCount,
+                totalRow,
+                new Separator(),
+                buttonBox
+            );
+            
+            container.getChildren().addAll(titleLabel, scrollPane, summaryPanel);
+        }
+        
+        return container;
+    }
+    
+    /**
+     * Create cart item row
+     */
+    private HBox createCartItemRow(CartItem cartItem) {
+        HBox row = new HBox(15);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(15));
+        row.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 8px;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 8px;"
+        );
+        
+        Item item = cartItem.getItem();
+        
+        VBox itemInfo = new VBox(5);
+        Label nameLabel = new Label(item.getName());
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        nameLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        Label detailsLabel = new Label("Code: " + item.getCode() + " | Size: " + item.getSize());
+        detailsLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        
+        Label qtyLabel = new Label("Quantity: " + cartItem.getQuantity() + "x");
+        qtyLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        itemInfo.getChildren().addAll(nameLabel, detailsLabel, qtyLabel);
+        HBox.setHgrow(itemInfo, Priority.ALWAYS);
+        
+        VBox priceBox = new VBox(3);
+        priceBox.setAlignment(Pos.CENTER_RIGHT);
+        
+        Label unitPriceLabel = new Label("₱" + String.format("%.2f", item.getPrice()) + " each");
+        unitPriceLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
+        
+        Label totalPriceLabel = new Label("₱" + String.format("%.2f", cartItem.getTotalPrice()));
+        totalPriceLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
+        totalPriceLabel.setStyle("-fx-text-fill: #1A7F37;");
+        
+        priceBox.getChildren().addAll(unitPriceLabel, totalPriceLabel);
+        
+        Button removeBtn = new Button("✕");
+        removeBtn.setStyle(
+            "-fx-background-color: #CF222E;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 15px;" +
+            "-fx-min-width: 30px;" +
+            "-fx-min-height: 30px;" +
+            "-fx-cursor: hand;"
+        );
+        removeBtn.setOnAction(e -> {
+            cart.remove(cartItem);
+            if (cartUpdateCallback != null) {
+                cartUpdateCallback.run();
+            }
+            // Refresh cart view
+            if (refreshCallback != null) {
+                refreshCallback.run();
+            }
+        });
+        
+        row.getChildren().addAll(itemInfo, priceBox, removeBtn);
+        return row;
+    }
+    
+    /**
+     * Handle reserve bundle (all cart items)
+     */
+    private void handleReserveBundle() {
+        if (cart.isEmpty()) {
+            AlertHelper.showWarning("Empty Cart", "Your cart is empty!");
+            return;
+        }
+        
+        // Check if all items are still in stock with requested quantities
+        for (CartItem cartItem : cart) {
+            Item item = cartItem.getItem();
+            int requestedQty = cartItem.getQuantity();
+            
+            // Check by finding item in inventory list
+            List<Item> courseItems = inventoryManager.getItemsByCourse(item.getCourse());
+            boolean found = false;
+            int availableQty = 0;
+            
+            for (Item invItem : courseItems) {
+                if (invItem.getCode() == item.getCode() && 
+                    invItem.getSize().equals(item.getSize())) {
+                    availableQty = invItem.getQuantity();
+                    if (availableQty >= requestedQty) {
+                        found = true;
+                    }
+                    break;
+                }
+            }
+            
+            if (!found) {
+                AlertHelper.showError("Insufficient Stock", 
+                    item.getName() + " (Size: " + item.getSize() + ")\n" +
+                    "Requested: " + requestedQty + "x\n" +
+                    "Available: " + availableQty + "x\n\n" +
+                    "Please adjust the quantity or remove it from your cart.");
+                return;
+            }
+        }
+        
+        // Generate unique bundle ID for this bundle purchase
+        String bundleId = "BUNDLE-" + student.getStudentId() + "-" + System.currentTimeMillis();
+        
+        // Create reservations for all cart items with the same bundleId
+        int successCount = 0;
+        int totalItems = 0;
+        StringBuilder results = new StringBuilder();
+        results.append("Bundle Reservation Results:\n\n");
+        
+        for (CartItem cartItem : cart) {
+            Item item = cartItem.getItem();
+            int quantity = cartItem.getQuantity();
+            double totalPrice = cartItem.getTotalPrice();
+            
+            Reservation reservation = reservationManager.createReservation(
+                student.getFullName(),
+                student.getStudentId(),
+                student.getCourse(),
+                item.getCode(),
+                item.getName(),
+                item.getSize(),
+                quantity,
+                totalPrice,
+                bundleId  // Pass the bundleId
+            );
+            
+            if (reservation != null) {
+                successCount++;
+                totalItems += quantity;
+                results.append("✓ ").append(quantity).append("x ").append(item.getName())
+                       .append(" (").append(item.getSize()).append(")")
+                       .append(" - ID: ").append(reservation.getReservationId())
+                       .append("\n");
+            } else {
+                results.append("✗ ").append(quantity).append("x ").append(item.getName())
+                       .append(" - Failed\n");
+            }
+        }
+        
+        if (successCount > 0) {
+            AlertHelper.showSuccess("Bundle Reserved!", 
+                results.toString() + "\n" +
+                successCount + " type(s) of items, " + totalItems + " total items reserved!\n" +
+                "Bundle ID: " + bundleId + "\n" +
+                "Status: Pending Approval\n\n" +
+                "Please wait for admin approval.");
+            
+            // Clear cart after successful reservation
+            clearCart();
+            
+            // Refresh views
+            if (refreshCallback != null) {
+                refreshCallback.run();
+            }
+        } else {
+            AlertHelper.showError("Reservation Failed", 
+                "Failed to reserve any items. Please try again.");
+        }
+    }
+    
+    /**
      * Create my reservations view
      */
     public Node createMyReservationsView() {
@@ -301,12 +852,18 @@ public class StudentDashboardController {
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
         titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
-        // Get student's reservations
-        List<Reservation> myReservations = reservationManager.getAllReservations().stream()
+        // Reload reservations from file to ensure we have latest data
+        List<Reservation> allReservations = FileStorage.loadReservations();
+        
+        // Get student's reservations and deduplicate bundles
+        List<Reservation> myReservations = allReservations.stream()
             .filter(r -> r.getStudentId().equals(student.getStudentId()))
             .collect(Collectors.toList());
         
-        if (myReservations.isEmpty()) {
+        // Deduplicate bundles - show only one card per bundle
+        List<Reservation> deduplicatedReservations = getDeduplicatedReservations(myReservations);
+        
+        if (deduplicatedReservations.isEmpty()) {
             VBox emptyBox = new VBox(20);
             emptyBox.setAlignment(Pos.CENTER);
             emptyBox.setPadding(new Insets(50));
@@ -323,7 +880,7 @@ public class StudentDashboardController {
         } else {
             VBox reservationsList = new VBox(15);
             
-            for (Reservation r : myReservations) {
+            for (Reservation r : deduplicatedReservations) {
                 VBox reservationCard = createReservationCard(r);
                 reservationsList.getChildren().add(reservationCard);
             }
@@ -337,6 +894,28 @@ public class StudentDashboardController {
         }
         
         return container;
+    }
+    
+    /**
+     * Deduplicate bundle reservations - show only one card per bundle
+     */
+    private List<Reservation> getDeduplicatedReservations(List<Reservation> reservations) {
+        List<Reservation> deduplicated = new ArrayList<>();
+        java.util.Set<String> seenBundles = new java.util.HashSet<>();
+        
+        for (Reservation r : reservations) {
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                if (!seenBundles.contains(bundleId)) {
+                    seenBundles.add(bundleId);
+                    deduplicated.add(r); // Add only first occurrence of bundle
+                }
+            } else {
+                deduplicated.add(r); // Add non-bundle reservations
+            }
+        }
+        
+        return deduplicated;
     }
     
     /**
@@ -356,7 +935,9 @@ public class StudentDashboardController {
         HBox header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
 
-        Label idLabel = new Label("Reservation #" + r.getReservationId());
+        // Show bundle ID or reservation ID
+        String orderId = r.isPartOfBundle() ? r.getBundleId() : "Reservation #" + r.getReservationId();
+        Label idLabel = new Label(orderId);
         idLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         idLabel.setStyle("-fx-text-fill: -color-fg-default;");
 
@@ -375,20 +956,72 @@ public class StudentDashboardController {
 
         header.getChildren().addAll(idLabel, spacer, statusLabel);
 
-        Label itemLabel = new Label(r.getItemName() + " - " + r.getSize());
-        itemLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
+        // Show bundle info or single item info
+        VBox itemsBox = new VBox(5);
+        if (r.isPartOfBundle()) {
+            // For bundles, show all items in the bundle
+            String bundleId = r.getBundleId();
+            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                .filter(res -> bundleId.equals(res.getBundleId()))
+                .collect(Collectors.toList());
+            
+            Label bundleLabel = new Label("📦 Bundle Order (" + bundleItems.size() + " items)");
+            bundleLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold; -fx-font-size: 14px;");
+            itemsBox.getChildren().add(bundleLabel);
+            
+            for (Reservation item : bundleItems) {
+                Label itemLabel = new Label("• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x)");
+                itemLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
+                itemsBox.getChildren().add(itemLabel);
+            }
+        } else {
+            Label itemLabel = new Label(r.getItemName() + " - " + r.getSize());
+            itemLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
+            itemsBox.getChildren().add(itemLabel);
+        }
 
-        Label qtyLabel = new Label("Quantity: " + r.getQuantity() + "x");
+        // Calculate total quantity and price for bundles
+        int totalQty = r.getQuantity();
+        double totalPrice = r.getTotalPrice();
+        
+        if (r.isPartOfBundle()) {
+            String bundleId = r.getBundleId();
+            totalQty = reservationManager.getAllReservations().stream()
+                .filter(res -> bundleId.equals(res.getBundleId()))
+                .mapToInt(Reservation::getQuantity)
+                .sum();
+            totalPrice = reservationManager.getAllReservations().stream()
+                .filter(res -> bundleId.equals(res.getBundleId()))
+                .mapToDouble(Reservation::getTotalPrice)
+                .sum();
+        }
+
+        Label qtyLabel = new Label("Total Quantity: " + totalQty + "x");
         qtyLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 13px;");
 
-        Label priceLabel = new Label("Total: ₱" + String.format("%.2f", r.getTotalPrice()));
+        Label priceLabel = new Label("Total: ₱" + String.format("%.2f", totalPrice));
         priceLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         priceLabel.setStyle("-fx-text-fill: #1A7F37;");
 
-        card.getChildren().addAll(header, new Separator(), itemLabel, qtyLabel, priceLabel);
+        card.getChildren().addAll(header, new Separator(), itemsBox, qtyLabel, priceLabel);
 
         // Add action buttons based on status
-        if ("PAID - READY FOR PICKUP".equals(r.getStatus())) {
+        if ("PENDING".equals(r.getStatus()) || "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus())) {
+            // Add cancel button for unpaid reservations
+            Button cancelBtn = new Button("✕ Cancel Reservation");
+            cancelBtn.setMaxWidth(Double.MAX_VALUE);
+            cancelBtn.setPrefHeight(35);
+            cancelBtn.setStyle(
+                "-fx-background-color: #CF222E;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 13px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+            cancelBtn.setOnAction(e -> handleCancelReservation(r));
+            card.getChildren().add(cancelBtn);
+        } else if ("PAID - READY FOR PICKUP".equals(r.getStatus())) {
             Button pickupBtn = new Button("✓ Confirm Pickup");
             pickupBtn.setMaxWidth(Double.MAX_VALUE);
             pickupBtn.setPrefHeight(35);
@@ -431,6 +1064,10 @@ public class StudentDashboardController {
             Label refundedLabel = new Label("✓ Item returned and refunded successfully");
             refundedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-weight: bold;");
             card.getChildren().add(refundedLabel);
+        } else if ("CANCELLED".equals(r.getStatus())) {
+            Label cancelledLabel = new Label("✕ Reservation cancelled");
+            cancelledLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 12px; -fx-font-weight: bold;");
+            card.getChildren().add(cancelledLabel);
         }
 
         // Show reason if exists
@@ -533,6 +1170,77 @@ public class StudentDashboardController {
                         "Failed to submit return request.\n" +
                         "Return period may have expired (10 days limit).");
                 }
+            }
+        });
+    }
+
+    /**
+     * Handle cancel reservation
+     */
+    private void handleCancelReservation(Reservation r) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Cancel Reservation");
+        dialog.setHeaderText("Cancel Reservation #" + r.getReservationId());
+
+        ButtonType confirmButtonType = new ButtonType("Confirm Cancel", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(confirmButtonType, ButtonType.CANCEL);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+
+        Label warningLabel = new Label("⚠ Are you sure you want to cancel this reservation?");
+        warningLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
+        VBox itemInfo = new VBox(5);
+        itemInfo.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-padding: 10;" +
+            "-fx-background-radius: 6px;"
+        );
+        
+        Label itemLabel = new Label("Item: " + r.getItemName() + " - " + r.getSize());
+        Label qtyLabel = new Label("Quantity: " + r.getQuantity() + "x");
+        Label priceLabel = new Label("Total: ₱" + String.format("%.2f", r.getTotalPrice()));
+        itemInfo.getChildren().addAll(itemLabel, qtyLabel, priceLabel);
+
+        Label reasonLabel = new Label("Reason for cancellation (optional):");
+        reasonLabel.setStyle("-fx-font-weight: bold;");
+
+        TextArea reasonArea = new TextArea();
+        reasonArea.setPromptText("e.g., Changed my mind, wrong item selected, no longer needed, etc.");
+        reasonArea.setPrefRowCount(3);
+        reasonArea.setWrapText(true);
+
+        Label noteLabel = new Label("Note: If this reservation is part of a bundle, only this specific item will be cancelled.");
+        noteLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
+        noteLabel.setWrapText(true);
+
+        content.getChildren().addAll(warningLabel, itemInfo, reasonLabel, reasonArea, noteLabel);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == confirmButtonType) {
+                return reasonArea.getText().trim();
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(reason -> {
+            String cancellationReason = reason.isEmpty() ? "Student cancelled reservation" : reason;
+            boolean success = reservationManager.cancelReservation(r.getReservationId(), cancellationReason);
+            
+            if (success) {
+                // Restore stock when cancelling
+                inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
+                
+                AlertHelper.showSuccess("Reservation Cancelled",
+                    "Your reservation has been cancelled successfully.\n\n" +
+                    "The reserved stock has been returned to inventory.");
+                refreshReservationsView();
+            } else {
+                AlertHelper.showError("Error",
+                    "Failed to cancel reservation.\n" +
+                    "Please contact staff if the issue persists.");
             }
         });
     }

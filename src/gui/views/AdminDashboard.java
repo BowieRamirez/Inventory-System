@@ -1,7 +1,6 @@
 package gui.views;
 
 import gui.controllers.AdminDashboardController;
-import gui.utils.SceneManager;
 import gui.utils.ThemeManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -35,6 +34,10 @@ public class AdminDashboard {
     private Button stockLogsBtn;
     private Button logoutBtn;
     
+    // Sidebar labels for theme updates
+    private Label logoLabel;
+    private Label subtitleLabel;
+    
     public AdminDashboard() {
         controller = new AdminDashboardController();
         initializeView();
@@ -42,7 +45,8 @@ public class AdminDashboard {
     
     private void initializeView() {
         view = new BorderPane();
-        view.setStyle("-fx-background-color: -color-bg-default;");
+        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        view.setStyle("-fx-background-color: " + bgColor + ";");
         
         // Create sidebar
         createSidebar();
@@ -55,11 +59,52 @@ public class AdminDashboard {
         // Create content area
         contentArea = new StackPane();
         contentArea.setPadding(new Insets(20));
-        contentArea.setStyle("-fx-background-color: -color-bg-default;");
+        String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        contentArea.setStyle("-fx-background-color: " + contentBg + ";");
         view.setCenter(contentArea);
         
-        // Show dashboard by default
+        // Show dashboard by default (this will also wire up quick actions)
         showDashboard();
+    }
+    
+    /**
+     * Wire up quick action buttons from the dashboard view
+     */
+    private void wireQuickActions() {
+        // Get the buttons from controller (they're created when createDashboardView is called)
+        Button viewInventoryBtn = controller.getViewInventoryBtn();
+        Button approvePendingBtn = controller.getApprovePendingBtn();
+        Button addItemBtn = controller.getAddItemBtn();
+        Button manageAccountsBtn = controller.getManageAccountsBtn();
+        
+        // Wire up actions if buttons exist
+        if (viewInventoryBtn != null) {
+            viewInventoryBtn.setOnAction(e -> {
+                setActiveButton(inventoryBtn);
+                showInventory();
+            });
+        }
+        
+        if (approvePendingBtn != null) {
+            approvePendingBtn.setOnAction(e -> {
+                setActiveButton(reservationsBtn);
+                showReservations();
+            });
+        }
+        
+        if (addItemBtn != null) {
+            addItemBtn.setOnAction(e -> {
+                setActiveButton(inventoryBtn);
+                showInventory();
+            });
+        }
+        
+        if (manageAccountsBtn != null) {
+            manageAccountsBtn.setOnAction(e -> {
+                setActiveButton(accountsBtn);
+                showAccounts();
+            });
+        }
     }
     
     /**
@@ -69,34 +114,40 @@ public class AdminDashboard {
         HBox topBar = new HBox(20);
         topBar.setPadding(new Insets(15, 20, 15, 20));
         topBar.setAlignment(Pos.CENTER_LEFT);
+        String topBarBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
+        String borderColor = ThemeManager.isDarkMode() ? "-color-border-default" : "#0550AE";
         topBar.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
-            "-fx-border-color: -color-border-default;" +
-            "-fx-border-width: 0 0 1 0;"
+            "-fx-background-color: " + topBarBg + ";" +
+            "-fx-border-color: " + borderColor + ";" +
+            "-fx-border-width: 0 0 2 0;"
         );
         
         titleLabel = new Label("Dashboard");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+        titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
         
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         
         // Theme toggle button
         Button themeBtn = new Button(ThemeManager.isDarkMode() ? "☀" : "🌙");
+        String themeBtnColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
         themeBtn.setStyle(
             "-fx-background-color: transparent;" +
-            "-fx-text-fill: -color-fg-default;" +
+            "-fx-text-fill: " + themeBtnColor + ";" +
             "-fx-font-size: 18px;" +
             "-fx-cursor: hand;"
         );
         themeBtn.setOnAction(e -> {
             ThemeManager.toggleLightDark();
             themeBtn.setText(ThemeManager.isDarkMode() ? "☀" : "🌙");
+            updateSidebarTheme(); // Update sidebar colors when theme changes
         });
         
         Label adminLabel = new Label("👤 Admin");
-        adminLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
+        adminLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
         
         topBar.getChildren().addAll(titleLabel, spacer, themeBtn, adminLabel);
         return topBar;
@@ -109,19 +160,24 @@ public class AdminDashboard {
         sidebar = new VBox(10);
         sidebar.setPrefWidth(250);
         sidebar.setPadding(new Insets(20));
+        
+        // Blue sidebar in light mode, subtle background in dark mode
+        String sidebarColor = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
         sidebar.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-color: " + sidebarColor + ";" +
             "-fx-border-color: -color-border-default;" +
             "-fx-border-width: 0 1 0 0;"
         );
         
         // Logo/Title
-        Label logoLabel = new Label("STI ProWear");
+        logoLabel = new Label("STI ProWear");
         logoLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
-        logoLabel.setStyle("-fx-text-fill: -color-accent-fg;");
+        String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+        logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
         
-        Label subtitleLabel = new Label("Admin Panel");
-        subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        subtitleLabel = new Label("Admin Panel");
+        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
+        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         VBox header = new VBox(5, logoLabel, subtitleLabel);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -138,9 +194,10 @@ public class AdminDashboard {
         VBox.setVgrow(spacer, Priority.ALWAYS);
         
         logoutBtn = createNavButton("🚪 Logout", false);
+        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
         logoutBtn.setStyle(
             "-fx-background-color: transparent;" +
-            "-fx-text-fill: #CF222E;" +
+            "-fx-text-fill: " + logoutColor + ";" +
             "-fx-font-size: 14px;" +
             "-fx-alignment: center-left;" +
             "-fx-padding: 12px;" +
@@ -199,18 +256,21 @@ public class AdminDashboard {
         btn.setPrefHeight(40);
         
         if (active) {
+            String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
+            String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
             btn.setStyle(
-                "-fx-background-color: -color-accent-subtle;" +
-                "-fx-text-fill: -color-accent-fg;" +
+                "-fx-background-color: " + activeBg + ";" +
+                "-fx-text-fill: " + activeText + ";" +
                 "-fx-font-size: 14px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 6px;" +
                 "-fx-cursor: hand;"
             );
         } else {
+            String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
             btn.setStyle(
                 "-fx-background-color: transparent;" +
-                "-fx-text-fill: -color-fg-default;" +
+                "-fx-text-fill: " + inactiveText + ";" +
                 "-fx-font-size: 14px;" +
                 "-fx-cursor: hand;"
             );
@@ -225,11 +285,15 @@ public class AdminDashboard {
     private void setActiveButton(Button activeBtn) {
         Button[] buttons = {dashboardBtn, inventoryBtn, reservationsBtn, accountsBtn, stockLogsBtn};
         
+        String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
+        String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+        String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
+        
         for (Button btn : buttons) {
             if (btn == activeBtn) {
                 btn.setStyle(
-                    "-fx-background-color: -color-accent-subtle;" +
-                    "-fx-text-fill: -color-accent-fg;" +
+                    "-fx-background-color: " + activeBg + ";" +
+                    "-fx-text-fill: " + activeText + ";" +
                     "-fx-font-size: 14px;" +
                     "-fx-font-weight: bold;" +
                     "-fx-background-radius: 6px;" +
@@ -238,7 +302,7 @@ public class AdminDashboard {
             } else {
                 btn.setStyle(
                     "-fx-background-color: transparent;" +
-                    "-fx-text-fill: -color-fg-default;" +
+                    "-fx-text-fill: " + inactiveText + ";" +
                     "-fx-font-size: 14px;" +
                     "-fx-cursor: hand;"
                 );
@@ -253,6 +317,9 @@ public class AdminDashboard {
         titleLabel.setText("Dashboard");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createDashboardView());
+        
+        // Wire up quick actions every time dashboard is shown (buttons are recreated)
+        wireQuickActions();
     }
     
     /**
@@ -289,6 +356,106 @@ public class AdminDashboard {
         titleLabel.setText("Stock Logs");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createStockLogsView());
+    }
+    
+    /**
+     * Update sidebar theme colors when theme changes
+     */
+    private void updateSidebarTheme() {
+        // Update main background
+        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        view.setStyle("-fx-background-color: " + bgColor + ";");
+        
+        // Update content area background
+        String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        contentArea.setStyle("-fx-background-color: " + contentBg + "; -fx-padding: 20;");
+        
+        // Update top bar
+        HBox topBar = (HBox) view.getTop();
+        String topBarBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
+        String borderColor = ThemeManager.isDarkMode() ? "-color-border-default" : "#0550AE";
+        topBar.setStyle(
+            "-fx-background-color: " + topBarBg + ";" +
+            "-fx-border-color: " + borderColor + ";" +
+            "-fx-border-width: 0 0 2 0;"
+        );
+        
+        // Update title color
+        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+        titleLabel.setStyle("-fx-text-fill: " + titleColor + "; -fx-font-size: 24px; -fx-font-weight: bold;");
+        
+        // Update top bar buttons and labels
+        for (javafx.scene.Node node : topBar.getChildren()) {
+            if (node instanceof Button) {
+                Button btn = (Button) node;
+                String themeBtnColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+                btn.setStyle(
+                    "-fx-background-color: transparent;" +
+                    "-fx-text-fill: " + themeBtnColor + ";" +
+                    "-fx-font-size: 18px;" +
+                    "-fx-cursor: hand;"
+                );
+            } else if (node instanceof Label && !node.equals(titleLabel)) {
+                Label lbl = (Label) node;
+                String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
+                lbl.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
+            }
+        }
+        
+        // Update sidebar background
+        String sidebarColor = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
+        sidebar.setStyle(
+            "-fx-background-color: " + sidebarColor + ";" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 0 1 0 0;"
+        );
+        
+        // Update logo and subtitle colors
+        String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+        logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
+        
+        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
+        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
+        
+        // Update navigation buttons
+        Button[] buttons = {dashboardBtn, inventoryBtn, reservationsBtn, accountsBtn, stockLogsBtn};
+        String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
+        String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+        String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
+        
+        for (Button btn : buttons) {
+            String currentStyle = btn.getStyle();
+            boolean isActive = currentStyle.contains("-fx-font-weight: bold");
+            
+            if (isActive) {
+                btn.setStyle(
+                    "-fx-background-color: " + activeBg + ";" +
+                    "-fx-text-fill: " + activeText + ";" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-background-radius: 6px;" +
+                    "-fx-cursor: hand;"
+                );
+            } else {
+                btn.setStyle(
+                    "-fx-background-color: transparent;" +
+                    "-fx-text-fill: " + inactiveText + ";" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-cursor: hand;"
+                );
+            }
+        }
+        
+        // Update logout button
+        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
+        logoutBtn.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-text-fill: " + logoutColor + ";" +
+            "-fx-font-size: 14px;" +
+            "-fx-alignment: center-left;" +
+            "-fx-padding: 12px;" +
+            "-fx-cursor: hand;"
+        );
     }
     
     /**

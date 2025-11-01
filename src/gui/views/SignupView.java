@@ -2,6 +2,7 @@ package gui.views;
 
 import gui.controllers.SignupController;
 import gui.utils.GUIValidator;
+import gui.utils.ThemeManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -36,7 +37,8 @@ public class SignupView {
     private void initializeView() {
         // Main container
         view = new BorderPane();
-        view.setStyle("-fx-background-color: -color-bg-default;");
+        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
+        view.setStyle("-fx-background-color: " + bgColor + ";");
         
         // Center content
         VBox centerBox = new VBox(20);
@@ -48,16 +50,18 @@ public class SignupView {
         signupCard.setAlignment(Pos.CENTER_LEFT);
         signupCard.setPadding(new Insets(40));
         signupCard.setMaxWidth(500);
+        String cardBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "white";
         signupCard.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-color: " + cardBg + ";" +
             "-fx-background-radius: 12px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);"
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 3);"
         );
         
         // Title
         Label titleLabel = new Label("Create Student Account");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#0969DA";
+        titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
         
         // Student ID field
         VBox studentIdBox = createFieldBox("Student ID (10-12 digits)", 
@@ -109,7 +113,7 @@ public class SignupView {
         signupButton.setPrefWidth(180);
         signupButton.setPrefHeight(40);
         signupButton.setStyle(
-            "-fx-background-color: #1A7F37;" +
+            "-fx-background-color: #0969DA;" +
             "-fx-text-fill: white;" +
             "-fx-font-size: 14px;" +
             "-fx-font-weight: bold;" +

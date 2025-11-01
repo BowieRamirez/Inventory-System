@@ -10,6 +10,7 @@ import gui.utils.AlertHelper;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
 import utils.FileStorage;
+import utils.StockReturnLogger;
 import javafx.scene.Scene;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -26,12 +27,19 @@ import java.util.ArrayList;
 /**
  * AdminDashboardController - Handles all admin dashboard operations
  */
+@SuppressWarnings("unchecked")
 public class AdminDashboardController {
     
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
     private ReceiptManager receiptManager;
     private List<Student> students;
+    
+    // Quick action buttons
+    private Button viewInventoryBtn;
+    private Button approvePendingBtn;
+    private Button addItemBtn;
+    private Button manageAccountsBtn;
 
     public AdminDashboardController() {
         inventoryManager = new InventoryManager();
@@ -91,10 +99,10 @@ public class AdminDashboardController {
         HBox actionsBox = new HBox(15);
         actionsBox.setAlignment(Pos.CENTER_LEFT);
         
-        Button viewInventoryBtn = createActionButton("📦 View Inventory");
-        Button approvePendingBtn = createActionButton("✅ Approve Pending");
-        Button addItemBtn = createActionButton("➕ Add Item");
-        Button manageAccountsBtn = createActionButton("👥 Manage Accounts");
+        viewInventoryBtn = createActionButton("📦 View Inventory");
+        approvePendingBtn = createActionButton("✅ Approve Pending");
+        addItemBtn = createActionButton("➕ Add Item");
+        manageAccountsBtn = createActionButton("👥 Manage Accounts");
         
         actionsBox.getChildren().addAll(viewInventoryBtn, approvePendingBtn, addItemBtn, manageAccountsBtn);
         
@@ -211,8 +219,8 @@ public class AdminDashboardController {
         searchField.setPromptText("Search by name or code...");
         searchField.setPrefWidth(250);
 
-        styleActionButton(addItemBtn, "#1A7F37");
-        styleActionButton(refreshBtn, "#0969DA");
+        styleActionButton(addItemBtn);
+        styleActionButton(refreshBtn);
 
         actionBar.getChildren().addAll(addItemBtn, refreshBtn, searchField);
 
@@ -334,14 +342,14 @@ public class AdminDashboardController {
         Button cancelledBtn = new Button("Cancelled");
         Button refreshBtn = new Button("🔄 Refresh");
 
-        styleActionButton(allBtn, "#0969DA");
-        styleActionButton(pendingBtn, "#BF8700");
-        styleActionButton(approvedBtn, "#1A7F37");
-        styleActionButton(paidBtn, "#8250DF");
-        styleActionButton(completedBtn, "#0969DA");
-        styleActionButton(returnRequestsBtn, "#BF8700");
-        styleActionButton(cancelledBtn, "#CF222E");
-        styleActionButton(refreshBtn, "#6E7781");
+        styleActionButton(allBtn);
+        styleActionButton(pendingBtn);
+        styleActionButton(approvedBtn);
+        styleActionButton(paidBtn);
+        styleActionButton(completedBtn);
+        styleActionButton(returnRequestsBtn);
+        styleActionButton(cancelledBtn);
+        styleActionButton(refreshBtn);
 
         filterBar.getChildren().addAll(allBtn, pendingBtn, approvedBtn, paidBtn, completedBtn, returnRequestsBtn, cancelledBtn, refreshBtn);
 
@@ -349,16 +357,35 @@ public class AdminDashboardController {
         TableView<Reservation> table = new TableView<>();
         table.setStyle("-fx-background-color: -color-bg-subtle;");
 
-        TableColumn<Reservation, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getReservationId()));
-        idCol.setPrefWidth(60);
+        TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // For bundles, show the bundle ID as the order ID
+                return new javafx.beans.property.SimpleStringProperty(r.getBundleId());
+            }
+            return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
+        });
+        idCol.setPrefWidth(180);
 
         TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
         studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
         studentCol.setPrefWidth(150);
 
         TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
-        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getItemName()));
+        itemCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // For bundles, show bundle info with item count
+                String bundleId = r.getBundleId();
+                long itemCount = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
         itemCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
@@ -366,11 +393,35 @@ public class AdminDashboardController {
         sizeCol.setPrefWidth(60);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
-        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getQuantity()));
+        qtyCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // For bundles, sum all quantities
+                String bundleId = r.getBundleId();
+                int totalQty = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToInt(Reservation::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
         qtyCol.setPrefWidth(60);
 
         TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total");
-        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getTotalPrice()));
+        priceCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // For bundles, sum all prices
+                String bundleId = r.getBundleId();
+                double totalPrice = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToDouble(Reservation::getTotalPrice)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalPrice);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getTotalPrice());
+        });
         priceCol.setCellFactory(col -> new TableCell<Reservation, Double>() {
             @Override
             protected void updateItem(Double price, boolean empty) {
@@ -387,6 +438,27 @@ public class AdminDashboardController {
         TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
         statusCol.setPrefWidth(180);
+
+        TableColumn<Reservation, String> bundleCol = new TableColumn<>("Bundle");
+        bundleCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            String bundleInfo = r.isPartOfBundle() ? "✓ BUNDLE" : "";
+            return new javafx.beans.property.SimpleStringProperty(bundleInfo);
+        });
+        bundleCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold;");
+                }
+            }
+        });
+        bundleCol.setPrefWidth(80);
 
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
@@ -427,49 +499,49 @@ public class AdminDashboardController {
         });
         actionsCol.setPrefWidth(150);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, actionsCol);
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, bundleCol, actionsCol);
 
-        // Load all reservations
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(reservationManager.getAllReservations());
+        // Load all reservations (deduplicated for bundles)
+        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations()));
         table.setItems(allReservations);
 
         // Filter actions
-        allBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations())));
+        allBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations()))));
         pendingBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "PENDING".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(filtered));
+            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
         });
         approvedBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> r.getStatus().contains("APPROVED"))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(filtered));
+            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
         });
         paidBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> r.getStatus().contains("PAID"))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(filtered));
+            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
         });
         completedBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "COMPLETED".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(filtered));
+            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
         });
         returnRequestsBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getReturnRequests();
-            table.setItems(FXCollections.observableArrayList(filtered));
+            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
         });
         cancelledBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "CANCELLED".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(filtered));
+            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
         });
-        refreshBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations())));
+        refreshBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations()))));
 
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(filterBar, table);
@@ -478,18 +550,74 @@ public class AdminDashboardController {
     }
 
     /**
+     * Deduplicate bundle reservations - show only one row per bundle
+     * For bundles, returns only the first reservation of each bundle
+     * For non-bundle reservations, returns them as-is
+     */
+    private List<Reservation> getDeduplicatedReservations(List<Reservation> reservations) {
+        List<Reservation> deduplicated = new ArrayList<>();
+        java.util.Set<String> seenBundles = new java.util.HashSet<>();
+        
+        for (Reservation r : reservations) {
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                if (!seenBundles.contains(bundleId)) {
+                    seenBundles.add(bundleId);
+                    deduplicated.add(r); // Add only first occurrence of bundle
+                }
+            } else {
+                deduplicated.add(r); // Add non-bundle reservations
+            }
+        }
+        
+        return deduplicated;
+    }
+
+    /**
      * Handle approve reservation
      */
     private void handleApproveReservation(Reservation reservation, TableView<Reservation> table) {
-        boolean confirm = AlertHelper.showConfirmation("Approve Reservation",
-            "Approve reservation for:\n" + reservation.getStudentName() + "\n" +
-            reservation.getItemName() + " (" + reservation.getSize() + ")");
+        String message;
+        if (reservation.isPartOfBundle()) {
+            // Show bundle info
+            String bundleId = reservation.getBundleId();
+            long itemCount = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .count();
+            message = "Approve BUNDLE ORDER for:\n" + 
+                     reservation.getStudentName() + "\n" +
+                     "Bundle contains " + itemCount + " item type(s)";
+        } else {
+            message = "Approve reservation for:\n" + 
+                     reservation.getStudentName() + "\n" +
+                     reservation.getItemName() + " (" + reservation.getSize() + ")";
+        }
+        
+        boolean confirm = AlertHelper.showConfirmation("Approve Reservation", message);
 
         if (confirm) {
-            boolean success = reservationManager.approveReservation(reservation.getReservationId(), reservation.getSize());
-            if (success) {
-                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
-                AlertHelper.showSuccess("Success", "Reservation approved!");
+            boolean allSuccess = true;
+            
+            if (reservation.isPartOfBundle()) {
+                // Approve all items in the bundle
+                String bundleId = reservation.getBundleId();
+                List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId.equals(r.getBundleId()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                for (Reservation item : bundleItems) {
+                    boolean success = reservationManager.approveReservation(item.getReservationId(), item.getSize());
+                    if (!success) {
+                        allSuccess = false;
+                    }
+                }
+            } else {
+                allSuccess = reservationManager.approveReservation(reservation.getReservationId(), reservation.getSize());
+            }
+            
+            if (allSuccess) {
+                table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations())));
+                AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle approved!" : "Reservation approved!");
             } else {
                 AlertHelper.showError("Error", "Failed to approve reservation");
             }
@@ -502,15 +630,44 @@ public class AdminDashboardController {
     private void handleRejectReservation(Reservation reservation, TableView<Reservation> table) {
         TextInputDialog dialog = new TextInputDialog();
         dialog.setTitle("Reject Reservation");
-        dialog.setHeaderText("Reject reservation for: " + reservation.getStudentName());
+        
+        if (reservation.isPartOfBundle()) {
+            String bundleId = reservation.getBundleId();
+            long itemCount = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .count();
+            dialog.setHeaderText("Reject BUNDLE ORDER for: " + reservation.getStudentName() + 
+                               "\nBundle contains " + itemCount + " item type(s)");
+        } else {
+            dialog.setHeaderText("Reject reservation for: " + reservation.getStudentName());
+        }
+        
         dialog.setContentText("Reason:");
 
         dialog.showAndWait().ifPresent(reason -> {
             if (!reason.isEmpty()) {
-                boolean success = reservationManager.cancelReservation(reservation.getReservationId(), reason);
-                if (success) {
-                    table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
-                    AlertHelper.showSuccess("Success", "Reservation rejected");
+                boolean allSuccess = true;
+                
+                if (reservation.isPartOfBundle()) {
+                    // Reject all items in the bundle
+                    String bundleId = reservation.getBundleId();
+                    List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                        .filter(r -> bundleId.equals(r.getBundleId()))
+                        .collect(java.util.stream.Collectors.toList());
+                    
+                    for (Reservation item : bundleItems) {
+                        boolean success = reservationManager.cancelReservation(item.getReservationId(), reason);
+                        if (!success) {
+                            allSuccess = false;
+                        }
+                    }
+                } else {
+                    allSuccess = reservationManager.cancelReservation(reservation.getReservationId(), reason);
+                }
+                
+                if (allSuccess) {
+                    table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations())));
+                    AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
                 } else {
                     AlertHelper.showError("Error", "Failed to reject reservation");
                 }
@@ -582,7 +739,7 @@ public class AdminDashboardController {
         searchField.setPromptText("Search by name or student ID...");
         searchField.setPrefWidth(250);
 
-        styleActionButton(refreshBtn, "#0969DA");
+        styleActionButton(refreshBtn);
 
         actionBar.getChildren().addAll(refreshBtn, searchField);
 
@@ -711,7 +868,7 @@ public class AdminDashboardController {
         searchField.setPromptText("Search by item name or performer...");
         searchField.setPrefWidth(250);
 
-        styleActionButton(refreshBtn, "#0969DA");
+        styleActionButton(refreshBtn);
 
         actionBar.getChildren().addAll(refreshBtn, searchField);
 
@@ -887,6 +1044,10 @@ public class AdminDashboardController {
 
                     Item newItem = new Item(code, name, course, size, qty, price);
                     inventoryManager.addItem(newItem);
+                    
+                    // Log the item addition for transparency
+                    StockReturnLogger.logItemAdded("Admin", code, name, size, qty, price);
+                    
                     return newItem;
                 } catch (NumberFormatException e) {
                     AlertHelper.showError("Error", "Invalid number format");
@@ -939,8 +1100,19 @@ public class AdminDashboardController {
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
                 try {
+                    int oldQty = item.getQuantity();
+                    double oldPrice = item.getPrice();
                     int newQty = Integer.parseInt(qtyField.getText());
                     double newPrice = Double.parseDouble(priceField.getText());
+
+                    // Build update details
+                    StringBuilder updateDetails = new StringBuilder("Updated: ");
+                    if (oldQty != newQty) {
+                        updateDetails.append(String.format("Qty %d→%d ", oldQty, newQty));
+                    }
+                    if (oldPrice != newPrice) {
+                        updateDetails.append(String.format("Price ₱%.2f→₱%.2f", oldPrice, newPrice));
+                    }
 
                     // Update quantity
                     item.setQuantity(newQty);
@@ -951,6 +1123,10 @@ public class AdminDashboardController {
                     Item updatedItem = new Item(item.getCode(), item.getName(), item.getCourse(),
                                                item.getSize(), newQty, newPrice);
                     inventoryManager.addItem(updatedItem);
+
+                    // Log the item update for transparency
+                    StockReturnLogger.logItemUpdated("Admin", item.getCode(), item.getName(), 
+                                                     item.getSize(), oldQty, newQty, updateDetails.toString());
 
                     return updatedItem;
                 } catch (NumberFormatException e) {
@@ -975,6 +1151,10 @@ public class AdminDashboardController {
             "Are you sure you want to delete:\n" + item.getName() + " (" + item.getSize() + ")?");
 
         if (confirm) {
+            // Log the item deletion before removing for transparency
+            StockReturnLogger.logItemDeleted("Admin", item.getCode(), item.getName(), 
+                                            item.getSize(), item.getQuantity());
+            
             // Remove all items with this code (all size variants)
             inventoryManager.removeItem(item.getCode());
             table.setItems(FXCollections.observableArrayList(inventoryManager.getAllItems()));
@@ -985,10 +1165,10 @@ public class AdminDashboardController {
     /**
      * Style action button
      */
-    private void styleActionButton(Button btn, String color) {
+    private void styleActionButton(Button btn) {
         btn.setPrefHeight(36);
         btn.setStyle(
-            "-fx-background-color: " + color + ";" +
+            "-fx-background-color: #0969DA;" +
             "-fx-text-fill: white;" +
             "-fx-font-size: 13px;" +
             "-fx-font-weight: bold;" +
@@ -1007,6 +1187,25 @@ public class AdminDashboardController {
             Scene scene = new Scene(loginView.getView(), 1024, 768);
             SceneManager.setScene(scene);
         }
+    }
+    
+    /**
+     * Get quick action buttons for wiring in the view
+     */
+    public Button getViewInventoryBtn() {
+        return viewInventoryBtn;
+    }
+    
+    public Button getApprovePendingBtn() {
+        return approvePendingBtn;
+    }
+    
+    public Button getAddItemBtn() {
+        return addItemBtn;
+    }
+    
+    public Button getManageAccountsBtn() {
+        return manageAccountsBtn;
     }
 }
 

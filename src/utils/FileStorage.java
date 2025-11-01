@@ -279,11 +279,11 @@ public class FileStorage {
     
     /**
      * Parse reservation from file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason
+     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId
      */
     private static Reservation parseReservation(String line) {
         String[] parts = line.split("\\|", -1); // -1 to keep empty trailing fields
-        if (parts.length != 15) {
+        if (parts.length < 15) {
             return null;
         }
 
@@ -302,10 +302,11 @@ public class FileStorage {
             String paymentMethod = parts[11];
             String completedDateStr = parts[13];
             String reason = parts[14];
+            String bundleId = (parts.length > 15 && !parts[15].isEmpty()) ? parts[15] : null;
 
-            // Create reservation using reflection to set private fields
+            // Create reservation with bundleId
             Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
-                                                      itemCode, itemName, quantity, totalPrice, size);
+                                                      itemCode, itemName, quantity, totalPrice, size, bundleId);
 
             // Set status and payment info
             reservation.setStatus(status);
@@ -360,7 +361,7 @@ public class FileStorage {
     
     /**
      * Convert reservation to file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason
+     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId
      */
     private static String reservationToFileFormat(Reservation reservation) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -368,6 +369,7 @@ public class FileStorage {
         String completedDate = reservation.getCompletedDate() != null ? 
                                reservation.getCompletedDate().format(formatter) : "";
         String reason = reservation.getReason() != null ? reservation.getReason() : "";
+        String bundleId = reservation.getBundleId() != null ? reservation.getBundleId() : "";
         
         return reservation.getReservationId() + "|" +
                reservation.getStudentName() + "|" +
@@ -383,7 +385,8 @@ public class FileStorage {
                reservation.getPaymentMethod() + "|" +
                reservationTime + "|" +
                completedDate + "|" +
-               reason;
+               reason + "|" +
+               bundleId;
     }
     
     /**

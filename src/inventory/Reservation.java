@@ -19,6 +19,7 @@ public class Reservation {
     private String paymentMethod;
     private double totalPrice;
     private String size;
+    private String bundleId; // Identifier for bundle purchases (null for single items)
     public Reservation(int reservationId, String studentName, String studentId, String course,
                        int itemCode, String itemName, int quantity, double totalPrice, String size) {
         this.reservationId = reservationId;
@@ -34,6 +35,14 @@ public class Reservation {
         this.status = "PENDING";
         this.isPaid = false;
         this.paymentMethod = "UNPAID";
+        this.bundleId = null; // Default to null for single items
+    }
+    
+    // Constructor with bundleId
+    public Reservation(int reservationId, String studentName, String studentId, String course,
+                       int itemCode, String itemName, int quantity, double totalPrice, String size, String bundleId) {
+        this(reservationId, studentName, studentId, course, itemCode, itemName, quantity, totalPrice, size);
+        this.bundleId = bundleId;
     }
     public String getSize() { return size; }
     public int getReservationId() { return reservationId; }
@@ -48,6 +57,7 @@ public class Reservation {
     public String getStatus() { return status; }
     public String getReason() { return reason; }
     public boolean isPaid() { return isPaid; }
+    public String getBundleId() { return bundleId; }
     public String getPaymentMethod() { return paymentMethod; }
     public double getTotalPrice() { return totalPrice; }
     
@@ -56,6 +66,9 @@ public class Reservation {
     public void setPaid(boolean paid) { this.isPaid = paid; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public void setCompletedDate(LocalDateTime completedDate) { this.completedDate = completedDate; }
+    public void setBundleId(String bundleId) { this.bundleId = bundleId; }
+    
+    public boolean isPartOfBundle() { return bundleId != null && !bundleId.isEmpty(); }
     
     public String getFormattedTime() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

@@ -1,11 +1,11 @@
 ItemCode,ItemName,Course,Size,Quantity,Price
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,S,45,450.00
-1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,44,450.00
-1001,IT/Eng Gray 3/4 Polo (Male),BSIT,L,56,450.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,43,450.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,L,57,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,XL,39,450.00
-1002,IT/Eng RTW Pants (Male),BSIT,S,40,500.00
+1002,IT/Eng RTW Pants (Male),BSIT,S,38,500.00
 1002,IT/Eng RTW Pants (Male),BSIT,M,55,500.00
-1002,IT/Eng RTW Pants (Male),BSIT,L,45,500.00
+1002,IT/Eng RTW Pants (Male),BSIT,L,46,500.00
 1002,IT/Eng RTW Pants (Male),BSIT,XL,35,500.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,S,45,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,M,70,450.00
@@ -228,14 +228,13 @@ ItemCode,ItemName,Course,Size,Quantity,Price
 1096,PE Blue Jogging Pants,STI Special,XL,70,400.00
 1097,NSTP Gray Shirt (Male),STI Special,S,60,320.00
 1097,NSTP Gray Shirt (Male),STI Special,M,90,320.00
-1097,NSTP Gray Shirt (Male),STI Special,L,75,320.00
+1097,NSTP Gray Shirt (Male),STI Special,L,74,320.00
 1098,NSTP Gray Shirt (Female),STI Special,S,60,320.00
 1098,NSTP Gray Shirt (Female),STI Special,M,90,320.00
 1098,NSTP Gray Shirt (Female),STI Special,L,75,320.00
-1099,Anniversary Shirt,STI Special,M,100,350.00
+1099,Anniversary Shirt,STI Special,M,99,350.00
 1099,Anniversary Shirt,STI Special,L,90,350.00
 1100,Washday Shirt,STI Special,M,120,300.00
 1100,Washday Shirt,STI Special,L,100,300.00
 1101,ID Lace,STI Special,One Size,200,50.00
 1102,STI Pin,STI Special,One Size,150,80.00
-1130,Sanji,BSIT,L,0,10000.00

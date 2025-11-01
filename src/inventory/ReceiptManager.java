@@ -81,6 +81,18 @@ public class ReceiptManager {
         return receipt;
     }
     
+    // Create a new receipt with bundleId
+    public Receipt createReceipt(String paymentStatus, int quantity, double amount,
+                                 int itemCode, String itemName, String size, String buyerName, String bundleId) {
+        int receiptId = nextReceiptId++;
+        String dateOrdered = Receipt.getCurrentDateTime();
+        Receipt receipt = new Receipt(receiptId, dateOrdered, paymentStatus,
+                                      quantity, amount, itemCode, itemName, size, buyerName, bundleId);
+        receipts.put(receiptId, receipt);
+        saveReceipts();
+        return receipt;
+    }
+    
     // Find receipt by ID
     public Receipt findReceiptById(int receiptId) {
         return receipts.get(receiptId);

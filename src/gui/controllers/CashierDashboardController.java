@@ -21,6 +21,7 @@ import java.util.List;
 /**
  * CashierDashboardController - Handles cashier dashboard operations
  */
+@SuppressWarnings("unchecked")
 public class CashierDashboardController {
 
     private InventoryManager inventoryManager;
@@ -64,16 +65,33 @@ public class CashierDashboardController {
         TableView<Reservation> table = new TableView<>();
         table.setStyle("-fx-background-color: -color-bg-subtle;");
 
-        TableColumn<Reservation, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getReservationId()));
-        idCol.setPrefWidth(60);
+        TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                return new javafx.beans.property.SimpleStringProperty(r.getBundleId());
+            }
+            return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
+        });
+        idCol.setPrefWidth(180);
 
         TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
         studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
         studentCol.setPrefWidth(150);
 
         TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
-        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getItemName()));
+        itemCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                long itemCount = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
         itemCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
@@ -81,11 +99,33 @@ public class CashierDashboardController {
         sizeCol.setPrefWidth(60);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
-        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getQuantity()));
+        qtyCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                int totalQty = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToInt(Reservation::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
         qtyCol.setPrefWidth(60);
 
         TableColumn<Reservation, Double> totalCol = new TableColumn<>("Total");
-        totalCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getTotalPrice()));
+        totalCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                double totalPrice = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToDouble(Reservation::getTotalPrice)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalPrice);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getTotalPrice());
+        });
         totalCol.setCellFactory(col -> new TableCell<Reservation, Double>() {
             @Override
             protected void updateItem(Double price, boolean empty) {
@@ -99,12 +139,33 @@ public class CashierDashboardController {
         });
         totalCol.setPrefWidth(100);
 
+        TableColumn<Reservation, String> bundleCol = new TableColumn<>("Bundle");
+        bundleCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            String bundleInfo = r.isPartOfBundle() ? "✓ BUNDLE" : "";
+            return new javafx.beans.property.SimpleStringProperty(bundleInfo);
+        });
+        bundleCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold;");
+                }
+            }
+        });
+        bundleCol.setPrefWidth(80);
+
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
             private final Button processBtn = new Button("Process Payment");
 
             {
-                processBtn.setStyle("-fx-background-color: #1A7F37; -fx-text-fill: white; -fx-cursor: hand;");
+                processBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
             }
 
             @Override
@@ -121,20 +182,24 @@ public class CashierDashboardController {
         });
         actionsCol.setPrefWidth(150);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, actionsCol);
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, bundleCol, actionsCol);
 
-        // Load approved reservations waiting for payment
-        List<Reservation> approvedReservations = reservationManager.getAllReservations().stream()
-            .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
-            .collect(java.util.stream.Collectors.toList());
+        // Load approved reservations waiting for payment (deduplicated for bundles)
+        List<Reservation> approvedReservations = getDeduplicatedReservations(
+            reservationManager.getAllReservations().stream()
+                .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
+                .collect(java.util.stream.Collectors.toList())
+        );
         ObservableList<Reservation> reservationsList = FXCollections.observableArrayList(approvedReservations);
         table.setItems(reservationsList);
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshed = reservationManager.getAllReservations().stream()
-                .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
-                .collect(java.util.stream.Collectors.toList());
+            List<Reservation> refreshed = getDeduplicatedReservations(
+                reservationManager.getAllReservations().stream()
+                    .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
+                    .collect(java.util.stream.Collectors.toList())
+            );
             table.setItems(FXCollections.observableArrayList(refreshed));
         });
 
@@ -190,16 +255,30 @@ public class CashierDashboardController {
         dialog.showAndWait().ifPresent(paymentMethod -> {
             boolean success = reservationManager.markAsPaid(reservation.getReservationId(), paymentMethod);
             if (success) {
-                // Create receipt
-                Receipt receipt = receiptManager.createReceipt(
-                    "PAID",
-                    reservation.getQuantity(),
-                    reservation.getTotalPrice(),
-                    reservation.getItemCode(),
-                    reservation.getItemName(),
-                    reservation.getSize(),
-                    reservation.getStudentName()
-                );
+                // Create receipt with bundleId if it's part of a bundle
+                Receipt receipt;
+                if (reservation.isPartOfBundle()) {
+                    receipt = receiptManager.createReceipt(
+                        "PAID",
+                        reservation.getQuantity(),
+                        reservation.getTotalPrice(),
+                        reservation.getItemCode(),
+                        reservation.getItemName(),
+                        reservation.getSize(),
+                        reservation.getStudentName(),
+                        reservation.getBundleId()
+                    );
+                } else {
+                    receipt = receiptManager.createReceipt(
+                        "PAID",
+                        reservation.getQuantity(),
+                        reservation.getTotalPrice(),
+                        reservation.getItemCode(),
+                        reservation.getItemName(),
+                        reservation.getSize(),
+                        reservation.getStudentName()
+                    );
+                }
 
                 // Refresh table
                 List<Reservation> refreshed = reservationManager.getAllReservations().stream()
@@ -207,10 +286,13 @@ public class CashierDashboardController {
                     .collect(java.util.stream.Collectors.toList());
                 table.setItems(FXCollections.observableArrayList(refreshed));
 
+                String bundleInfo = reservation.isPartOfBundle() ? 
+                    "\nBundle ID: " + reservation.getBundleId() : "";
                 AlertHelper.showSuccess("Success",
                     "Payment processed successfully!\n\n" +
                     "Receipt ID: " + receipt.getReceiptId() + "\n" +
-                    "Payment Method: " + paymentMethod);
+                    "Payment Method: " + paymentMethod +
+                    bundleInfo);
             } else {
                 AlertHelper.showError("Error", "Failed to process payment");
             }
@@ -242,16 +324,33 @@ public class CashierDashboardController {
         TableView<Reservation> table = new TableView<>();
         table.setStyle("-fx-background-color: -color-bg-subtle;");
 
-        TableColumn<Reservation, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getReservationId()));
-        idCol.setPrefWidth(60);
+        TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                return new javafx.beans.property.SimpleStringProperty(r.getBundleId());
+            }
+            return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
+        });
+        idCol.setPrefWidth(180);
 
         TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
         studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
         studentCol.setPrefWidth(150);
 
         TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
-        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getItemName()));
+        itemCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                long itemCount = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
         itemCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
@@ -259,11 +358,33 @@ public class CashierDashboardController {
         sizeCol.setPrefWidth(60);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
-        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getQuantity()));
+        qtyCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                int totalQty = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToInt(Reservation::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
         qtyCol.setPrefWidth(60);
 
         TableColumn<Reservation, Double> totalCol = new TableColumn<>("Total");
-        totalCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getTotalPrice()));
+        totalCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                double totalPrice = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToDouble(Reservation::getTotalPrice)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalPrice);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getTotalPrice());
+        });
         totalCol.setCellFactory(col -> new TableCell<Reservation, Double>() {
             @Override
             protected void updateItem(Double price, boolean empty) {
@@ -281,15 +402,38 @@ public class CashierDashboardController {
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
         statusCol.setPrefWidth(180);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, statusCol);
+        TableColumn<Reservation, String> bundleCol = new TableColumn<>("Bundle");
+        bundleCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            String bundleInfo = r.isPartOfBundle() ? "✓ BUNDLE" : "";
+            return new javafx.beans.property.SimpleStringProperty(bundleInfo);
+        });
+        bundleCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold;");
+                }
+            }
+        });
+        bundleCol.setPrefWidth(80);
 
-        // Load all reservations
-        ObservableList<Reservation> reservationsList = FXCollections.observableArrayList(reservationManager.getAllReservations());
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, statusCol, bundleCol);
+
+        // Load all reservations (deduplicated for bundles)
+        List<Reservation> allReservations = getDeduplicatedReservations(reservationManager.getAllReservations());
+        ObservableList<Reservation> reservationsList = FXCollections.observableArrayList(allReservations);
         table.setItems(reservationsList);
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
-            table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+            List<Reservation> refreshed = getDeduplicatedReservations(reservationManager.getAllReservations());
+            table.setItems(FXCollections.observableArrayList(refreshed));
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
@@ -370,7 +514,28 @@ public class CashierDashboardController {
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getPaymentStatus()));
         statusCol.setPrefWidth(100);
 
-        table.getColumns().addAll(idCol, dateCol, buyerCol, itemCol, sizeCol, qtyCol, amountCol, statusCol);
+        TableColumn<Receipt, String> bundleCol = new TableColumn<>("Bundle");
+        bundleCol.setCellValueFactory(data -> {
+            Receipt r = data.getValue();
+            String bundleInfo = r.isPartOfBundle() ? "✓ BUNDLE" : "";
+            return new javafx.beans.property.SimpleStringProperty(bundleInfo);
+        });
+        bundleCol.setCellFactory(col -> new TableCell<Receipt, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold;");
+                }
+            }
+        });
+        bundleCol.setPrefWidth(80);
+
+        table.getColumns().addAll(idCol, dateCol, buyerCol, itemCol, sizeCol, qtyCol, amountCol, statusCol, bundleCol);
 
         // Load all receipts
         List<Receipt> allReceipts = receiptManager.getAllReceipts();
@@ -400,6 +565,28 @@ public class CashierDashboardController {
         container.getChildren().addAll(actionBar, table);
 
         return container;
+    }
+    
+    /**
+     * Get deduplicated reservations - for bundles, only show one row per bundleId
+     */
+    private List<Reservation> getDeduplicatedReservations(List<Reservation> reservations) {
+        List<Reservation> deduplicated = new java.util.ArrayList<>();
+        java.util.Set<String> seenBundleIds = new java.util.HashSet<>();
+        
+        for (Reservation r : reservations) {
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                if (!seenBundleIds.contains(bundleId)) {
+                    seenBundleIds.add(bundleId);
+                    deduplicated.add(r);
+                }
+            } else {
+                deduplicated.add(r);
+            }
+        }
+        
+        return deduplicated;
     }
     
     public void handleLogout() {

@@ -119,5 +119,50 @@ public class ThemeManager {
     public static Theme[] getAllThemes() {
         return Theme.values();
     }
+    
+    /**
+     * Get background color based on theme - STI blue/white for light mode
+     * 
+     * @return Background color CSS value
+     */
+    public static String getBackgroundColor() {
+        return isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+    }
+    
+    /**
+     * Get content area background color - white for light mode
+     * 
+     * @return Content background color CSS value
+     */
+    public static String getContentBackgroundColor() {
+        return isDarkMode() ? "-color-bg-default" : "white";
+    }
+    
+    /**
+     * Get top bar background color
+     * 
+     * @return Top bar background color CSS value
+     */
+    public static String getTopBarBackgroundColor() {
+        return isDarkMode() ? "-color-bg-subtle" : "white";
+    }
+    
+    /**
+     * Get primary text color
+     * 
+     * @return Text color CSS value
+     */
+    public static String getTextColor() {
+        return isDarkMode() ? "-color-fg-default" : "#1F2328";
+    }
+    
+    /**
+     * Get STI primary blue color
+     * 
+     * @return STI blue color
+     */
+    public static String getSTIBlue() {
+        return "#0969DA";
+    }
 }
 

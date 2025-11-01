@@ -13,6 +13,7 @@ public class Receipt {
     private String itemName;         // Item name
     private String size;             // Item size
     private String buyerName;
+    private String bundleId;         // Identifier for bundle purchases (null for single items)
     
     // Constructor for creating new receipt
     public Receipt(int receiptId, String dateOrdered, String paymentStatus, 
@@ -26,6 +27,14 @@ public class Receipt {
         this.itemName = itemName;
         this.size = size;
         this.buyerName = buyerName;
+        this.bundleId = null; // Default to null for single items
+    }
+    
+    // Constructor with bundleId
+    public Receipt(int receiptId, String dateOrdered, String paymentStatus, 
+                   int quantity, double amount, int itemCode, String itemName, String size, String buyerName, String bundleId) {
+        this(receiptId, dateOrdered, paymentStatus, quantity, amount, itemCode, itemName, size, buyerName);
+        this.bundleId = bundleId;
     }
     
     // Getters
@@ -38,6 +47,9 @@ public class Receipt {
     public String getItemName() { return itemName; }
     public String getSize() { return size; }
     public String getBuyerName() { return buyerName; }
+    public String getBundleId() { return bundleId; }
+    
+    public boolean isPartOfBundle() { return bundleId != null && !bundleId.isEmpty(); }
     
     // Setters
     public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
@@ -51,14 +63,15 @@ public class Receipt {
     
     // Convert to string for file storage (pipe-delimited)
     public String toFileFormat() {
+        String bundleIdStr = (bundleId != null) ? bundleId : "";
         return receiptId + "|" + dateOrdered + "|" + paymentStatus + "|" + 
-               quantity + "|" + amount + "|" + itemCode + "|" + itemName + "|" + size + "|" + buyerName;
+               quantity + "|" + amount + "|" + itemCode + "|" + itemName + "|" + size + "|" + buyerName + "|" + bundleIdStr;
     }
     
     // Create Receipt from file format
     public static Receipt fromFileFormat(String line) {
-        String[] parts = line.split("\\|");
-        if (parts.length != 9) return null;
+        String[] parts = line.split("\\|", -1); // -1 to keep empty trailing strings
+        if (parts.length < 9) return null;
         
         try {
             int receiptId = Integer.parseInt(parts[0]);
@@ -70,8 +83,9 @@ public class Receipt {
             String itemName = parts[6];
             String size = parts[7];
             String buyerName = parts[8];
+            String bundleId = (parts.length > 9 && !parts[9].isEmpty()) ? parts[9] : null;
             
-            return new Receipt(receiptId, dateOrdered, paymentStatus, quantity, amount, itemCode, itemName, size, buyerName);
+            return new Receipt(receiptId, dateOrdered, paymentStatus, quantity, amount, itemCode, itemName, size, buyerName, bundleId);
         } catch (Exception e) {
             return null;
         }
@@ -79,8 +93,9 @@ public class Receipt {
     
     @Override
     public String toString() {
-        return String.format("%-10d | %-19s | %-25s | %-3d | ₱%-9.2f | %-6d | %-30s | %-10s | %-25s",
-            receiptId, dateOrdered, paymentStatus, quantity, amount, itemCode, itemName, size, buyerName);
+        String bundleInfo = isPartOfBundle() ? " [BUNDLE: " + bundleId + "]" : "";
+        return String.format("%-10d | %-19s | %-25s | %-3d | ₱%-9.2f | %-6d | %-30s | %-10s | %-25s%s",
+            receiptId, dateOrdered, paymentStatus, quantity, amount, itemCode, itemName, size, buyerName, bundleInfo);
     }
     
     // Detailed receipt format
@@ -92,6 +107,9 @@ public class Receipt {
         sb.append("╠════════════════════════════════════════════════════════════════════╣\n");
         sb.append(String.format("║  Receipt ID: %-53d ║\n", receiptId));
         sb.append(String.format("║  Date: %-59s ║\n", dateOrdered));
+        if (isPartOfBundle()) {
+            sb.append(String.format("║  Bundle ID: %-55s ║\n", bundleId));
+        }
         sb.append("╠════════════════════════════════════════════════════════════════════╣\n");
         sb.append(String.format("║  Buyer: %-58s ║\n", buyerName));
         sb.append("╠════════════════════════════════════════════════════════════════════╣\n");
@@ -102,6 +120,9 @@ public class Receipt {
         sb.append(String.format("║  Amount: ₱%-54.2f ║\n", amount));
         sb.append("╠════════════════════════════════════════════════════════════════════╣\n");
         sb.append(String.format("║  Payment Status: %-49s ║\n", paymentStatus));
+        if (isPartOfBundle()) {
+            sb.append("║  ** PART OF BUNDLE PURCHASE **                                     ║\n");
+        }
         sb.append("╚════════════════════════════════════════════════════════════════════╝\n");
         
         return sb.toString();
