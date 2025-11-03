@@ -1,23 +1,32 @@
 package gui.controllers;
 
-import inventory.InventoryManager;
-import inventory.ReservationManager;
-import inventory.ReceiptManager;
-import inventory.Item;
-import inventory.Reservation;
+import java.util.ArrayList;
+import java.util.List;
+
 import gui.utils.AlertHelper;
+import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
-import javafx.scene.Scene;
-import javafx.scene.Node;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import inventory.InventoryManager;
+import inventory.Item;
+import inventory.ReceiptManager;
+import inventory.Reservation;
+import inventory.ReservationManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import java.util.List;
-import java.util.ArrayList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
 /**
  * StaffDashboardController - Handles staff dashboard operations
@@ -44,6 +53,26 @@ public class StaffDashboardController {
     public Node createReservationsView() {
         VBox container = new VBox(15);
         container.setPadding(new Insets(20));
+
+        // Statistics cards
+        HBox statsBox = new HBox(20);
+        statsBox.setAlignment(Pos.CENTER_LEFT);
+        
+        // Pending Reservations (deduplicated for bundles)
+        int pendingCount = (int) ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getPendingReservations()
+        ).size();
+        VBox pendingCard = createStatCard("⏳ Pending", String.valueOf(pendingCount), "#BF8700");
+        
+        // Completed Reservations
+        int completedCount = (int) ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getAllReservations()
+        ).stream()
+            .filter(r -> "COMPLETED".equals(r.getStatus()))
+            .count();
+        VBox completedCard = createStatCard("✅ Completed", String.valueOf(completedCount), "#1A7F37");
+        
+        statsBox.getChildren().addAll(pendingCard, completedCard);
 
         // Filter buttons
         HBox filterBar = new HBox(15);
@@ -212,57 +241,50 @@ public class StaffDashboardController {
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, bundleCol, actionsCol);
 
         // Load all reservations (deduplicated for bundles)
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations()));
+        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()));
         table.setItems(allReservations);
 
         // Filter actions
-        allBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations()))));
+        allBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()))));
         pendingBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "PENDING".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
         });
         approvedBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> r.getStatus().contains("APPROVED"))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
         });
         returnRequestsBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getReturnRequests();
-            table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(filtered)));
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
         });
-        refreshBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations()))));
+        refreshBtn.setOnAction(e -> {
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
+            
+            // Update stats cards (order: Pending, Completed) - deduplicated for bundles
+            int updatedPending = (int) ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getPendingReservations()
+            ).size();
+            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
+                .setText(String.valueOf(updatedPending));
+            
+            int updatedCompleted = (int) ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getAllReservations()
+            ).stream()
+                .filter(r -> "COMPLETED".equals(r.getStatus()))
+                .count();
+            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(1)).getChildren().get(1))
+                .setText(String.valueOf(updatedCompleted));
+        });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(filterBar, table);
+        container.getChildren().addAll(statsBox, filterBar, table);
 
         return container;
-    }
-
-    /**
-     * Deduplicate bundle reservations - show only one row per bundle
-     * For bundles, returns only the first reservation of each bundle
-     * For non-bundle reservations, returns them as-is
-     */
-    private List<Reservation> getDeduplicatedReservations(List<Reservation> reservations) {
-        List<Reservation> deduplicated = new ArrayList<>();
-        java.util.Set<String> seenBundles = new java.util.HashSet<>();
-        
-        for (Reservation r : reservations) {
-            if (r.isPartOfBundle()) {
-                String bundleId = r.getBundleId();
-                if (!seenBundles.contains(bundleId)) {
-                    seenBundles.add(bundleId);
-                    deduplicated.add(r); // Add only first occurrence of bundle
-                }
-            } else {
-                deduplicated.add(r); // Add non-bundle reservations
-            }
-        }
-        
-        return deduplicated;
     }
 
     /**
@@ -308,7 +330,7 @@ public class StaffDashboardController {
             }
             
             if (allSuccess) {
-                table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations())));
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
                 AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle approved!" : "Reservation approved!");
             } else {
                 AlertHelper.showError("Error", "Failed to approve reservation");
@@ -358,7 +380,7 @@ public class StaffDashboardController {
                 }
                 
                 if (allSuccess) {
-                    table.setItems(FXCollections.observableArrayList(getDeduplicatedReservations(reservationManager.getAllReservations())));
+                    table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
                     AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
                 } else {
                     AlertHelper.showError("Error", "Failed to reject reservation");
@@ -419,6 +441,22 @@ public class StaffDashboardController {
         VBox container = new VBox(15);
         container.setPadding(new Insets(20));
 
+        // Statistics cards
+        HBox statsBox = new HBox(20);
+        statsBox.setAlignment(Pos.CENTER_LEFT);
+        
+        // Total Items
+        int totalItems = inventoryManager.getAllItems().size();
+        VBox itemsCard = createStatCard("📦 Total Items", String.valueOf(totalItems), "#0969DA");
+        
+        // Low Stock Items
+        int lowStockCount = (int) inventoryManager.getAllItems().stream()
+            .filter(item -> item.getQuantity() < 10)
+            .count();
+        VBox lowStockCard = createStatCard("⚠️ Low Stock", String.valueOf(lowStockCount), "#CF222E");
+        
+        statsBox.getChildren().addAll(itemsCard, lowStockCard);
+
         // Action buttons
         HBox actionBar = new HBox(15);
         actionBar.setAlignment(Pos.CENTER_LEFT);
@@ -470,8 +508,28 @@ public class StaffDashboardController {
             }
         });
         priceCol.setPrefWidth(100);
+        
+        // Actions column - Adjust Stock button
+        TableColumn<Item, Void> actionsCol = new TableColumn<>("Actions");
+        actionsCol.setCellFactory(col -> new TableCell<Item, Void>() {
+            private final Button adjustBtn = new Button("📝 Adjust Stock");
 
-        table.getColumns().addAll(codeCol, nameCol, courseCol, sizeCol, qtyCol, priceCol);
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    Item currentItem = getTableView().getItems().get(getIndex());
+                    adjustBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
+                    adjustBtn.setOnAction(e -> handleStockAdjustment(currentItem, table));
+                    setGraphic(adjustBtn);
+                }
+            }
+        });
+        actionsCol.setPrefWidth(150);
+
+        table.getColumns().addAll(codeCol, nameCol, courseCol, sizeCol, qtyCol, priceCol, actionsCol);
 
         // Load all items
         List<Item> allItems = inventoryManager.getAllItems();
@@ -496,12 +554,83 @@ public class StaffDashboardController {
             List<Item> refreshed = inventoryManager.getAllItems();
             table.setItems(FXCollections.observableArrayList(refreshed));
             searchField.clear();
+            
+            // Update stats cards
+            int updatedTotal = inventoryManager.getAllItems().size();
+            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
+                .setText(String.valueOf(updatedTotal));
+            
+            int updatedLowStock = (int) inventoryManager.getAllItems().stream()
+                .filter(item -> item.getQuantity() < 10)
+                .count();
+            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(1)).getChildren().get(1))
+                .setText(String.valueOf(updatedLowStock));
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(statsBox, actionBar, table);
 
         return container;
+    }
+    
+    /**
+     * Handle stock adjustment request for an item
+     */
+    private void handleStockAdjustment(Item item, TableView<Item> table) {
+        TextInputDialog newQtyDialog = new TextInputDialog(String.valueOf(item.getQuantity()));
+        newQtyDialog.setTitle("Adjust Stock");
+        newQtyDialog.setHeaderText("Adjust stock for: " + item.getName() + " (" + item.getSize() + ")");
+        newQtyDialog.setContentText("Current Quantity: " + item.getQuantity() + "\nNew Quantity:");
+
+        newQtyDialog.showAndWait().ifPresent(input -> {
+            try {
+                int newQuantity = Integer.parseInt(input.trim());
+                
+                if (newQuantity < 0) {
+                    AlertHelper.showError("Invalid Input", "Quantity cannot be negative!");
+                    return;
+                }
+                
+                if (newQuantity == item.getQuantity()) {
+                    AlertHelper.showInfo("No Change", "New quantity is the same as current quantity.");
+                    return;
+                }
+                
+                // Ask for reason
+                TextInputDialog reasonDialog = new TextInputDialog();
+                reasonDialog.setTitle("Stock Adjustment Reason");
+                reasonDialog.setHeaderText("Provide a reason for this stock change");
+                reasonDialog.setContentText("Reason:");
+                
+                reasonDialog.showAndWait().ifPresent(reason -> {
+                    if (reason.trim().isEmpty()) {
+                        AlertHelper.showError("Validation Error", "Reason is required!");
+                        return;
+                    }
+                    
+                    // Submit stock adjustment request (requires admin approval)
+                    boolean success = inventoryManager.requestStockAdjustment(
+                        "staff", // This should be the logged-in staff username
+                        item.getCode(),
+                        item.getSize(),
+                        newQuantity,
+                        reason.trim()
+                    );
+                    
+                    if (success) {
+                        AlertHelper.showSuccess("Request Submitted", 
+                            "Stock adjustment request submitted successfully!\n\n" +
+                            "Change: " + item.getQuantity() + " → " + newQuantity + "\n" +
+                            "Status: Pending Admin Approval");
+                    } else {
+                        AlertHelper.showError("Error", "Failed to submit stock adjustment request!");
+                    }
+                });
+                
+            } catch (NumberFormatException e) {
+                AlertHelper.showError("Invalid Input", "Please enter a valid number!");
+            }
+        });
     }
 
     public Node createStockLogsView() {
@@ -624,6 +753,33 @@ public class StaffDashboardController {
             "-fx-cursor: hand;" +
             "-fx-pref-height: 36px;"
         );
+    }
+    
+    /**
+     * Create statistic card
+     */
+    private VBox createStatCard(String title, String value, String color) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(20));
+        card.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: " + color + ";" +
+            "-fx-border-width: 2;" +
+            "-fx-border-radius: 8;" +
+            "-fx-background-radius: 8;"
+        );
+        card.setPrefWidth(200);
+        card.setPrefHeight(120);
+        card.setAlignment(Pos.CENTER);
+
+        javafx.scene.control.Label titleLabel = new javafx.scene.control.Label(title);
+        titleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+
+        javafx.scene.control.Label valueLabel = new javafx.scene.control.Label(value);
+        valueLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 36px; -fx-font-weight: bold;");
+
+        card.getChildren().addAll(titleLabel, valueLabel);
+        return card;
     }
     
     public void handleLogout() {

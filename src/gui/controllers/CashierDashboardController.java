@@ -1,22 +1,37 @@
 package gui.controllers;
 
-import inventory.InventoryManager;
-import inventory.ReservationManager;
-import inventory.ReceiptManager;
-import inventory.Reservation;
-import inventory.Receipt;
+import java.util.List;
+
 import gui.utils.AlertHelper;
+import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
-import javafx.scene.Scene;
-import javafx.scene.Node;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import inventory.InventoryManager;
+import inventory.Receipt;
+import inventory.ReceiptManager;
+import inventory.Reservation;
+import inventory.ReservationManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import java.util.List;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import utils.SystemLogger;
 
 /**
  * CashierDashboardController - Handles cashier dashboard operations
@@ -24,9 +39,9 @@ import java.util.List;
 @SuppressWarnings("unchecked")
 public class CashierDashboardController {
 
-    private InventoryManager inventoryManager;
-    private ReservationManager reservationManager;
-    private ReceiptManager receiptManager;
+    private final InventoryManager inventoryManager;
+    private final ReservationManager reservationManager;
+    private final ReceiptManager receiptManager;
 
     public CashierDashboardController() {
         inventoryManager = new InventoryManager();
@@ -185,7 +200,7 @@ public class CashierDashboardController {
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, bundleCol, actionsCol);
 
         // Load approved reservations waiting for payment (deduplicated for bundles)
-        List<Reservation> approvedReservations = getDeduplicatedReservations(
+        List<Reservation> approvedReservations = ControllerUtils.getDeduplicatedReservations(
             reservationManager.getAllReservations().stream()
                 .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
                 .collect(java.util.stream.Collectors.toList())
@@ -193,13 +208,13 @@ public class CashierDashboardController {
         ObservableList<Reservation> reservationsList = FXCollections.observableArrayList(approvedReservations);
         table.setItems(reservationsList);
 
+        // Refresh table
+        List<Reservation> allReservations = ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations());
+        table.setItems(FXCollections.observableArrayList(allReservations));
+
         // Refresh button action
         refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshed = getDeduplicatedReservations(
-                reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
-                    .collect(java.util.stream.Collectors.toList())
-            );
+            List<Reservation> refreshed = ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations());
             table.setItems(FXCollections.observableArrayList(refreshed));
         });
 
@@ -226,10 +241,32 @@ public class CashierDashboardController {
         grid.setVgap(10);
         grid.setPadding(new Insets(20));
 
+        // Calculate total price (for bundles, sum all items)
+        double totalPrice = reservation.getTotalPrice();
+        int totalQuantity = reservation.getQuantity();
+        String itemDescription = reservation.getItemName() + " (" + reservation.getSize() + ")";
+        
+        if (reservation.isPartOfBundle()) {
+            // Get all items in the bundle
+            String bundleId = reservation.getBundleId();
+            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            // Calculate total price and quantity for the bundle
+            totalPrice = bundleItems.stream()
+                .mapToDouble(Reservation::getTotalPrice)
+                .sum();
+            totalQuantity = bundleItems.stream()
+                .mapToInt(Reservation::getQuantity)
+                .sum();
+            itemDescription = "BUNDLE ORDER (" + bundleItems.size() + " items)";
+        }
+
         // Show reservation details
-        Label itemLabel = new Label("Item: " + reservation.getItemName() + " (" + reservation.getSize() + ")");
-        Label qtyLabel = new Label("Quantity: " + reservation.getQuantity());
-        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", reservation.getTotalPrice()));
+        Label itemLabel = new Label("Item: " + itemDescription);
+        Label qtyLabel = new Label("Quantity: " + totalQuantity);
+        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", totalPrice));
         totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
 
         // Payment method selector
@@ -253,23 +290,83 @@ public class CashierDashboardController {
         });
 
         dialog.showAndWait().ifPresent(paymentMethod -> {
-            boolean success = reservationManager.markAsPaid(reservation.getReservationId(), paymentMethod);
-            if (success) {
-                // Create receipt with bundleId if it's part of a bundle
-                Receipt receipt;
-                if (reservation.isPartOfBundle()) {
-                    receipt = receiptManager.createReceipt(
+            // If it's a bundle, process all items in the bundle
+            if (reservation.isPartOfBundle()) {
+                String bundleId = reservation.getBundleId();
+                List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId.equals(r.getBundleId()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                // Mark all items in the bundle as paid
+                boolean allSuccess = true;
+                for (Reservation bundleItem : bundleItems) {
+                    boolean success = reservationManager.markAsPaid(bundleItem.getReservationId(), paymentMethod);
+                    if (!success) {
+                        allSuccess = false;
+                        break;
+                    }
+                }
+                
+                if (allSuccess) {
+                    // Calculate bundle totals for receipt
+                    double bundleTotalPrice = bundleItems.stream()
+                        .mapToDouble(Reservation::getTotalPrice)
+                        .sum();
+                    int bundleTotalQuantity = bundleItems.stream()
+                        .mapToInt(Reservation::getQuantity)
+                        .sum();
+                    
+                    // Create a single receipt for the entire bundle
+                    Receipt receipt = receiptManager.createReceipt(
                         "PAID",
-                        reservation.getQuantity(),
-                        reservation.getTotalPrice(),
+                        bundleTotalQuantity,
+                        bundleTotalPrice,
                         reservation.getItemCode(),
-                        reservation.getItemName(),
-                        reservation.getSize(),
+                        "BUNDLE ORDER (" + bundleItems.size() + " items)",
+                        "Bundle",
                         reservation.getStudentName(),
-                        reservation.getBundleId()
+                        bundleId
                     );
+                    
+                    // Log each item in the bundle
+                    for (Reservation bundleItem : bundleItems) {
+                        SystemLogger.logPurchase(
+                            bundleItem.getStudentName(),
+                            bundleItem.getItemName() + " (" + bundleItem.getSize() + ")",
+                            bundleItem.getQuantity(),
+                            bundleItem.getTotalPrice()
+                        );
+                        
+                        SystemLogger.logStockUpdate(
+                            bundleItem.getItemName(),
+                            bundleItem.getQuantity(),
+                            inventoryManager.findItemByCode(bundleItem.getItemCode()).getQuantity()
+                        );
+                    }
+                    
+                    // Refresh table
+                    List<Reservation> refreshed = reservationManager.getAllReservations().stream()
+                        .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
+                        .collect(java.util.stream.Collectors.toList());
+                    table.setItems(FXCollections.observableArrayList(refreshed));
+                    
+                    AlertHelper.showSuccess("Success",
+                        "Bundle payment processed successfully!\n\n" +
+                        "Receipt ID: " + receipt.getReceiptId() + "\n" +
+                        "Payment Method: " + paymentMethod + "\n" +
+                        "Bundle ID: " + bundleId + "\n" +
+                        "Total Items: " + bundleItems.size() + "\n" +
+                        "Total Amount: ₱" + String.format("%.2f", bundleTotalPrice));
                 } else {
-                    receipt = receiptManager.createReceipt(
+                    AlertHelper.showError("Error", "Failed to process bundle payment");
+                    SystemLogger.logError("Bundle payment processing failed for bundle: " + bundleId, 
+                        new Exception("Payment failed"));
+                }
+            } else {
+                // Single item payment (not a bundle)
+                boolean success = reservationManager.markAsPaid(reservation.getReservationId(), paymentMethod);
+                if (success) {
+                    Receipt receipt = receiptManager.createReceipt(
                         "PAID",
                         reservation.getQuantity(),
                         reservation.getTotalPrice(),
@@ -278,23 +375,37 @@ public class CashierDashboardController {
                         reservation.getSize(),
                         reservation.getStudentName()
                     );
+
+                    // Log purchase transaction
+                    SystemLogger.logPurchase(
+                        reservation.getStudentName(),
+                        reservation.getItemName() + " (" + reservation.getSize() + ")",
+                        reservation.getQuantity(),
+                        reservation.getTotalPrice()
+                    );
+                    
+                    // Log stock update
+                    SystemLogger.logStockUpdate(
+                        reservation.getItemName(),
+                        reservation.getQuantity(),
+                        inventoryManager.findItemByCode(reservation.getItemCode()).getQuantity()
+                    );
+
+                    // Refresh table
+                    List<Reservation> refreshed = reservationManager.getAllReservations().stream()
+                        .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
+                        .collect(java.util.stream.Collectors.toList());
+                    table.setItems(FXCollections.observableArrayList(refreshed));
+
+                    AlertHelper.showSuccess("Success",
+                        "Payment processed successfully!\n\n" +
+                        "Receipt ID: " + receipt.getReceiptId() + "\n" +
+                        "Payment Method: " + paymentMethod);
+                } else {
+                    AlertHelper.showError("Error", "Failed to process payment");
+                    SystemLogger.logError("Payment processing failed for reservation: " + reservation.getReservationId(), 
+                        new Exception("Payment failed"));
                 }
-
-                // Refresh table
-                List<Reservation> refreshed = reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(refreshed));
-
-                String bundleInfo = reservation.isPartOfBundle() ? 
-                    "\nBundle ID: " + reservation.getBundleId() : "";
-                AlertHelper.showSuccess("Success",
-                    "Payment processed successfully!\n\n" +
-                    "Receipt ID: " + receipt.getReceiptId() + "\n" +
-                    "Payment Method: " + paymentMethod +
-                    bundleInfo);
-            } else {
-                AlertHelper.showError("Error", "Failed to process payment");
             }
         });
     }
@@ -426,13 +537,13 @@ public class CashierDashboardController {
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, statusCol, bundleCol);
 
         // Load all reservations (deduplicated for bundles)
-        List<Reservation> allReservations = getDeduplicatedReservations(reservationManager.getAllReservations());
+        List<Reservation> allReservations = ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations());
         ObservableList<Reservation> reservationsList = FXCollections.observableArrayList(allReservations);
         table.setItems(reservationsList);
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshed = getDeduplicatedReservations(reservationManager.getAllReservations());
+            List<Reservation> refreshed = ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations());
             table.setItems(FXCollections.observableArrayList(refreshed));
         });
 
@@ -565,28 +676,6 @@ public class CashierDashboardController {
         container.getChildren().addAll(actionBar, table);
 
         return container;
-    }
-    
-    /**
-     * Get deduplicated reservations - for bundles, only show one row per bundleId
-     */
-    private List<Reservation> getDeduplicatedReservations(List<Reservation> reservations) {
-        List<Reservation> deduplicated = new java.util.ArrayList<>();
-        java.util.Set<String> seenBundleIds = new java.util.HashSet<>();
-        
-        for (Reservation r : reservations) {
-            if (r.isPartOfBundle()) {
-                String bundleId = r.getBundleId();
-                if (!seenBundleIds.contains(bundleId)) {
-                    seenBundleIds.add(bundleId);
-                    deduplicated.add(r);
-                }
-            } else {
-                deduplicated.add(r);
-            }
-        }
-        
-        return deduplicated;
     }
     
     public void handleLogout() {

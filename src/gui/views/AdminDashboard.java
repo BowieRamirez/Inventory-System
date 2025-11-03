@@ -4,8 +4,15 @@ import gui.controllers.AdminDashboardController;
 import gui.utils.ThemeManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -28,10 +35,9 @@ public class AdminDashboard {
     
     // Sidebar buttons
     private Button dashboardBtn;
-    private Button inventoryBtn;
-    private Button reservationsBtn;
     private Button accountsBtn;
     private Button stockLogsBtn;
+    private Button stockApprovalsBtn;
     private Button logoutBtn;
     
     // Sidebar labels for theme updates
@@ -72,30 +78,14 @@ public class AdminDashboard {
      */
     private void wireQuickActions() {
         // Get the buttons from controller (they're created when createDashboardView is called)
-        Button viewInventoryBtn = controller.getViewInventoryBtn();
         Button approvePendingBtn = controller.getApprovePendingBtn();
-        Button addItemBtn = controller.getAddItemBtn();
         Button manageAccountsBtn = controller.getManageAccountsBtn();
         
         // Wire up actions if buttons exist
-        if (viewInventoryBtn != null) {
-            viewInventoryBtn.setOnAction(e -> {
-                setActiveButton(inventoryBtn);
-                showInventory();
-            });
-        }
-        
         if (approvePendingBtn != null) {
             approvePendingBtn.setOnAction(e -> {
-                setActiveButton(reservationsBtn);
-                showReservations();
-            });
-        }
-        
-        if (addItemBtn != null) {
-            addItemBtn.setOnAction(e -> {
-                setActiveButton(inventoryBtn);
-                showInventory();
+                setActiveButton(stockApprovalsBtn);
+                showStockApprovals();
             });
         }
         
@@ -185,9 +175,8 @@ public class AdminDashboard {
         
         // Navigation buttons
         dashboardBtn = createNavButton("📊 Dashboard", true);
-        inventoryBtn = createNavButton("📦 Inventory", false);
-        reservationsBtn = createNavButton("📋 Reservations", false);
         accountsBtn = createNavButton("👥 Accounts", false);
+        stockApprovalsBtn = createNavButton("✅ Stock Approvals", false);
         stockLogsBtn = createNavButton("📝 Stock Logs", false);
         
         Region spacer = new Region();
@@ -210,19 +199,14 @@ public class AdminDashboard {
             showDashboard();
         });
         
-        inventoryBtn.setOnAction(e -> {
-            setActiveButton(inventoryBtn);
-            showInventory();
-        });
-        
-        reservationsBtn.setOnAction(e -> {
-            setActiveButton(reservationsBtn);
-            showReservations();
-        });
-        
         accountsBtn.setOnAction(e -> {
             setActiveButton(accountsBtn);
             showAccounts();
+        });
+        
+        stockApprovalsBtn.setOnAction(e -> {
+            setActiveButton(stockApprovalsBtn);
+            showStockApprovals();
         });
         
         stockLogsBtn.setOnAction(e -> {
@@ -236,9 +220,8 @@ public class AdminDashboard {
             header,
             new Separator(),
             dashboardBtn,
-            inventoryBtn,
-            reservationsBtn,
             accountsBtn,
+            stockApprovalsBtn,
             stockLogsBtn,
             spacer,
             new Separator(),
@@ -283,7 +266,7 @@ public class AdminDashboard {
      * Set active navigation button
      */
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {dashboardBtn, inventoryBtn, reservationsBtn, accountsBtn, stockLogsBtn};
+        Button[] buttons = {dashboardBtn, accountsBtn, stockApprovalsBtn, stockLogsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -323,30 +306,21 @@ public class AdminDashboard {
     }
     
     /**
-     * Show inventory management
-     */
-    private void showInventory() {
-        titleLabel.setText("Inventory Management");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createInventoryView());
-    }
-    
-    /**
-     * Show reservations management
-     */
-    private void showReservations() {
-        titleLabel.setText("Reservations Management");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createReservationsView());
-    }
-    
-    /**
      * Show accounts management
      */
     private void showAccounts() {
         titleLabel.setText("Account Management");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createAccountsView());
+    }
+    
+    /**
+     * Show stock approvals (pending stock adjustments)
+     */
+    private void showStockApprovals() {
+        titleLabel.setText("Stock Approvals");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createStockApprovalsView());
     }
     
     /**
@@ -418,7 +392,7 @@ public class AdminDashboard {
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         // Update navigation buttons
-        Button[] buttons = {dashboardBtn, inventoryBtn, reservationsBtn, accountsBtn, stockLogsBtn};
+        Button[] buttons = {dashboardBtn, accountsBtn, stockApprovalsBtn, stockLogsBtn};
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
         String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";

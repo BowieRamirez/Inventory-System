@@ -1,26 +1,43 @@
 package gui.controllers;
 
-import inventory.InventoryManager;
-import inventory.ReservationManager;
-import inventory.ReceiptManager;
-import inventory.Item;
-import inventory.Reservation;
-import student.Student;
-import utils.FileStorage;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import gui.utils.AlertHelper;
+import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
-import javafx.scene.Scene;
-import javafx.scene.Node;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import inventory.InventoryManager;
+import inventory.Item;
+import inventory.ReceiptManager;
+import inventory.Reservation;
+import inventory.ReservationManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
+import student.Student;
+import utils.FileStorage;
 
 /**
  * StudentDashboardController - Handles all student dashboard operations
@@ -861,7 +878,7 @@ public class StudentDashboardController {
             .collect(Collectors.toList());
         
         // Deduplicate bundles - show only one card per bundle
-        List<Reservation> deduplicatedReservations = getDeduplicatedReservations(myReservations);
+        List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(myReservations);
         
         if (deduplicatedReservations.isEmpty()) {
             VBox emptyBox = new VBox(20);
@@ -894,28 +911,6 @@ public class StudentDashboardController {
         }
         
         return container;
-    }
-    
-    /**
-     * Deduplicate bundle reservations - show only one card per bundle
-     */
-    private List<Reservation> getDeduplicatedReservations(List<Reservation> reservations) {
-        List<Reservation> deduplicated = new ArrayList<>();
-        java.util.Set<String> seenBundles = new java.util.HashSet<>();
-        
-        for (Reservation r : reservations) {
-            if (r.isPartOfBundle()) {
-                String bundleId = r.getBundleId();
-                if (!seenBundles.contains(bundleId)) {
-                    seenBundles.add(bundleId);
-                    deduplicated.add(r); // Add only first occurrence of bundle
-                }
-            } else {
-                deduplicated.add(r); // Add non-bundle reservations
-            }
-        }
-        
-        return deduplicated;
     }
     
     /**

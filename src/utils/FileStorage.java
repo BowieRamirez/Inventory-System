@@ -1,18 +1,26 @@
 package utils;
 
-import inventory.Item;
-import inventory.Reservation;
-import student.Student;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import admin.Staff;
+import inventory.Item;
+import inventory.Reservation;
+import student.Student;
+
 public class FileStorage {
 
     private static final File ITEMS_FILE = getDataFile("items.txt");
     private static final File STUDENTS_FILE = getDataFile("students.txt");
+    private static final File STAFF_FILE = getDataFile("staff.txt");
     private static final File RESERVATIONS_FILE = getDataFile("reservations.txt");
     
     private static File getDataFile(String filename) {
@@ -241,6 +249,165 @@ public class FileStorage {
             if (students.get(i).getStudentId().equals(updatedStudent.getStudentId())) {
                 students.set(i, updatedStudent);
                 return saveStudents(students);
+            }
+        }
+        return false;
+    }
+    
+    // ==================== STAFF DATABASE METHODS ====================
+    
+    /**
+     * Load all staff from staff.txt file
+     * Format: staffId|password|firstName|lastName|role|isActive
+     */
+    public static List<Staff> loadStaff() {
+        List<Staff> staffList = new ArrayList<>();
+
+        if (!STAFF_FILE.exists()) {
+            // Create default staff accounts if file doesn't exist
+            createDefaultStaffFile();
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(STAFF_FILE))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue; // Skip empty lines
+
+                Staff staff = parseStaff(line);
+                if (staff != null) {
+                    staffList.add(staff);
+                }
+            }
+        } catch (IOException e) {
+            // Error loading staff
+        }
+
+        return staffList;
+    }
+    
+    /**
+     * Parse staff from file format: staffId|password|firstName|lastName|role|isActive
+     */
+    private static Staff parseStaff(String line) {
+        String[] parts = line.split("\\|");
+        if (parts.length != 6) return null;
+        
+        try {
+            String staffId = parts[0];
+            String password = parts[1];
+            String firstName = parts[2];
+            String lastName = parts[3];
+            String role = parts[4];
+            boolean isActive = Boolean.parseBoolean(parts[5]);
+            
+            Staff staff = new Staff(staffId, password, firstName, lastName, role);
+            staff.setActive(isActive);
+            return staff;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Create default staff.txt file with sample accounts
+     */
+    private static void createDefaultStaffFile() {
+        try {
+            File parentDir = STAFF_FILE.getParentFile();
+            if (!parentDir.exists()) {
+                parentDir.mkdirs();
+            }
+            
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(STAFF_FILE))) {
+                // Default Staff account
+                writer.write("staff|staff123|John|Doe|Staff|true");
+                writer.newLine();
+                // Default Cashier account
+                writer.write("cashier|cashier123|Jane|Smith|Cashier|true");
+                writer.newLine();
+                writer.flush();
+            }
+        } catch (IOException e) {
+            // Error creating default staff file
+        }
+    }
+    
+    /**
+     * Save all staff to staff.txt file
+     */
+    public static boolean saveStaff(List<Staff> staffList) {
+        try {
+            // Ensure parent directory exists
+            File parentDir = STAFF_FILE.getParentFile();
+            if (!parentDir.exists()) {
+                parentDir.mkdirs();
+            }
+            
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(STAFF_FILE))) {
+                for (Staff staff : staffList) {
+                    writer.write(staffToFileFormat(staff));
+                    writer.newLine();
+                }
+                writer.flush(); // Ensure data is written to disk
+            }
+            
+            // Force file timestamp update
+            STAFF_FILE.setLastModified(System.currentTimeMillis());
+
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Convert staff to file format
+     */
+    private static String staffToFileFormat(Staff staff) {
+        return staff.getStaffId() + "|" +
+               staff.getPassword() + "|" +
+               staff.getFirstName() + "|" +
+               staff.getLastName() + "|" +
+               staff.getRole() + "|" +
+               staff.isActive();
+    }
+    
+    /**
+     * Add a new staff and save to database
+     */
+    public static boolean addStaff(List<Staff> staffList, Staff newStaff) {
+        staffList.add(newStaff);
+        return saveStaff(staffList);
+    }
+    
+    /**
+     * Find staff by ID
+     */
+    public static Staff findStaffById(List<Staff> staffList, String staffId) {
+        for (Staff staff : staffList) {
+            if (staff.getStaffId().equals(staffId)) {
+                return staff;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Check if staff ID exists
+     */
+    public static boolean staffExists(List<Staff> staffList, String staffId) {
+        return findStaffById(staffList, staffId) != null;
+    }
+    
+    /**
+     * Update staff in database
+     */
+    public static boolean updateStaff(List<Staff> staffList, Staff updatedStaff) {
+        for (int i = 0; i < staffList.size(); i++) {
+            if (staffList.get(i).getStaffId().equals(updatedStaff.getStaffId())) {
+                staffList.set(i, updatedStaff);
+                return saveStaff(staffList);
             }
         }
         return false;

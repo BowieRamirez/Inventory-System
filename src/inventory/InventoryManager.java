@@ -1,15 +1,25 @@
 package inventory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import audit.StockAuditManager;
 import utils.FileStorage;
+import utils.SystemLogger;
 
 public class InventoryManager {
-    private List<Item> inventory;
-    private Map<Integer, Item> itemByCodeMap; // HashMap for quick lookup by code
+    private final List<Item> inventory;
+    private final Map<Integer, Item> itemByCodeMap; // HashMap for quick lookup by code
+    private final StockAuditManager auditManager;
     
     public InventoryManager() {
         inventory = new ArrayList<>();
         itemByCodeMap = new HashMap<>();
+        auditManager = new StockAuditManager();
         loadItemsFromFile();
     }
 
@@ -105,9 +115,13 @@ public class InventoryManager {
     public boolean updateItemQuantity(int code, int newQuantity) {
         for (Item item : inventory) {
             if (item.getCode() == code) {
+                int oldQuantity = item.getQuantity();
                 item.setQuantity(newQuantity);
                 // Save updated inventory to file
                 FileStorage.saveItems(inventory);
+                // Log stock adjustment
+                int adjustment = newQuantity - oldQuantity;
+                SystemLogger.logStockAdjustment("Admin", item.getName(), adjustment, newQuantity);
                 return true;
             }
         }
@@ -118,9 +132,13 @@ public class InventoryManager {
     public boolean updateItemQuantityBySize(int code, String size, int newQuantity) {
         Item item = findItemByCodeAndSize(code, size);
         if (item != null) {
+            int oldQuantity = item.getQuantity();
             item.setQuantity(newQuantity);
             // Save updated inventory to file
             FileStorage.saveItems(inventory);
+            // Log stock adjustment
+            int adjustment = newQuantity - oldQuantity;
+            SystemLogger.logStockAdjustment("Admin", item.getName() + " (" + size + ")", adjustment, newQuantity);
             return true;
         }
         return false;
@@ -133,6 +151,8 @@ public class InventoryManager {
             item.addQuantity(quantity);
             // Save updated inventory to file
             FileStorage.saveItems(inventory);
+            // Log stock addition
+            SystemLogger.logStockAdjustment("Admin", item.getName() + " (" + size + ")", quantity, item.getQuantity());
             return true;
         }
         return false;
@@ -163,5 +183,124 @@ public class InventoryManager {
             }
         }
         return variants;
+    }
+    
+    // ============================================================================
+    // 🔐 STAFF-ONLY METHODS - Stock modifications must be done by Staff with auditing
+    // ============================================================================
+    
+    /**
+     * STAFF-ONLY: Request a stock adjustment (with audit trail)
+     * Only Staff role can modify stocks - all changes are logged and require Admin approval
+     */
+    public boolean requestStockAdjustment(String staffUsername, int itemCode, String itemSize, 
+                                         int newQuantity, String reason) {
+        // Verify staff role (this would be checked at controller level too)
+        if (!isStaffRole(staffUsername)) {
+            SystemLogger.logAuthenticationFailure(staffUsername, "Unauthorized: Only Staff can modify stocks");
+            return false;
+        }
+        
+        Item item = findItemByCodeAndSize(itemCode, itemSize);
+        if (item == null) {
+            SystemLogger.logError("Stock adjustment failed: Item not found", new Exception("Item code: " + itemCode));
+            return false;
+        }
+        
+        // Validate adjustment
+        if (newQuantity < 0) {
+            SystemLogger.logWarning("Stock adjustment rejected: Negative quantity not allowed (" + newQuantity + ")");
+            return false;
+        }
+        
+        int oldQuantity = item.getQuantity();
+        int diff = newQuantity - oldQuantity;
+        
+        // Create audit log entry (PENDING approval)
+        auditManager.logStockChange(staffUsername, item.getName(), itemCode, itemSize, 
+                                   oldQuantity, newQuantity, reason, 
+                                   diff > 0 ? "ADD" : (diff < 0 ? "REMOVE" : "ADJUST"));
+        
+        // Log to CLI
+        SystemLogger.logActivity("📝 Staff " + staffUsername + " REQUESTED stock adjustment for " + 
+                               item.getName() + ": " + oldQuantity + " → " + newQuantity + " (Reason: " + reason + ")");
+        
+        return true;
+    }
+    
+    /**
+     * ADMIN-ONLY: Approve a pending stock change and apply it
+     */
+    public boolean approveAndApplyStockChange(String logId, String adminUsername) {
+        // Approve in audit manager
+        if (!auditManager.approveChange(logId, adminUsername)) {
+            SystemLogger.logError("Failed to approve stock change", new Exception("Log not found: " + logId));
+            return false;
+        }
+        
+        // Note: In a complete system, we would apply the change here
+        // For now, the audit log tracks the approval
+        SystemLogger.logActivity("✅ Admin " + adminUsername + " approved stock change: " + logId);
+        return true;
+    }
+    
+    /**
+     * ADMIN-ONLY: Reject a pending stock change
+     */
+    public boolean rejectStockChange(String logId, String adminUsername, String rejectionReason) {
+        if (!auditManager.rejectChange(logId, adminUsername, rejectionReason)) {
+            SystemLogger.logError("Failed to reject stock change", new Exception("Log not found: " + logId));
+            return false;
+        }
+        
+        SystemLogger.logActivity("❌ Admin " + adminUsername + " rejected stock change: " + logId);
+        return true;
+    }
+    
+    /**
+     * Get pending stock change requests (for Admin Dashboard)
+     */
+    public List<audit.StockAuditLog> getPendingStockChanges() {
+        return auditManager.getPendingChanges();
+    }
+    
+    /**
+     * Get audit trail for a specific staff member
+     */
+    public List<audit.StockAuditLog> getStaffAuditTrail(String staffUsername) {
+        return auditManager.getChangesByStaff(staffUsername);
+    }
+    
+    /**
+     * Get complete audit trail
+     */
+    public List<audit.StockAuditLog> getCompleteAuditTrail() {
+        return auditManager.getAllLogs();
+    }
+    
+    /**
+     * Export audit trail to CSV
+     */
+    public void exportAuditTrailToCSV(String filename) {
+        auditManager.exportToCSV(filename);
+    }
+    
+    /**
+     * Print audit summary to console
+     */
+    public void printAuditSummary() {
+        auditManager.printAuditSummary();
+    }
+    
+    /**
+     * Helper: Check if user has Staff role
+     * This would typically be replaced with a proper role check from User/Session management
+     */
+    @SuppressWarnings("unused")
+    private boolean isStaffRole(String username) {
+        // In a complete system, this would check the user's actual role
+        // For now, we'll accept anyone with "staff" in their role/username context
+        // This should be verified at the controller level before calling this method
+        return true; // Placeholder - controller must verify role
     }
 }

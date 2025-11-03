@@ -1,16 +1,17 @@
 package gui.controllers;
 
+import java.util.List;
+
 import admin.Admin;
 import admin.Staff;
-import admin.Cashier;
-import student.Student;
 import gui.utils.AlertHelper;
 import gui.utils.GUIValidator;
 import gui.utils.SceneManager;
 import gui.views.SignupView;
-import utils.FileStorage;
 import javafx.scene.Scene;
-import java.util.List;
+import student.Student;
+import utils.FileStorage;
+import utils.SystemLogger;
 
 /**
  * LoginController - Handles authentication logic for the login screen
@@ -21,10 +22,12 @@ import java.util.List;
 public class LoginController {
     
     private List<Student> students;
+    private List<Staff> staffList;
     
     public LoginController() {
-        // Load students from file
+        // Load students and staff from file
         loadStudents();
+        loadStaff();
     }
     
     /**
@@ -41,6 +44,19 @@ public class LoginController {
     }
     
     /**
+     * Load staff from file storage
+     */
+    private void loadStaff() {
+        try {
+            staffList = FileStorage.loadStaff();
+            System.out.println("Loaded " + staffList.size() + " staff members for authentication.");
+        } catch (Exception e) {
+            AlertHelper.showError("Error", "Failed to load staff data: " + e.getMessage());
+            staffList = List.of(); // Empty list as fallback
+        }
+    }
+    
+    /**
      * Handle login attempt - Auto-detects role based on credentials
      *
      * @param username The username or student ID
@@ -50,36 +66,42 @@ public class LoginController {
         // Validate inputs
         if (!GUIValidator.isNotEmpty(username) || !GUIValidator.isNotEmpty(password)) {
             AlertHelper.showError("Login Failed", "Please enter both username and password.");
+            SystemLogger.logAuthenticationFailure(username, "Empty username or password");
             return;
         }
 
         // Try to authenticate as Admin
         if (authenticateAdmin(username, password)) {
+            SystemLogger.logLogin(username, "Admin");
             navigateToAdminDashboard();
             return;
         }
 
-        // Try to authenticate as Staff
-        if (authenticateStaff(username, password)) {
-            navigateToStaffDashboard();
-            return;
-        }
-
-        // Try to authenticate as Cashier
-        if (authenticateCashier(username, password)) {
-            navigateToCashierDashboard();
+        // Try to authenticate as Staff or Cashier
+        Staff staff = authenticateStaff(username, password);
+        if (staff != null) {
+            SystemLogger.logLogin(username, staff.getRole());
+            
+            // Navigate to appropriate dashboard based on role
+            if ("Cashier".equals(staff.getRole())) {
+                navigateToCashierDashboard();
+            } else {
+                navigateToStaffDashboard();
+            }
             return;
         }
 
         // Try to authenticate as Student
         Student student = authenticateStudent(username, password);
         if (student != null) {
+            SystemLogger.logLogin(username, "Student");
             navigateToStudentDashboard(student);
             return;
         }
 
         // If all authentication attempts fail
         AlertHelper.showError("Login Failed", "Invalid credentials. Please try again.");
+        SystemLogger.logAuthenticationFailure(username, "Invalid credentials");
     }
     
     /**
@@ -91,19 +113,28 @@ public class LoginController {
     }
     
     /**
-     * Authenticate staff user
+     * Authenticate staff user (includes both Staff and Cashier roles)
+     * 
+     * @return The authenticated Staff object, or null if authentication fails
      */
-    private boolean authenticateStaff(String username, String password) {
-        Staff staff = new Staff(username, password);
-        return staff.authenticate();
-    }
-    
-    /**
-     * Authenticate cashier user
-     */
-    private boolean authenticateCashier(String username, String password) {
-        Cashier cashier = new Cashier(username, password);
-        return cashier.authenticate();
+    private Staff authenticateStaff(String staffId, String password) {
+        // Find staff by ID
+        for (Staff staff : staffList) {
+            if (staff.getStaffId().equals(staffId) && 
+                staff.getPassword().equals(password)) {
+                
+                // Check if account is active
+                if (!staff.isActive()) {
+                    AlertHelper.showError("Account Deactivated", 
+                        "Your account has been deactivated. Please contact the administrator.");
+                    return null;
+                }
+                
+                return staff;
+            }
+        }
+        
+        return null;
     }
     
     /**

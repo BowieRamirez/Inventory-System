@@ -1,0 +1,2 @@
+staff|staff123|John|Doe|Staff|true
+cashier|cashier123|Jane|Smith|Cashier|true
