@@ -192,15 +192,10 @@ public class InventoryManager {
     /**
      * STAFF-ONLY: Request a stock adjustment (with audit trail)
      * Only Staff role can modify stocks - all changes are logged and require Admin approval
+     * Note: Role verification is handled at controller level before calling this method
      */
     public boolean requestStockAdjustment(String staffUsername, int itemCode, String itemSize, 
                                          int newQuantity, String reason) {
-        // Verify staff role (this would be checked at controller level too)
-        if (!isStaffRole(staffUsername)) {
-            SystemLogger.logAuthenticationFailure(staffUsername, "Unauthorized: Only Staff can modify stocks");
-            return false;
-        }
-        
         Item item = findItemByCodeAndSize(itemCode, itemSize);
         if (item == null) {
             SystemLogger.logError("Stock adjustment failed: Item not found", new Exception("Item code: " + itemCode));
@@ -297,17 +292,5 @@ public class InventoryManager {
      */
     public StockAuditManager getAuditManager() {
         return auditManager;
-    }
-    
-    /**
-     * Helper: Check if user has Staff role
-     * This would typically be replaced with a proper role check from User/Session management
-     */
-    @SuppressWarnings("unused")
-    private boolean isStaffRole(String username) {
-        // In a complete system, this would check the user's actual role
-        // For now, we'll accept anyone with "staff" in their role/username context
-        // This should be verified at the controller level before calling this method
-        return true; // Placeholder - controller must verify role
     }
 }
