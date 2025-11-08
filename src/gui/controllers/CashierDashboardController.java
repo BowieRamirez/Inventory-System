@@ -27,7 +27,6 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -199,29 +198,160 @@ public class CashierDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, bundleCol, actionsCol);
 
-        // Load approved reservations waiting for payment (deduplicated for bundles)
-        List<Reservation> approvedReservations = ControllerUtils.getDeduplicatedReservations(
+        // Load ONLY approved reservations waiting for payment (deduplicated for bundles)
+        // Filter out: CANCELLED, RETURNED, PAID, COMPLETED - only show unpaid approved orders
+        List<Reservation> pendingPaymentReservations = ControllerUtils.getDeduplicatedReservations(
             reservationManager.getAllReservations().stream()
-                .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
+                .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
                 .collect(java.util.stream.Collectors.toList())
         );
-        ObservableList<Reservation> reservationsList = FXCollections.observableArrayList(approvedReservations);
-        table.setItems(reservationsList);
+        table.setItems(FXCollections.observableArrayList(pendingPaymentReservations));
 
-        // Refresh table
-        List<Reservation> allReservations = ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations());
-        table.setItems(FXCollections.observableArrayList(allReservations));
-
-        // Refresh button action
+        // Refresh button action - reload only approved unpaid reservations
         refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshed = ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations());
+            List<Reservation> refreshed = ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getAllReservations().stream()
+                    .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
+                    .collect(java.util.stream.Collectors.toList())
+            );
             table.setItems(FXCollections.observableArrayList(refreshed));
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(actionBar, table);
 
+        // Add row click handler to show order details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
         return container;
+    }
+
+    /**
+     * Show detailed order information dialog
+     */
+    private void showOrderDetailsDialog(Reservation reservation) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Order Details");
+        dialog.setHeaderText("Order ID: " + (reservation.isPartOfBundle() ? reservation.getBundleId() : String.valueOf(reservation.getReservationId())));
+
+        javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Customer Information Section
+        VBox customerSection = new VBox(8);
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label customerHeader = new javafx.scene.control.Label("CUSTOMER INFORMATION");
+        customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label studentName = new javafx.scene.control.Label("Name: " + reservation.getStudentName());
+        javafx.scene.control.Label studentId = new javafx.scene.control.Label("Student ID: " + reservation.getStudentId());
+        
+        customerSection.getChildren().addAll(customerHeader, studentName, studentId);
+
+        // Order Items Section
+        VBox itemsSection = new VBox(8);
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label itemsHeader = new javafx.scene.control.Label("ORDER ITEMS");
+        itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        itemsSection.getChildren().add(itemsHeader);
+
+        double totalPrice = 0;
+        int totalQuantity = 0;
+
+        if (reservation.isPartOfBundle()) {
+            // Get all items in the bundle
+            String bundleId = reservation.getBundleId();
+            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (Reservation item : bundleItems) {
+                HBox itemRow = new HBox(10);
+                itemRow.setAlignment(Pos.CENTER_LEFT);
+                
+                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
+                itemName.setMinWidth(250);
+                
+                javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
+                itemSize.setMinWidth(70);
+                
+                javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
+                itemQty.setMinWidth(60);
+                
+                javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", item.getTotalPrice()));
+                itemPrice.setStyle("-fx-font-weight: bold;");
+                
+                itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+                itemsSection.getChildren().add(itemRow);
+                
+                totalPrice += item.getTotalPrice();
+                totalQuantity += item.getQuantity();
+            }
+        } else {
+            // Single item
+            HBox itemRow = new HBox(10);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            
+            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + reservation.getItemName());
+            itemName.setMinWidth(250);
+            
+            javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + reservation.getSize());
+            itemSize.setMinWidth(70);
+            
+            javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + reservation.getQuantity());
+            itemQty.setMinWidth(60);
+            
+            javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", reservation.getTotalPrice()));
+            itemPrice.setStyle("-fx-font-weight: bold;");
+            
+            itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+            itemsSection.getChildren().add(itemRow);
+            
+            totalPrice = reservation.getTotalPrice();
+            totalQuantity = reservation.getQuantity();
+        }
+
+        // Order Summary Section
+        VBox summarySection = new VBox(8);
+        summarySection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label summaryHeader = new javafx.scene.control.Label("ORDER SUMMARY");
+        summaryHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label statusLabel = new javafx.scene.control.Label("Status: " + reservation.getStatus());
+        statusLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label qtyLabel = new javafx.scene.control.Label("Total Quantity: " + totalQuantity);
+        qtyLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label totalLabel = new javafx.scene.control.Label("Total Amount: ₱" + String.format("%.2f", totalPrice));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        
+        javafx.scene.control.Label orderTypeLabel = new javafx.scene.control.Label("Order Type: " + (reservation.isPartOfBundle() ? "Bundle Order" : "Single Item"));
+        orderTypeLabel.setStyle("-fx-font-size: 12px;");
+        
+        summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+
+        content.getChildren().addAll(customerSection, itemsSection, summarySection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
     }
 
     /**
@@ -236,15 +366,12 @@ public class CashierDashboardController {
         ButtonType processButtonType = new ButtonType("Process", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(processButtonType, ButtonType.CANCEL);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20));
+        VBox mainContainer = new VBox(15);
+        mainContainer.setPadding(new Insets(20));
 
         // Calculate total price (for bundles, sum all items)
         double totalPrice = reservation.getTotalPrice();
         int totalQuantity = reservation.getQuantity();
-        String itemDescription = reservation.getItemName() + " (" + reservation.getSize() + ")";
         
         if (reservation.isPartOfBundle()) {
             // Get all items in the bundle
@@ -253,34 +380,72 @@ public class CashierDashboardController {
                 .filter(r -> bundleId.equals(r.getBundleId()))
                 .collect(java.util.stream.Collectors.toList());
             
-            // Calculate total price and quantity for the bundle
-            totalPrice = bundleItems.stream()
-                .mapToDouble(Reservation::getTotalPrice)
-                .sum();
-            totalQuantity = bundleItems.stream()
-                .mapToInt(Reservation::getQuantity)
-                .sum();
-            itemDescription = "BUNDLE ORDER (" + bundleItems.size() + " items)";
+            // Show bundle header
+            Label bundleLabel = new Label("BUNDLE ORDER - " + bundleItems.size() + " item type(s)");
+            bundleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+            mainContainer.getChildren().add(bundleLabel);
+            
+            // Show all items in the bundle
+            VBox itemsList = new VBox(5);
+            itemsList.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 10; -fx-background-radius: 5;");
+            
+            totalPrice = 0;
+            totalQuantity = 0;
+            
+            for (Reservation item : bundleItems) {
+                HBox itemRow = new HBox(10);
+                itemRow.setAlignment(Pos.CENTER_LEFT);
+                
+                Label itemName = new Label("• " + item.getItemName() + " (" + item.getSize() + ")");
+                itemName.setMinWidth(250);
+                
+                Label itemQty = new Label("Qty: " + item.getQuantity());
+                itemQty.setMinWidth(70);
+                
+                Label itemPrice = new Label("₱" + String.format("%.2f", item.getTotalPrice()));
+                itemPrice.setStyle("-fx-font-weight: bold;");
+                
+                itemRow.getChildren().addAll(itemName, itemQty, itemPrice);
+                itemsList.getChildren().add(itemRow);
+                
+                totalPrice += item.getTotalPrice();
+                totalQuantity += item.getQuantity();
+            }
+            
+            mainContainer.getChildren().add(itemsList);
+        } else {
+            // Single item
+            Label itemLabel = new Label("Item: " + reservation.getItemName() + " (" + reservation.getSize() + ")");
+            itemLabel.setStyle("-fx-font-size: 13px;");
+            mainContainer.getChildren().add(itemLabel);
         }
 
-        // Show reservation details
-        Label itemLabel = new Label("Item: " + itemDescription);
-        Label qtyLabel = new Label("Quantity: " + totalQuantity);
-        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", totalPrice));
+        // Show totals
+        VBox totalsBox = new VBox(5);
+        totalsBox.setStyle("-fx-background-color: -color-bg-default; -fx-padding: 10; -fx-background-radius: 5;");
+        
+        Label qtyLabel = new Label("Total Quantity: " + totalQuantity);
+        qtyLabel.setStyle("-fx-font-size: 13px;");
+        
+        Label totalLabel = new Label("Total Amount: ₱" + String.format("%.2f", totalPrice));
         totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        
+        totalsBox.getChildren().addAll(qtyLabel, totalLabel);
+        mainContainer.getChildren().add(totalsBox);
 
         // Payment method selector
+        HBox paymentBox = new HBox(10);
+        paymentBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label paymentLabel = new Label("Payment Method:");
         ComboBox<String> paymentMethodBox = new ComboBox<>();
         paymentMethodBox.getItems().addAll("CASH", "GCASH", "CARD", "BANK");
         paymentMethodBox.setValue("CASH");
+        
+        paymentBox.getChildren().addAll(paymentLabel, paymentMethodBox);
+        mainContainer.getChildren().add(paymentBox);
 
-        grid.add(itemLabel, 0, 0, 2, 1);
-        grid.add(qtyLabel, 0, 1, 2, 1);
-        grid.add(totalLabel, 0, 2, 2, 1);
-        grid.add(new Label("Payment Method:"), 0, 3);
-        grid.add(paymentMethodBox, 1, 3);
-
-        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().setContent(mainContainer);
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == processButtonType) {
@@ -344,10 +509,12 @@ public class CashierDashboardController {
                         );
                     }
                     
-                    // Refresh table
-                    List<Reservation> refreshed = reservationManager.getAllReservations().stream()
-                        .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
-                        .collect(java.util.stream.Collectors.toList());
+                    // Refresh table - show only unpaid approved reservations
+                    List<Reservation> refreshed = ControllerUtils.getDeduplicatedReservations(
+                        reservationManager.getAllReservations().stream()
+                            .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
+                            .collect(java.util.stream.Collectors.toList())
+                    );
                     table.setItems(FXCollections.observableArrayList(refreshed));
                     
                     AlertHelper.showSuccess("Success",
@@ -391,10 +558,12 @@ public class CashierDashboardController {
                         inventoryManager.findItemByCode(reservation.getItemCode()).getQuantity()
                     );
 
-                    // Refresh table
-                    List<Reservation> refreshed = reservationManager.getAllReservations().stream()
-                        .filter(r -> r.getStatus().contains("APPROVED") && !r.isPaid())
-                        .collect(java.util.stream.Collectors.toList());
+                    // Refresh table - show only unpaid approved reservations
+                    List<Reservation> refreshed = ControllerUtils.getDeduplicatedReservations(
+                        reservationManager.getAllReservations().stream()
+                            .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
+                            .collect(java.util.stream.Collectors.toList())
+                    );
                     table.setItems(FXCollections.observableArrayList(refreshed));
 
                     AlertHelper.showSuccess("Success",
@@ -675,7 +844,138 @@ public class CashierDashboardController {
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(actionBar, table);
 
+        // Add row click handler to show receipt details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Receipt> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Receipt clickedReceipt = row.getItem();
+                    showReceiptDetailsDialog(clickedReceipt);
+                }
+            });
+            return row;
+        });
+
         return container;
+    }
+
+    /**
+     * Show detailed receipt information dialog
+     */
+    private void showReceiptDetailsDialog(Receipt receipt) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Receipt Details");
+        dialog.setHeaderText("Receipt ID: " + receipt.getReceiptId());
+
+        javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Customer Information Section
+        VBox customerSection = new VBox(8);
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label customerHeader = new javafx.scene.control.Label("CUSTOMER INFORMATION");
+        customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label buyerName = new javafx.scene.control.Label("Name: " + receipt.getBuyerName());
+        javafx.scene.control.Label purchaseDate = new javafx.scene.control.Label("Purchase Date: " + receipt.getDateOrdered());
+        
+        customerSection.getChildren().addAll(customerHeader, buyerName, purchaseDate);
+
+        // Order Items Section
+        VBox itemsSection = new VBox(8);
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label itemsHeader = new javafx.scene.control.Label("PURCHASE ITEMS");
+        itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        itemsSection.getChildren().add(itemsHeader);
+
+        double totalAmount = 0;
+        int totalQuantity = 0;
+
+        if (receipt.isPartOfBundle()) {
+            // Get all items in the bundle
+            String bundleId = receipt.getBundleId();
+            List<Receipt> bundleItems = receiptManager.getAllReceipts().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (Receipt item : bundleItems) {
+                HBox itemRow = new HBox(10);
+                itemRow.setAlignment(Pos.CENTER_LEFT);
+                
+                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
+                itemName.setMinWidth(250);
+                
+                javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
+                itemSize.setMinWidth(70);
+                
+                javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
+                itemQty.setMinWidth(60);
+                
+                javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", item.getAmount()));
+                itemPrice.setStyle("-fx-font-weight: bold;");
+                
+                itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+                itemsSection.getChildren().add(itemRow);
+                
+                totalAmount += item.getAmount();
+                totalQuantity += item.getQuantity();
+            }
+        } else {
+            // Single item
+            HBox itemRow = new HBox(10);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            
+            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + receipt.getItemName());
+            itemName.setMinWidth(250);
+            
+            javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + receipt.getSize());
+            itemSize.setMinWidth(70);
+            
+            javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + receipt.getQuantity());
+            itemQty.setMinWidth(60);
+            
+            javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", receipt.getAmount()));
+            itemPrice.setStyle("-fx-font-weight: bold;");
+            
+            itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+            itemsSection.getChildren().add(itemRow);
+            
+            totalAmount = receipt.getAmount();
+            totalQuantity = receipt.getQuantity();
+        }
+
+        // Payment Summary Section
+        VBox summarySection = new VBox(8);
+        summarySection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label summaryHeader = new javafx.scene.control.Label("PAYMENT SUMMARY");
+        summaryHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label statusLabel = new javafx.scene.control.Label("Payment Status: " + receipt.getPaymentStatus());
+        statusLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label qtyLabel = new javafx.scene.control.Label("Total Quantity: " + totalQuantity);
+        qtyLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label totalLabel = new javafx.scene.control.Label("Total Amount: ₱" + String.format("%.2f", totalAmount));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        
+        javafx.scene.control.Label orderTypeLabel = new javafx.scene.control.Label("Purchase Type: " + (receipt.isPartOfBundle() ? "Bundle Order" : "Single Item"));
+        orderTypeLabel.setStyle("-fx-font-size: 12px;");
+        
+        summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+
+        content.getChildren().addAll(customerSection, itemsSection, summarySection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
     }
     
     public void handleLogout() {

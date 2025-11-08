@@ -43,6 +43,7 @@ import javafx.scene.text.FontWeight;
 import student.Student;
 import utils.FileStorage;
 import utils.StockReturnLogger;
+import utils.SystemLogger;
 
 /**
  * AdminDashboardController - Handles all admin dashboard operations
@@ -97,14 +98,37 @@ public class AdminDashboardController {
         VBox container = new VBox(20);
         container.setPadding(new Insets(20));
         
-        // Statistics cards
-        HBox statsBox = new HBox(20);
-        statsBox.setAlignment(Pos.CENTER);
+        // Statistics cards - First row
+        HBox statsBoxRow1 = new HBox(20);
+        statsBoxRow1.setAlignment(Pos.CENTER);
         
         // Total Students
         VBox studentsCard = createStatCard("👥 Students", String.valueOf(students.size()), "#1A7F37");
         
-        statsBox.getChildren().add(studentsCard);
+        // Total Items in inventory
+        int totalItems = inventoryManager.getAllItems().size();
+        VBox itemsCard = createStatCard("📦 Items", String.valueOf(totalItems), "#0969DA");
+        
+        // Total Staff
+        VBox staffCard = createStatCard("👔 Staff", String.valueOf(staffList.size()), "#8250DF");
+        
+        statsBoxRow1.getChildren().addAll(studentsCard, itemsCard, staffCard);
+        
+        // Statistics cards - Second row
+        HBox statsBoxRow2 = new HBox(20);
+        statsBoxRow2.setAlignment(Pos.CENTER);
+        
+        // Pending Stock Approvals
+        int pendingApprovals = inventoryManager.getAuditManager().getPendingChanges().size();
+        VBox approvalsCard = createStatCard("⏳ Pending Approvals", String.valueOf(pendingApprovals), "#D73A49");
+        
+        // Active Reservations (PENDING + PAID)
+        long activeReservations = reservationManager.getAllReservations().stream()
+            .filter(r -> "PENDING".equals(r.getStatus()) || "PAID".equals(r.getStatus()))
+            .count();
+        VBox reservationsCard = createStatCard("🎫 Active Reservations", String.valueOf(activeReservations), "#F66A0A");
+        
+        statsBoxRow2.getChildren().addAll(approvalsCard, reservationsCard);
         
         // Quick actions
         Label actionsLabel = new Label("Quick Actions");
@@ -152,7 +176,8 @@ public class AdminDashboardController {
         }
         
         container.getChildren().addAll(
-            statsBox,
+            statsBoxRow1,
+            statsBoxRow2,
             new Separator(),
             actionsLabel,
             actionsBox,
@@ -559,7 +584,138 @@ public class AdminDashboardController {
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(filterBar, table);
 
+        // Add row click handler to show order details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
         return container;
+    }
+
+    /**
+     * Show detailed order information dialog
+     */
+    private void showOrderDetailsDialog(Reservation reservation) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Order Details");
+        dialog.setHeaderText("Order ID: " + (reservation.isPartOfBundle() ? reservation.getBundleId() : String.valueOf(reservation.getReservationId())));
+
+        javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Customer Information Section
+        VBox customerSection = new VBox(8);
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label customerHeader = new javafx.scene.control.Label("CUSTOMER INFORMATION");
+        customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label studentName = new javafx.scene.control.Label("Name: " + reservation.getStudentName());
+        javafx.scene.control.Label studentId = new javafx.scene.control.Label("Student ID: " + reservation.getStudentId());
+        
+        customerSection.getChildren().addAll(customerHeader, studentName, studentId);
+
+        // Order Items Section
+        VBox itemsSection = new VBox(8);
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label itemsHeader = new javafx.scene.control.Label("ORDER ITEMS");
+        itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        itemsSection.getChildren().add(itemsHeader);
+
+        double totalPrice = 0;
+        int totalQuantity = 0;
+
+        if (reservation.isPartOfBundle()) {
+            // Get all items in the bundle
+            String bundleId = reservation.getBundleId();
+            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (Reservation item : bundleItems) {
+                HBox itemRow = new HBox(10);
+                itemRow.setAlignment(Pos.CENTER_LEFT);
+                
+                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
+                itemName.setMinWidth(250);
+                
+                javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
+                itemSize.setMinWidth(70);
+                
+                javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
+                itemQty.setMinWidth(60);
+                
+                javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", item.getTotalPrice()));
+                itemPrice.setStyle("-fx-font-weight: bold;");
+                
+                itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+                itemsSection.getChildren().add(itemRow);
+                
+                totalPrice += item.getTotalPrice();
+                totalQuantity += item.getQuantity();
+            }
+        } else {
+            // Single item
+            HBox itemRow = new HBox(10);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            
+            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + reservation.getItemName());
+            itemName.setMinWidth(250);
+            
+            javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + reservation.getSize());
+            itemSize.setMinWidth(70);
+            
+            javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + reservation.getQuantity());
+            itemQty.setMinWidth(60);
+            
+            javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", reservation.getTotalPrice()));
+            itemPrice.setStyle("-fx-font-weight: bold;");
+            
+            itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+            itemsSection.getChildren().add(itemRow);
+            
+            totalPrice = reservation.getTotalPrice();
+            totalQuantity = reservation.getQuantity();
+        }
+
+        // Order Summary Section
+        VBox summarySection = new VBox(8);
+        summarySection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label summaryHeader = new javafx.scene.control.Label("ORDER SUMMARY");
+        summaryHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label statusLabel = new javafx.scene.control.Label("Status: " + reservation.getStatus());
+        statusLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label qtyLabel = new javafx.scene.control.Label("Total Quantity: " + totalQuantity);
+        qtyLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label totalLabel = new javafx.scene.control.Label("Total Amount: ₱" + String.format("%.2f", totalPrice));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        
+        javafx.scene.control.Label orderTypeLabel = new javafx.scene.control.Label("Order Type: " + (reservation.isPartOfBundle() ? "Bundle Order" : "Single Item"));
+        orderTypeLabel.setStyle("-fx-font-size: 12px;");
+        
+        summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+
+        content.getChildren().addAll(customerSection, itemsSection, summarySection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
     }
 
     /**
@@ -668,24 +824,84 @@ public class AdminDashboardController {
      * Handle approve return request
      */
     private void handleApproveReturn(Reservation reservation, TableView<Reservation> table) {
-        boolean confirm = AlertHelper.showConfirmation("Approve Return",
-            "Approve return request for:\n" +
-            "Student: " + reservation.getStudentName() + "\n" +
-            "Item: " + reservation.getItemName() + " (" + reservation.getSize() + ")\n" +
-            "Quantity: " + reservation.getQuantity() + "x\n" +
-            "Refund Amount: ₱" + String.format("%.2f", reservation.getTotalPrice()) + "\n\n" +
-            "Reason: " + (reservation.getReason() != null ? reservation.getReason() : "N/A") + "\n\n" +
-            "This will restock the item and mark as refunded.");
+        // Determine what we're approving
+        String itemDescription;
+        List<Reservation> itemsToReturn = new java.util.ArrayList<>();
+        double totalRefund = 0;
+        
+        if (reservation.isPartOfBundle()) {
+            String bundleId = reservation.getBundleId();
+            // Get all items in the bundle with RETURN REQUESTED status
+            itemsToReturn = reservationManager.getAllReservations().stream()
+                .filter(res -> bundleId.equals(res.getBundleId()))
+                .filter(res -> "RETURN REQUESTED".equals(res.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            if (itemsToReturn.isEmpty()) {
+                AlertHelper.showError("Error", "No items in this bundle have pending return requests.");
+                return;
+            }
+            
+            itemDescription = "Bundle Order (" + itemsToReturn.size() + " items)";
+            totalRefund = itemsToReturn.stream().mapToDouble(Reservation::getTotalPrice).sum();
+        } else {
+            itemsToReturn.add(reservation);
+            itemDescription = reservation.getItemName() + " (" + reservation.getSize() + ")";
+            totalRefund = reservation.getTotalPrice();
+        }
+        
+        // Build confirmation message
+        StringBuilder message = new StringBuilder();
+        message.append("Approve return request for:\n");
+        message.append("Student: ").append(reservation.getStudentName()).append("\n\n");
+        
+        if (reservation.isPartOfBundle()) {
+            message.append("Bundle Items:\n");
+            for (Reservation item : itemsToReturn) {
+                message.append("• ").append(item.getItemName()).append(" - ").append(item.getSize())
+                       .append(" (").append(item.getQuantity()).append("x) - ₱")
+                       .append(String.format("%.2f", item.getTotalPrice())).append("\n");
+            }
+        } else {
+            message.append("Item: ").append(itemDescription).append("\n");
+            message.append("Quantity: ").append(reservation.getQuantity()).append("x\n");
+        }
+        
+        message.append("\nTotal Refund Amount: ₱").append(String.format("%.2f", totalRefund)).append("\n\n");
+        message.append("Reason: ").append(reservation.getReason() != null ? reservation.getReason() : "N/A").append("\n\n");
+        message.append("This will restock all items and mark as refunded.");
+        
+        boolean confirm = AlertHelper.showConfirmation("Approve Return", message.toString());
 
         if (confirm) {
-            boolean success = reservationManager.approveReturn(reservation.getReservationId());
-            if (success) {
+            // Approve return for all items
+            boolean allSuccess = true;
+            int successCount = 0;
+            
+            for (Reservation item : itemsToReturn) {
+                boolean success = reservationManager.approveReturn(item.getReservationId());
+                if (success) {
+                    successCount++;
+                } else {
+                    allSuccess = false;
+                }
+            }
+            
+            if (allSuccess) {
                 table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                String successMsg = reservation.isPartOfBundle() ?
+                    "Return approved for all " + successCount + " items!\n\n" :
+                    "Return approved!\n\n";
+                
                 AlertHelper.showSuccess("Success",
-                    "Return approved!\n\n" +
-                    "Item has been restocked and marked as refunded.");
+                    successMsg + "Items have been restocked and marked as refunded.");
+            } else if (successCount > 0) {
+                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                AlertHelper.showWarning("Partial Success",
+                    "Return approved for " + successCount + " out of " + itemsToReturn.size() + " items.\n" +
+                    "Some items may not be restockable.");
             } else {
-                AlertHelper.showError("Error", "Failed to approve return. Item may not be restockable.");
+                AlertHelper.showError("Error", "Failed to approve return. Items may not be restockable.");
             }
         }
     }
@@ -790,7 +1006,9 @@ public class AdminDashboardController {
 
         TableColumn<Student, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Student, Void>() {
+            private final HBox actionBox = new HBox(8);
             private final Button toggleBtn = new Button();
+            private final Button resetPwdBtn = new Button("Reset Password");
 
             @Override
             protected void updateItem(Void item, boolean empty) {
@@ -799,19 +1017,27 @@ public class AdminDashboardController {
                     setGraphic(null);
                 } else {
                     Student student = getTableView().getItems().get(getIndex());
+                    
+                    // Toggle button
                     if (student.isActive()) {
                         toggleBtn.setText("Deactivate");
-                        toggleBtn.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; -fx-cursor: hand;");
+                        toggleBtn.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
                     } else {
                         toggleBtn.setText("Activate");
-                        toggleBtn.setStyle("-fx-background-color: #1A7F37; -fx-text-fill: white; -fx-cursor: hand;");
+                        toggleBtn.setStyle("-fx-background-color: #1A7F37; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
                     }
                     toggleBtn.setOnAction(e -> handleToggleStudent(student, table));
-                    setGraphic(toggleBtn);
+                    
+                    // Reset password button
+                    resetPwdBtn.setStyle("-fx-background-color: #FFA500; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
+                    resetPwdBtn.setOnAction(e -> handleResetStudentPassword(student, table));
+                    
+                    actionBox.getChildren().setAll(toggleBtn, resetPwdBtn);
+                    setGraphic(actionBox);
                 }
             }
         });
-        actionsCol.setPrefWidth(120);
+        actionsCol.setPrefWidth(250);
 
         table.getColumns().addAll(idCol, nameCol, courseCol, genderCol, activeCol, actionsCol);
 
@@ -904,6 +1130,7 @@ public class AdminDashboardController {
             private final HBox actionBox = new HBox(8);
             private final Button editBtn = new Button("Edit");
             private final Button toggleBtn = new Button();
+            private final Button resetPwdBtn = new Button("Reset Password");
 
             @Override
             protected void updateItem(Void item, boolean empty) {
@@ -914,25 +1141,29 @@ public class AdminDashboardController {
                     Staff staff = getTableView().getItems().get(getIndex());
                     
                     // Edit button
-                    editBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
+                    editBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
                     editBtn.setOnAction(e -> handleEditStaff(staff, table));
                     
                     // Toggle button
                     if (staff.isActive()) {
                         toggleBtn.setText("Deactivate");
-                        toggleBtn.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; -fx-cursor: hand;");
+                        toggleBtn.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
                     } else {
                         toggleBtn.setText("Activate");
-                        toggleBtn.setStyle("-fx-background-color: #1A7F37; -fx-text-fill: white; -fx-cursor: hand;");
+                        toggleBtn.setStyle("-fx-background-color: #1A7F37; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
                     }
                     toggleBtn.setOnAction(e -> handleToggleStaff(staff, table));
                     
-                    actionBox.getChildren().setAll(editBtn, toggleBtn);
+                    // Reset password button
+                    resetPwdBtn.setStyle("-fx-background-color: #FFA500; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
+                    resetPwdBtn.setOnAction(e -> handleResetStaffPassword(staff, table));
+                    
+                    actionBox.getChildren().setAll(editBtn, toggleBtn, resetPwdBtn);
                     setGraphic(actionBox);
                 }
             }
         });
-        actionsCol.setPrefWidth(200);
+        actionsCol.setPrefWidth(330);
 
         table.getColumns().addAll(idCol, nameCol, roleCol, activeCol, actionsCol);
 
@@ -982,6 +1213,140 @@ public class AdminDashboardController {
             table.refresh();
             AlertHelper.showSuccess("Success", "Account " + action + "d successfully!");
         }
+    }
+    
+    /**
+     * Handle reset student password
+     */
+    private void handleResetStudentPassword(Student student, TableView<Student> table) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Reset Password");
+        dialog.setHeaderText("Reset password for: " + student.getFullName() + "\nStudent ID: " + student.getStudentId());
+
+        // Create form
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        javafx.scene.control.PasswordField newPasswordField = new javafx.scene.control.PasswordField();
+        newPasswordField.setPromptText("New Password");
+        javafx.scene.control.PasswordField confirmPasswordField = new javafx.scene.control.PasswordField();
+        confirmPasswordField.setPromptText("Confirm Password");
+
+        grid.add(new Label("New Password:"), 0, 0);
+        grid.add(newPasswordField, 1, 0);
+        grid.add(new Label("Confirm Password:"), 0, 1);
+        grid.add(confirmPasswordField, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        ButtonType resetButtonType = new ButtonType("Reset Password", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(resetButtonType, ButtonType.CANCEL);
+
+        // Enable/disable reset button based on input
+        javafx.scene.Node resetButton = dialog.getDialogPane().lookupButton(resetButtonType);
+        resetButton.setDisable(true);
+
+        // Validation listener
+        newPasswordField.textProperty().addListener((obs, oldVal, newVal) -> {
+            resetButton.setDisable(newVal.trim().isEmpty() || !newVal.equals(confirmPasswordField.getText()));
+        });
+        confirmPasswordField.textProperty().addListener((obs, oldVal, newVal) -> {
+            resetButton.setDisable(newVal.trim().isEmpty() || !newVal.equals(newPasswordField.getText()));
+        });
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == resetButtonType) {
+                return newPasswordField.getText().trim();
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(newPassword -> {
+            if (!newPassword.isEmpty()) {
+                boolean confirm = AlertHelper.showConfirmation("Confirm Reset",
+                    "Are you sure you want to reset the password for:\n" + student.getFullName() + "?");
+                
+                if (confirm) {
+                    student.setPassword(newPassword);
+                    FileStorage.saveStudents(students);
+                    AlertHelper.showSuccess("Success", 
+                        "Password reset successfully for " + student.getFullName() + "!\n" +
+                        "Student ID: " + student.getStudentId() + "\n" +
+                        "New Password: " + newPassword);
+                    SystemLogger.logActivity("Admin reset password for student: " + student.getStudentId());
+                }
+            }
+        });
+    }
+    
+    /**
+     * Handle reset staff password
+     */
+    private void handleResetStaffPassword(Staff staff, TableView<Staff> table) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Reset Password");
+        dialog.setHeaderText("Reset password for: " + staff.getFullName() + "\nStaff ID: " + staff.getStaffId() + "\nRole: " + staff.getRole());
+
+        // Create form
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        javafx.scene.control.PasswordField newPasswordField = new javafx.scene.control.PasswordField();
+        newPasswordField.setPromptText("New Password");
+        javafx.scene.control.PasswordField confirmPasswordField = new javafx.scene.control.PasswordField();
+        confirmPasswordField.setPromptText("Confirm Password");
+
+        grid.add(new Label("New Password:"), 0, 0);
+        grid.add(newPasswordField, 1, 0);
+        grid.add(new Label("Confirm Password:"), 0, 1);
+        grid.add(confirmPasswordField, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        ButtonType resetButtonType = new ButtonType("Reset Password", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(resetButtonType, ButtonType.CANCEL);
+
+        // Enable/disable reset button based on input
+        javafx.scene.Node resetButton = dialog.getDialogPane().lookupButton(resetButtonType);
+        resetButton.setDisable(true);
+
+        // Validation listener
+        newPasswordField.textProperty().addListener((obs, oldVal, newVal) -> {
+            resetButton.setDisable(newVal.trim().isEmpty() || !newVal.equals(confirmPasswordField.getText()));
+        });
+        confirmPasswordField.textProperty().addListener((obs, oldVal, newVal) -> {
+            resetButton.setDisable(newVal.trim().isEmpty() || !newVal.equals(newPasswordField.getText()));
+        });
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == resetButtonType) {
+                return newPasswordField.getText().trim();
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(newPassword -> {
+            if (!newPassword.isEmpty()) {
+                boolean confirm = AlertHelper.showConfirmation("Confirm Reset",
+                    "Are you sure you want to reset the password for:\n" + 
+                    staff.getFullName() + " (" + staff.getRole() + ")?");
+                
+                if (confirm) {
+                    staff.setPassword(newPassword);
+                    FileStorage.saveStaff(staffList);
+                    AlertHelper.showSuccess("Success", 
+                        "Password reset successfully for " + staff.getFullName() + "!\n" +
+                        "Staff ID: " + staff.getStaffId() + "\n" +
+                        "Role: " + staff.getRole() + "\n" +
+                        "New Password: " + newPassword);
+                    SystemLogger.logActivity("Admin reset password for staff: " + staff.getStaffId() + " (" + staff.getRole() + ")");
+                }
+            }
+        });
     }
     
     /**
@@ -1343,7 +1708,7 @@ public class AdminDashboardController {
         timestampCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[0]));
         timestampCol.setPrefWidth(150);
 
-        TableColumn<String[], String> performerCol = new TableColumn<>("Stock Change Requested By");
+        TableColumn<String[], String> performerCol = new TableColumn<>("Staff/Admin");
         performerCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[1]));
         performerCol.setPrefWidth(200);
 
@@ -1422,14 +1787,131 @@ public class AdminDashboardController {
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(actionBar, table);
 
+        // Add row click handler to show log details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<String[]> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    String[] clickedLog = row.getItem();
+                    showStockLogDetailsDialog(clickedLog);
+                }
+            });
+            return row;
+        });
+
         return container;
     }
 
     /**
+     * Show detailed stock log information dialog
+     */
+    private void showStockLogDetailsDialog(String[] logData) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Stock Log Details");
+        dialog.setHeaderText("Stock Change Information");
+
+        javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Timestamp Section
+        VBox timestampSection = new VBox(8);
+        timestampSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label timestampHeader = new javafx.scene.control.Label("📅 TIMESTAMP");
+        timestampHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label timestampValue = new javafx.scene.control.Label(logData[0]);
+        timestampValue.setStyle("-fx-font-size: 14px;");
+        
+        timestampSection.getChildren().addAll(timestampHeader, timestampValue);
+
+        // Staff/Admin Information Section
+        VBox performerSection = new VBox(8);
+        performerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label performerHeader = new javafx.scene.control.Label("👤 STAFF/ADMIN");
+        performerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label performerValue = new javafx.scene.control.Label(logData[1]);
+        performerValue.setStyle("-fx-font-size: 14px;");
+        
+        javafx.scene.control.Label approvedByLabel = new javafx.scene.control.Label("Approved By: " + logData[7]);
+        approvedByLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: -color-fg-muted;");
+        
+        performerSection.getChildren().addAll(performerHeader, performerValue, approvedByLabel);
+
+        // Item Details Section
+        VBox itemSection = new VBox(8);
+        itemSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label itemHeader = new javafx.scene.control.Label("📦 ITEM DETAILS");
+        itemHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label itemCode = new javafx.scene.control.Label("Code: " + logData[2]);
+        javafx.scene.control.Label itemName = new javafx.scene.control.Label("Item: " + logData[3]);
+        javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + logData[4]);
+        
+        itemSection.getChildren().addAll(itemHeader, itemCode, itemName, itemSize);
+
+        // Stock Change Section
+        VBox changeSection = new VBox(8);
+        changeSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label changeHeader = new javafx.scene.control.Label("📊 STOCK CHANGE");
+        changeHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        String stockChange = logData[5];
+        javafx.scene.control.Label changeValue = new javafx.scene.control.Label(stockChange);
+        changeValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+        
+        // Color code based on increase/decrease
+        if (stockChange.startsWith("+")) {
+            changeValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1A7F37;");
+        } else if (stockChange.startsWith("-")) {
+            changeValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #CF222E;");
+        }
+        
+        javafx.scene.control.Label actionLabel = new javafx.scene.control.Label("Action: " + logData[6]);
+        actionLabel.setStyle("-fx-font-size: 12px;");
+        
+        changeSection.getChildren().addAll(changeHeader, changeValue, actionLabel);
+
+        // Details Section
+        VBox detailsSection = new VBox(8);
+        detailsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label detailsHeader = new javafx.scene.control.Label("📝 DETAILS");
+        detailsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label detailsValue = new javafx.scene.control.Label(logData[8]);
+        detailsValue.setWrapText(true);
+        detailsValue.setMaxWidth(500);
+        detailsValue.setStyle("-fx-font-size: 12px;");
+        
+        detailsSection.getChildren().addAll(detailsHeader, detailsValue);
+
+        content.getChildren().addAll(timestampSection, performerSection, itemSection, changeSection, detailsSection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
+    }
+
+    /**
      * Load stock logs from file and audit system
+     * Admin view: Shows only STAFF/ADMIN activities (returns, additions, deletions, updates)
      */
     private List<String[]> loadStockLogs() {
         List<String[]> logs = new ArrayList<>();
+        
+        // Admin-relevant actions (staff/admin activities only)
+        List<String> adminRelevantActions = java.util.Arrays.asList(
+            "STAFF_RETURN", "ITEM_ADDED", "ITEM_DELETED", "ITEM_UPDATED"
+        );
         
         // Load from stock_logs.txt (legacy/old format)
         try (java.io.BufferedReader br = new java.io.BufferedReader(
@@ -1440,12 +1922,17 @@ public class AdminDashboardController {
                 if (!line.isEmpty()) {
                     String[] parts = line.split("\\|");
                     if (parts.length >= 8) {
-                        // Add "Approved By" column (empty for old logs from stock_logs.txt)
-                        String[] extendedParts = new String[9];
-                        System.arraycopy(parts, 0, extendedParts, 0, 7);
-                        extendedParts[7] = "-"; // Approved By (not applicable for old logs)
-                        extendedParts[8] = parts[7]; // Details
-                        logs.add(extendedParts);
+                        String action = parts[6]; // Action column
+                        
+                        // Only show admin-relevant actions
+                        if (adminRelevantActions.contains(action)) {
+                            // Add "Approved By" column (empty for old logs from stock_logs.txt)
+                            String[] extendedParts = new String[9];
+                            System.arraycopy(parts, 0, extendedParts, 0, 7);
+                            extendedParts[7] = "-"; // Approved By (not applicable for old logs)
+                            extendedParts[8] = parts[7]; // Details
+                            logs.add(extendedParts);
+                        }
                     }
                 }
             }

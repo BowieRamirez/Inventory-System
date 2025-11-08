@@ -240,12 +240,20 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, bundleCol, actionsCol);
 
-        // Load all reservations (deduplicated for bundles)
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()));
-        table.setItems(allReservations);
+        // Load ONLY PENDING reservations (deduplicated for bundles)
+        List<Reservation> pendingReservations = reservationManager.getAllReservations().stream()
+            .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+            .collect(java.util.stream.Collectors.toList());
+        ObservableList<Reservation> pendingObservableList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(pendingReservations));
+        table.setItems(pendingObservableList);
 
         // Filter actions
-        allBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()))));
+        allBtn.setOnAction(e -> {
+            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+                .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+        });
         pendingBtn.setOnAction(e -> {
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "PENDING".equals(r.getStatus()))
@@ -263,7 +271,10 @@ public class StaffDashboardController {
             table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
         });
         refreshBtn.setOnAction(e -> {
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
+            List<Reservation> refreshedPending = reservationManager.getAllReservations().stream()
+                .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedPending)));
             
             // Update stats cards (order: Pending, Completed) - deduplicated for bundles
             int updatedPending = (int) ControllerUtils.getDeduplicatedReservations(
@@ -284,7 +295,138 @@ public class StaffDashboardController {
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(statsBox, filterBar, table);
 
+        // Add row click handler to show order details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
         return container;
+    }
+
+    /**
+     * Show detailed order information dialog
+     */
+    private void showOrderDetailsDialog(Reservation reservation) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Order Details");
+        dialog.setHeaderText("Order ID: " + (reservation.isPartOfBundle() ? reservation.getBundleId() : String.valueOf(reservation.getReservationId())));
+
+        javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Customer Information Section
+        VBox customerSection = new VBox(8);
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label customerHeader = new javafx.scene.control.Label("CUSTOMER INFORMATION");
+        customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label studentName = new javafx.scene.control.Label("Name: " + reservation.getStudentName());
+        javafx.scene.control.Label studentId = new javafx.scene.control.Label("Student ID: " + reservation.getStudentId());
+        
+        customerSection.getChildren().addAll(customerHeader, studentName, studentId);
+
+        // Order Items Section
+        VBox itemsSection = new VBox(8);
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label itemsHeader = new javafx.scene.control.Label("ORDER ITEMS");
+        itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        itemsSection.getChildren().add(itemsHeader);
+
+        double totalPrice = 0;
+        int totalQuantity = 0;
+
+        if (reservation.isPartOfBundle()) {
+            // Get all items in the bundle
+            String bundleId = reservation.getBundleId();
+            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId.equals(r.getBundleId()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (Reservation item : bundleItems) {
+                HBox itemRow = new HBox(10);
+                itemRow.setAlignment(Pos.CENTER_LEFT);
+                
+                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
+                itemName.setMinWidth(250);
+                
+                javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
+                itemSize.setMinWidth(70);
+                
+                javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
+                itemQty.setMinWidth(60);
+                
+                javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", item.getTotalPrice()));
+                itemPrice.setStyle("-fx-font-weight: bold;");
+                
+                itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+                itemsSection.getChildren().add(itemRow);
+                
+                totalPrice += item.getTotalPrice();
+                totalQuantity += item.getQuantity();
+            }
+        } else {
+            // Single item
+            HBox itemRow = new HBox(10);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            
+            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + reservation.getItemName());
+            itemName.setMinWidth(250);
+            
+            javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + reservation.getSize());
+            itemSize.setMinWidth(70);
+            
+            javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + reservation.getQuantity());
+            itemQty.setMinWidth(60);
+            
+            javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", reservation.getTotalPrice()));
+            itemPrice.setStyle("-fx-font-weight: bold;");
+            
+            itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+            itemsSection.getChildren().add(itemRow);
+            
+            totalPrice = reservation.getTotalPrice();
+            totalQuantity = reservation.getQuantity();
+        }
+
+        // Order Summary Section
+        VBox summarySection = new VBox(8);
+        summarySection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label summaryHeader = new javafx.scene.control.Label("ORDER SUMMARY");
+        summaryHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label statusLabel = new javafx.scene.control.Label("Status: " + reservation.getStatus());
+        statusLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label qtyLabel = new javafx.scene.control.Label("Total Quantity: " + totalQuantity);
+        qtyLabel.setStyle("-fx-font-size: 12px;");
+        
+        javafx.scene.control.Label totalLabel = new javafx.scene.control.Label("Total Amount: ₱" + String.format("%.2f", totalPrice));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        
+        javafx.scene.control.Label orderTypeLabel = new javafx.scene.control.Label("Order Type: " + (reservation.isPartOfBundle() ? "Bundle Order" : "Single Item"));
+        orderTypeLabel.setStyle("-fx-font-size: 12px;");
+        
+        summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+
+        content.getChildren().addAll(customerSection, itemsSection, summarySection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
     }
 
     /**
@@ -293,18 +435,40 @@ public class StaffDashboardController {
     private void handleApproveReservation(Reservation reservation, TableView<Reservation> table) {
         String message;
         if (reservation.isPartOfBundle()) {
-            // Show bundle info
+            // Show bundle info with all items
             String bundleId = reservation.getBundleId();
-            long itemCount = reservationManager.getAllReservations().stream()
+            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
                 .filter(r -> bundleId.equals(r.getBundleId()))
-                .count();
-            message = "Approve BUNDLE ORDER for:\n" + 
-                     reservation.getStudentName() + "\n" +
-                     "Bundle contains " + itemCount + " item type(s)";
+                .collect(java.util.stream.Collectors.toList());
+            
+            StringBuilder bundleDetails = new StringBuilder();
+            bundleDetails.append("Approve BUNDLE ORDER for:\n");
+            bundleDetails.append(reservation.getStudentName()).append("\n\n");
+            bundleDetails.append("Items in bundle:\n");
+            
+            double totalPrice = 0;
+            int totalQuantity = 0;
+            for (Reservation item : bundleItems) {
+                bundleDetails.append("• ").append(item.getItemName())
+                    .append(" (").append(item.getSize()).append(")")
+                    .append(" - Qty: ").append(item.getQuantity())
+                    .append(" - ₱").append(String.format("%.2f", item.getTotalPrice()))
+                    .append("\n");
+                totalPrice += item.getTotalPrice();
+                totalQuantity += item.getQuantity();
+            }
+            
+            bundleDetails.append("\nTotal Items: ").append(bundleItems.size());
+            bundleDetails.append("\nTotal Quantity: ").append(totalQuantity);
+            bundleDetails.append("\nTotal Price: ₱").append(String.format("%.2f", totalPrice));
+            
+            message = bundleDetails.toString();
         } else {
             message = "Approve reservation for:\n" + 
                      reservation.getStudentName() + "\n" +
-                     reservation.getItemName() + " (" + reservation.getSize() + ")";
+                     reservation.getItemName() + " (" + reservation.getSize() + ")" + "\n" +
+                     "Quantity: " + reservation.getQuantity() + "\n" +
+                     "Total: ₱" + String.format("%.2f", reservation.getTotalPrice());
         }
         
         boolean confirm = AlertHelper.showConfirmation("Approve Reservation", message);
@@ -393,24 +557,84 @@ public class StaffDashboardController {
      * Handle approve return request
      */
     private void handleApproveReturn(Reservation reservation, TableView<Reservation> table) {
-        boolean confirm = AlertHelper.showConfirmation("Approve Return",
-            "Approve return request for:\n" +
-            "Student: " + reservation.getStudentName() + "\n" +
-            "Item: " + reservation.getItemName() + " (" + reservation.getSize() + ")\n" +
-            "Quantity: " + reservation.getQuantity() + "x\n" +
-            "Refund Amount: ₱" + String.format("%.2f", reservation.getTotalPrice()) + "\n\n" +
-            "Reason: " + (reservation.getReason() != null ? reservation.getReason() : "N/A") + "\n\n" +
-            "This will restock the item and mark as refunded.");
+        // Determine what we're approving
+        String itemDescription;
+        List<Reservation> itemsToReturn = new java.util.ArrayList<>();
+        double totalRefund = 0;
+        
+        if (reservation.isPartOfBundle()) {
+            String bundleId = reservation.getBundleId();
+            // Get all items in the bundle with RETURN REQUESTED status
+            itemsToReturn = reservationManager.getAllReservations().stream()
+                .filter(res -> bundleId.equals(res.getBundleId()))
+                .filter(res -> "RETURN REQUESTED".equals(res.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            if (itemsToReturn.isEmpty()) {
+                AlertHelper.showError("Error", "No items in this bundle have pending return requests.");
+                return;
+            }
+            
+            itemDescription = "Bundle Order (" + itemsToReturn.size() + " items)";
+            totalRefund = itemsToReturn.stream().mapToDouble(Reservation::getTotalPrice).sum();
+        } else {
+            itemsToReturn.add(reservation);
+            itemDescription = reservation.getItemName() + " (" + reservation.getSize() + ")";
+            totalRefund = reservation.getTotalPrice();
+        }
+        
+        // Build confirmation message
+        StringBuilder message = new StringBuilder();
+        message.append("Approve return request for:\n");
+        message.append("Student: ").append(reservation.getStudentName()).append("\n\n");
+        
+        if (reservation.isPartOfBundle()) {
+            message.append("Bundle Items:\n");
+            for (Reservation item : itemsToReturn) {
+                message.append("• ").append(item.getItemName()).append(" - ").append(item.getSize())
+                       .append(" (").append(item.getQuantity()).append("x) - ₱")
+                       .append(String.format("%.2f", item.getTotalPrice())).append("\n");
+            }
+        } else {
+            message.append("Item: ").append(itemDescription).append("\n");
+            message.append("Quantity: ").append(reservation.getQuantity()).append("x\n");
+        }
+        
+        message.append("\nTotal Refund Amount: ₱").append(String.format("%.2f", totalRefund)).append("\n\n");
+        message.append("Reason: ").append(reservation.getReason() != null ? reservation.getReason() : "N/A").append("\n\n");
+        message.append("This will restock all items and mark as refunded.");
+        
+        boolean confirm = AlertHelper.showConfirmation("Approve Return", message.toString());
 
         if (confirm) {
-            boolean success = reservationManager.approveReturn(reservation.getReservationId());
-            if (success) {
+            // Approve return for all items
+            boolean allSuccess = true;
+            int successCount = 0;
+            
+            for (Reservation item : itemsToReturn) {
+                boolean success = reservationManager.approveReturn(item.getReservationId());
+                if (success) {
+                    successCount++;
+                } else {
+                    allSuccess = false;
+                }
+            }
+            
+            if (allSuccess) {
                 table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                String successMsg = reservation.isPartOfBundle() ?
+                    "Return approved for all " + successCount + " items!\n\n" :
+                    "Return approved!\n\n";
+                
                 AlertHelper.showSuccess("Success",
-                    "Return approved!\n\n" +
-                    "Item has been restocked and marked as refunded.");
+                    successMsg + "Items have been restocked and marked as refunded.");
+            } else if (successCount > 0) {
+                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                AlertHelper.showWarning("Partial Success",
+                    "Return approved for " + successCount + " out of " + itemsToReturn.size() + " items.\n" +
+                    "Some items may not be restockable.");
             } else {
-                AlertHelper.showError("Error", "Failed to approve return. Item may not be restockable.");
+                AlertHelper.showError("Error", "Failed to approve return. Items may not be restockable.");
             }
         }
     }
@@ -658,7 +882,7 @@ public class StaffDashboardController {
         timestampCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[0]));
         timestampCol.setPrefWidth(150);
 
-        TableColumn<String[], String> performedByCol = new TableColumn<>("Performed By");
+        TableColumn<String[], String> performedByCol = new TableColumn<>("Student/User");
         performedByCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[1]));
         performedByCol.setPrefWidth(120);
 
@@ -715,28 +939,160 @@ public class StaffDashboardController {
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(actionBar, table);
 
+        // Add row click handler to show log details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<String[]> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    String[] clickedLog = row.getItem();
+                    showStockLogDetailsDialog(clickedLog);
+                }
+            });
+            return row;
+        });
+
         return container;
     }
 
     /**
+     * Show detailed stock log information dialog
+     */
+    private void showStockLogDetailsDialog(String[] logData) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Stock Log Details");
+        dialog.setHeaderText("User Activity Information");
+
+        javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Timestamp Section
+        VBox timestampSection = new VBox(8);
+        timestampSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label timestampHeader = new javafx.scene.control.Label("📅 TIMESTAMP");
+        timestampHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label timestampValue = new javafx.scene.control.Label(logData[0]);
+        timestampValue.setStyle("-fx-font-size: 14px;");
+        
+        timestampSection.getChildren().addAll(timestampHeader, timestampValue);
+
+        // Student/User Information Section
+        VBox performerSection = new VBox(8);
+        performerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label performerHeader = new javafx.scene.control.Label("👤 STUDENT/USER");
+        performerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label performerValue = new javafx.scene.control.Label(logData[1]);
+        performerValue.setStyle("-fx-font-size: 14px;");
+        
+        performerSection.getChildren().addAll(performerHeader, performerValue);
+
+        // Item Details Section
+        VBox itemSection = new VBox(8);
+        itemSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label itemHeader = new javafx.scene.control.Label("📦 ITEM DETAILS");
+        itemHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label itemCode = new javafx.scene.control.Label("Code: " + logData[2]);
+        javafx.scene.control.Label itemName = new javafx.scene.control.Label("Item: " + logData[3]);
+        javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + logData[4]);
+        
+        itemSection.getChildren().addAll(itemHeader, itemCode, itemName, itemSize);
+
+        // Stock Change Section
+        VBox changeSection = new VBox(8);
+        changeSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label changeHeader = new javafx.scene.control.Label("📊 STOCK CHANGE");
+        changeHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        String stockChange = logData[5];
+        javafx.scene.control.Label changeValue = new javafx.scene.control.Label(stockChange);
+        changeValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+        
+        // Color code based on increase/decrease
+        if (stockChange.startsWith("+")) {
+            changeValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1A7F37;");
+        } else if (stockChange.startsWith("-")) {
+            changeValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #CF222E;");
+        }
+        
+        javafx.scene.control.Label actionLabel = new javafx.scene.control.Label("Action: " + logData[6]);
+        actionLabel.setStyle("-fx-font-size: 12px;");
+        
+        changeSection.getChildren().addAll(changeHeader, changeValue, actionLabel);
+
+        // Details Section
+        VBox detailsSection = new VBox(8);
+        detailsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        javafx.scene.control.Label detailsHeader = new javafx.scene.control.Label("📝 DETAILS");
+        detailsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        javafx.scene.control.Label detailsValue = new javafx.scene.control.Label(logData[7]);
+        detailsValue.setWrapText(true);
+        detailsValue.setMaxWidth(500);
+        detailsValue.setStyle("-fx-font-size: 12px;");
+        
+        detailsSection.getChildren().addAll(detailsHeader, detailsValue);
+
+        content.getChildren().addAll(timestampSection, performerSection, itemSection, changeSection, detailsSection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
+    }
+
+    /**
      * Load stock logs from file
+     * Staff view: Shows only USER activities (pickups, returns)
      */
     private List<String[]> loadStockLogs() {
         List<String[]> logs = new ArrayList<>();
+        
+        // Staff-relevant actions (user/customer activities only)
+        List<String> staffRelevantActions = java.util.Arrays.asList(
+            "USER_PICKUP", "USER_RETURN"
+        );
+        
         try {
             java.nio.file.Path logPath = java.nio.file.Paths.get("src/database/data/stock_logs.txt");
             if (java.nio.file.Files.exists(logPath)) {
                 List<String> lines = java.nio.file.Files.readAllLines(logPath);
+                boolean isFirstLine = true;
+                
                 for (String line : lines) {
+                    // Skip header
+                    if (isFirstLine) {
+                        isFirstLine = false;
+                        continue;
+                    }
+                    
                     String[] parts = line.split("\\|");
                     if (parts.length >= 8) {
-                        logs.add(parts);
+                        String action = parts[6]; // Action column
+                        
+                        // Only show staff-relevant actions (user activities)
+                        if (staffRelevantActions.contains(action)) {
+                            logs.add(parts);
+                        }
                     }
                 }
             }
         } catch (Exception e) {
             // Silently handle error
         }
+        
+        // Sort by timestamp (newest first)
+        logs.sort((a, b) -> b[0].compareTo(a[0]));
+        
         return logs;
     }
 
@@ -780,6 +1136,474 @@ public class StaffDashboardController {
 
         card.getChildren().addAll(titleLabel, valueLabel);
         return card;
+    }
+    
+    /**
+     * Create Completed Orders View
+     */
+    public Node createCompletedView() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(20));
+
+        // Action buttons
+        HBox actionBar = new HBox(15);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
+
+        Button refreshBtn = new Button("🔄 Refresh");
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by student name or order ID...");
+        searchField.setPrefWidth(300);
+
+        styleActionButton(refreshBtn);
+
+        actionBar.getChildren().addAll(refreshBtn, searchField);
+
+        // Create table
+        TableView<Reservation> table = new TableView<>();
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+
+        TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                return new javafx.beans.property.SimpleStringProperty(r.getBundleId());
+            }
+            return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
+        });
+        idCol.setPrefWidth(180);
+
+        TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
+        studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
+        studentCol.setPrefWidth(150);
+
+        TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                long itemCount = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
+        itemCol.setPrefWidth(250);
+
+        TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setPrefWidth(60);
+
+        TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
+        qtyCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                int totalQty = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToInt(Reservation::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
+        qtyCol.setPrefWidth(60);
+
+        TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total Price");
+        priceCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                double totalPrice = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToDouble(Reservation::getTotalPrice)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalPrice);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getTotalPrice());
+        });
+        priceCol.setCellFactory(col -> new TableCell<Reservation, Double>() {
+            @Override
+            protected void updateItem(Double price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("₱%.2f", price));
+                }
+            }
+        });
+        priceCol.setPrefWidth(100);
+
+        TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
+        statusCol.setPrefWidth(150);
+
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
+
+        // Load COMPLETED orders only
+        List<Reservation> completedOrders = reservationManager.getAllReservations().stream()
+            .filter(r -> "COMPLETED".equals(r.getStatus()))
+            .collect(java.util.stream.Collectors.toList());
+        ObservableList<Reservation> completedList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(completedOrders));
+        table.setItems(completedList);
+
+        // Search functionality
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isEmpty()) {
+                List<Reservation> refreshedCompleted = reservationManager.getAllReservations().stream()
+                    .filter(r -> "COMPLETED".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCompleted)));
+            } else {
+                List<Reservation> filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> "COMPLETED".equals(r.getStatus()))
+                    .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
+                               String.valueOf(r.getReservationId()).contains(newVal) ||
+                               (r.getBundleId() != null && r.getBundleId().contains(newVal)))
+                    .collect(java.util.stream.Collectors.toList());
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            }
+        });
+
+        // Refresh button
+        refreshBtn.setOnAction(e -> {
+            List<Reservation> refreshedCompleted = reservationManager.getAllReservations().stream()
+                .filter(r -> "COMPLETED".equals(r.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCompleted)));
+            searchField.clear();
+        });
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        container.getChildren().addAll(actionBar, table);
+
+        // Add row click handler
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
+        return container;
+    }
+
+    /**
+     * Create Returned Orders View
+     */
+    public Node createReturnedView() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(20));
+
+        // Action buttons
+        HBox actionBar = new HBox(15);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
+
+        Button refreshBtn = new Button("🔄 Refresh");
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by student name or order ID...");
+        searchField.setPrefWidth(300);
+
+        styleActionButton(refreshBtn);
+
+        actionBar.getChildren().addAll(refreshBtn, searchField);
+
+        // Create table
+        TableView<Reservation> table = new TableView<>();
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+
+        TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                return new javafx.beans.property.SimpleStringProperty(r.getBundleId());
+            }
+            return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
+        });
+        idCol.setPrefWidth(180);
+
+        TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
+        studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
+        studentCol.setPrefWidth(150);
+
+        TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                long itemCount = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
+        itemCol.setPrefWidth(250);
+
+        TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setPrefWidth(60);
+
+        TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
+        qtyCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                int totalQty = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToInt(Reservation::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
+        qtyCol.setPrefWidth(60);
+
+        TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total Price");
+        priceCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                double totalPrice = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToDouble(Reservation::getTotalPrice)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalPrice);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getTotalPrice());
+        });
+        priceCol.setCellFactory(col -> new TableCell<Reservation, Double>() {
+            @Override
+            protected void updateItem(Double price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("₱%.2f", price));
+                }
+            }
+        });
+        priceCol.setPrefWidth(100);
+
+        TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
+        statusCol.setPrefWidth(180);
+
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
+
+        // Load RETURNED orders only (RETURNED - REFUNDED)
+        List<Reservation> returnedOrders = reservationManager.getAllReservations().stream()
+            .filter(r -> r.getStatus().contains("RETURNED"))
+            .collect(java.util.stream.Collectors.toList());
+        ObservableList<Reservation> returnedList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(returnedOrders));
+        table.setItems(returnedList);
+
+        // Search functionality
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isEmpty()) {
+                List<Reservation> refreshedReturned = reservationManager.getAllReservations().stream()
+                    .filter(r -> r.getStatus().contains("RETURNED"))
+                    .collect(java.util.stream.Collectors.toList());
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedReturned)));
+            } else {
+                List<Reservation> filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> r.getStatus().contains("RETURNED"))
+                    .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
+                               String.valueOf(r.getReservationId()).contains(newVal) ||
+                               (r.getBundleId() != null && r.getBundleId().contains(newVal)))
+                    .collect(java.util.stream.Collectors.toList());
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            }
+        });
+
+        // Refresh button
+        refreshBtn.setOnAction(e -> {
+            List<Reservation> refreshedReturned = reservationManager.getAllReservations().stream()
+                .filter(r -> r.getStatus().contains("RETURNED"))
+                .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedReturned)));
+            searchField.clear();
+        });
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        container.getChildren().addAll(actionBar, table);
+
+        // Add row click handler
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
+        return container;
+    }
+
+    /**
+     * Create Cancelled Orders View
+     */
+    public Node createCancelledView() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(20));
+
+        // Action buttons
+        HBox actionBar = new HBox(15);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
+
+        Button refreshBtn = new Button("🔄 Refresh");
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by student name or order ID...");
+        searchField.setPrefWidth(300);
+
+        styleActionButton(refreshBtn);
+
+        actionBar.getChildren().addAll(refreshBtn, searchField);
+
+        // Create table
+        TableView<Reservation> table = new TableView<>();
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+
+        TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                return new javafx.beans.property.SimpleStringProperty(r.getBundleId());
+            }
+            return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
+        });
+        idCol.setPrefWidth(180);
+
+        TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
+        studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
+        studentCol.setPrefWidth(150);
+
+        TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                long itemCount = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
+        itemCol.setPrefWidth(250);
+
+        TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setPrefWidth(60);
+
+        TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
+        qtyCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                int totalQty = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToInt(Reservation::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
+        qtyCol.setPrefWidth(60);
+
+        TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total Price");
+        priceCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                String bundleId = r.getBundleId();
+                double totalPrice = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .mapToDouble(Reservation::getTotalPrice)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalPrice);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getTotalPrice());
+        });
+        priceCol.setCellFactory(col -> new TableCell<Reservation, Double>() {
+            @Override
+            protected void updateItem(Double price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("₱%.2f", price));
+                }
+            }
+        });
+        priceCol.setPrefWidth(100);
+
+        TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
+        statusCol.setPrefWidth(150);
+
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
+
+        // Load CANCELLED orders only
+        List<Reservation> cancelledOrders = reservationManager.getAllReservations().stream()
+            .filter(r -> "CANCELLED".equals(r.getStatus()))
+            .collect(java.util.stream.Collectors.toList());
+        ObservableList<Reservation> cancelledList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(cancelledOrders));
+        table.setItems(cancelledList);
+
+        // Search functionality
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isEmpty()) {
+                List<Reservation> refreshedCancelled = reservationManager.getAllReservations().stream()
+                    .filter(r -> "CANCELLED".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCancelled)));
+            } else {
+                List<Reservation> filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> "CANCELLED".equals(r.getStatus()))
+                    .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
+                               String.valueOf(r.getReservationId()).contains(newVal) ||
+                               (r.getBundleId() != null && r.getBundleId().contains(newVal)))
+                    .collect(java.util.stream.Collectors.toList());
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            }
+        });
+
+        // Refresh button
+        refreshBtn.setOnAction(e -> {
+            List<Reservation> refreshedCancelled = reservationManager.getAllReservations().stream()
+                .filter(r -> "CANCELLED".equals(r.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCancelled)));
+            searchField.clear();
+        });
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        container.getChildren().addAll(actionBar, table);
+
+        // Add row click handler
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
+        return container;
     }
     
     public void handleLogout() {

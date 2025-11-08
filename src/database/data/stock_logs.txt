@@ -6,3 +6,9 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-03 13:34:29|Admin|1001|IT/Eng Gray 3/4 Polo (Male)|S|+0/90|ITEM_UPDATED|Updated: Price ₱9999.00→₱450.00
 2025-11-03 13:35:04|Admin|1001|IT/Eng Gray 3/4 Polo (Male)|S|+410/500|ITEM_UPDATED|Updated: Qty 90→500 
 2025-11-03 14:38:33|Admin|1002|IT/Eng RTW Pants (Male)|S|+42/80|ITEM_UPDATED|Updated: Qty 38→80 
+2025-11-08 19:21:46|Ramirez, Bowie|1001|IT/Eng Gray 3/4 Polo (Male)|S|-1/500|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-08 19:22:59|Ramirez, Bowie|1097|NSTP Gray Shirt (Male)|L|+1/75|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: wrong size
+2025-11-08 19:53:14|Ramirez, Bowie|1001|IT/Eng Gray 3/4 Polo (Male)|L|-1/549|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-08 19:53:14|Ramirez, Bowie|1002|IT/Eng RTW Pants (Male)|S|-1/79|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-08 19:53:14|Ramirez, Bowie|1097|NSTP Gray Shirt (Male)|XL|-1/54|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-08 19:53:14|Ramirez, Bowie|1095|PE White Shirt|L|-1/99|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item

@@ -26,6 +26,9 @@ public class StaffDashboard {
     private StaffDashboardController controller;
     
     private Button reservationsBtn;
+    private Button completedBtn;
+    private Button returnedBtn;
+    private Button cancelledBtn;
     private Button inventoryBtn;
     private Button stockLogsBtn;
     private Button logoutBtn;
@@ -126,6 +129,9 @@ public class StaffDashboard {
         header.setPadding(new Insets(0, 0, 20, 0));
         
         reservationsBtn = createNavButton("📋 Reservations", true);
+        completedBtn = createNavButton("✅ Completed", false);
+        returnedBtn = createNavButton("↩️ Returned", false);
+        cancelledBtn = createNavButton("❌ Cancelled", false);
         inventoryBtn = createNavButton("📦 Inventory", false);
         stockLogsBtn = createNavButton("📝 Stock Logs", false);
         
@@ -148,6 +154,21 @@ public class StaffDashboard {
             showReservations();
         });
         
+        completedBtn.setOnAction(e -> {
+            setActiveButton(completedBtn);
+            showCompleted();
+        });
+        
+        returnedBtn.setOnAction(e -> {
+            setActiveButton(returnedBtn);
+            showReturned();
+        });
+        
+        cancelledBtn.setOnAction(e -> {
+            setActiveButton(cancelledBtn);
+            showCancelled();
+        });
+        
         inventoryBtn.setOnAction(e -> {
             setActiveButton(inventoryBtn);
             showInventory();
@@ -164,6 +185,9 @@ public class StaffDashboard {
             header,
             new Separator(),
             reservationsBtn,
+            completedBtn,
+            returnedBtn,
+            cancelledBtn,
             inventoryBtn,
             stockLogsBtn,
             spacer,
@@ -203,7 +227,7 @@ public class StaffDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {reservationsBtn, inventoryBtn, stockLogsBtn};
+        Button[] buttons = {reservationsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -246,6 +270,24 @@ public class StaffDashboard {
         titleLabel.setText("Stock Logs");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createStockLogsView());
+    }
+    
+    private void showCompleted() {
+        titleLabel.setText("Completed Orders");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createCompletedView());
+    }
+    
+    private void showReturned() {
+        titleLabel.setText("Returned Orders");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createReturnedView());
+    }
+    
+    private void showCancelled() {
+        titleLabel.setText("Cancelled Orders");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createCancelledView());
     }
     
     private void updateSidebarTheme() {

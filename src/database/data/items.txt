@@ -2,76 +2,148 @@ ItemCode,ItemName,Course,Size,Quantity,Price
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,S,43,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,M,70,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,L,55,450.00
+1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,XL,40,450.00
 1004,IT/Eng RTW Skirt (Female),BSIT,S,40,480.00
 1004,IT/Eng RTW Skirt (Female),BSIT,M,47,480.00
 1004,IT/Eng RTW Skirt (Female),BSIT,L,40,480.00
+1004,IT/Eng RTW Skirt (Female),BSIT,XL,35,480.00
 1005,IT/Eng RTW Pants (Female),BSIT,S,35,500.00
 1005,IT/Eng RTW Pants (Female),BSIT,M,45,500.00
 1005,IT/Eng RTW Pants (Female),BSIT,L,35,500.00
+1005,IT/Eng RTW Pants (Female),BSIT,XL,30,500.00
 1006,IT/Eng Gray 3/4 Polo (Male),BSCS,S,45,450.00
 1006,IT/Eng Gray 3/4 Polo (Male),BSCS,M,65,450.00
 1006,IT/Eng Gray 3/4 Polo (Male),BSCS,L,55,450.00
+1006,IT/Eng Gray 3/4 Polo (Male),BSCS,XL,40,450.00
+1007,IT/Eng RTW Pants (Male),BSCS,S,40,500.00
 1007,IT/Eng RTW Pants (Male),BSCS,M,50,500.00
+1007,IT/Eng RTW Pants (Male),BSCS,L,45,500.00
+1007,IT/Eng RTW Pants (Male),BSCS,XL,35,500.00
+1008,IT/Eng Gray 3/4 Blouse (Female),BSCS,S,50,450.00
 1008,IT/Eng Gray 3/4 Blouse (Female),BSCS,M,60,450.00
+1008,IT/Eng Gray 3/4 Blouse (Female),BSCS,L,55,450.00
+1008,IT/Eng Gray 3/4 Blouse (Female),BSCS,XL,45,450.00
+1009,IT/Eng RTW Skirt (Female),BSCS,S,40,480.00
 1009,IT/Eng RTW Skirt (Female),BSCS,M,45,480.00
+1009,IT/Eng RTW Skirt (Female),BSCS,L,40,480.00
+1009,IT/Eng RTW Skirt (Female),BSCS,XL,35,480.00
+1010,IT/Eng Gray 3/4 Polo (Male),BSCpE,S,50,450.00
 1010,IT/Eng Gray 3/4 Polo (Male),BSCpE,M,60,450.00
 1010,IT/Eng Gray 3/4 Polo (Male),BSCpE,L,50,450.00
+1010,IT/Eng Gray 3/4 Polo (Male),BSCpE,XL,45,450.00
+1011,IT/Eng RTW Pants (Male),BSCpE,S,40,500.00
 1011,IT/Eng RTW Pants (Male),BSCpE,M,45,500.00
+1011,IT/Eng RTW Pants (Male),BSCpE,L,40,500.00
+1011,IT/Eng RTW Pants (Male),BSCpE,XL,35,500.00
+1012,IT/Eng Gray 3/4 Blouse (Female),BSCpE,S,45,450.00
 1012,IT/Eng Gray 3/4 Blouse (Female),BSCpE,M,55,450.00
+1012,IT/Eng Gray 3/4 Blouse (Female),BSCpE,L,50,450.00
+1012,IT/Eng Gray 3/4 Blouse (Female),BSCpE,XL,40,450.00
+1013,Arts Gray 3/4 Polo (Male),BMMA,S,45,450.00
 1013,Arts Gray 3/4 Polo (Male),BMMA,M,50,450.00
 1013,Arts Gray 3/4 Polo (Male),BMMA,L,45,450.00
+1013,Arts Gray 3/4 Polo (Male),BMMA,XL,40,450.00
+1014,Arts RTW Pants (Male),BMMA,S,35,500.00
 1014,Arts RTW Pants (Male),BMMA,M,40,500.00
+1014,Arts RTW Pants (Male),BMMA,L,35,500.00
+1014,Arts RTW Pants (Male),BMMA,XL,30,500.00
+1015,Arts Gray 3/4 Blouse (Female),BMMA,S,45,450.00
 1015,Arts Gray 3/4 Blouse (Female),BMMA,M,55,450.00
+1015,Arts Gray 3/4 Blouse (Female),BMMA,L,50,450.00
+1015,Arts Gray 3/4 Blouse (Female),BMMA,XL,40,450.00
+1016,Arts RTW Skirt (Female),BMMA,S,40,480.00
 1016,Arts RTW Skirt (Female),BMMA,M,45,480.00
+1016,Arts RTW Skirt (Female),BMMA,L,40,480.00
+1016,Arts RTW Skirt (Female),BMMA,XL,35,480.00
+1017,Arts RTW Pants (Female),BMMA,S,35,500.00
 1017,Arts RTW Pants (Female),BMMA,M,40,500.00
+1017,Arts RTW Pants (Female),BMMA,L,35,500.00
+1017,Arts RTW Pants (Female),BMMA,XL,30,500.00
 1018,Business White Polo (Male),BSBA,S,50,480.00
 1018,Business White Polo (Male),BSBA,M,70,480.00
 1018,Business White Polo (Male),BSBA,L,60,480.00
+1018,Business White Polo (Male),BSBA,XL,45,480.00
 1019,Business Slacks (Male),BSBA,S,45,550.00
 1019,Business Slacks (Male),BSBA,M,65,550.00
 1019,Business Slacks (Male),BSBA,L,55,550.00
+1019,Business Slacks (Male),BSBA,XL,40,550.00
 1020,Business White Blouse (Female),BSBA,S,45,480.00
 1020,Business White Blouse (Female),BSBA,M,65,480.00
 1020,Business White Blouse (Female),BSBA,L,55,480.00
+1020,Business White Blouse (Female),BSBA,XL,40,480.00
 1021,Business Vest (Female),BSBA,S,40,350.00
 1021,Business Vest (Female),BSBA,M,60,350.00
 1021,Business Vest (Female),BSBA,L,50,350.00
+1021,Business Vest (Female),BSBA,XL,35,350.00
 1022,Business Pencil Skirt (Female),BSBA,S,40,520.00
 1022,Business Pencil Skirt (Female),BSBA,M,55,520.00
 1022,Business Pencil Skirt (Female),BSBA,L,45,520.00
+1022,Business Pencil Skirt (Female),BSBA,XL,35,520.00
+1023,Business Slacks (Female),BSBA,S,40,550.00
 1023,Business Slacks (Female),BSBA,M,50,550.00
+1023,Business Slacks (Female),BSBA,L,45,550.00
+1023,Business Slacks (Female),BSBA,XL,35,550.00
 1024,Business Blazer,BSBA,S,30,650.00
 1024,Business Blazer,BSBA,M,45,650.00
 1024,Business Blazer,BSBA,L,35,650.00
+1024,Business Blazer,BSBA,XL,25,650.00
+1025,Business White Polo (Male),BSA,S,50,480.00
 1025,Business White Polo (Male),BSA,M,60,480.00
 1025,Business White Polo (Male),BSA,L,50,480.00
+1025,Business White Polo (Male),BSA,XL,40,480.00
+1026,Business Slacks (Male),BSA,S,45,550.00
 1026,Business Slacks (Male),BSA,M,55,550.00
+1026,Business Slacks (Male),BSA,L,50,550.00
+1026,Business Slacks (Male),BSA,XL,40,550.00
+1027,Business White Blouse (Female),BSA,S,50,480.00
 1027,Business White Blouse (Female),BSA,M,60,480.00
+1027,Business White Blouse (Female),BSA,L,55,480.00
+1027,Business White Blouse (Female),BSA,XL,45,480.00
+1028,Business Vest (Female),BSA,S,40,350.00
 1028,Business Vest (Female),BSA,M,50,350.00
+1028,Business Vest (Female),BSA,L,45,350.00
+1028,Business Vest (Female),BSA,XL,35,350.00
+1029,Business Pencil Skirt (Female),BSA,S,40,520.00
 1029,Business Pencil Skirt (Female),BSA,M,50,520.00
+1029,Business Pencil Skirt (Female),BSA,L,45,520.00
+1029,Business Pencil Skirt (Female),BSA,XL,35,520.00
+1030,Business Blazer,BSA,S,30,650.00
 1030,Business Blazer,BSA,M,40,650.00
+1030,Business Blazer,BSA,L,35,650.00
+1030,Business Blazer,BSA,XL,25,650.00
 1031,BSHM White Blouse (Female),BSHM,S,40,480.00
 1031,BSHM White Blouse (Female),BSHM,M,60,480.00
 1031,BSHM White Blouse (Female),BSHM,L,50,480.00
+1031,BSHM White Blouse (Female),BSHM,XL,40,480.00
 1032,BSHM Blazer (Female),BSHM,S,35,650.00
 1032,BSHM Blazer (Female),BSHM,M,50,650.00
 1032,BSHM Blazer (Female),BSHM,L,40,650.00
+1032,BSHM Blazer (Female),BSHM,XL,30,650.00
 1033,BSHM RTW Skirt (Female),BSHM,S,35,480.00
 1033,BSHM RTW Skirt (Female),BSHM,M,50,480.00
 1033,BSHM RTW Skirt (Female),BSHM,L,40,480.00
+1033,BSHM RTW Skirt (Female),BSHM,XL,30,480.00
 1034,BSHM Yellow Scarf,BSHM,One Size,80,120.00
 1035,BSHM Beret,BSHM,One Size,70,150.00
 1036,Tourism Pin,BSHM,One Size,100,80.00
+1037,BSHM White Polo (Male),BSHM,S,45,480.00
 1037,BSHM White Polo (Male),BSHM,M,55,480.00
 1037,BSHM White Polo (Male),BSHM,L,50,480.00
+1037,BSHM White Polo (Male),BSHM,XL,40,480.00
+1038,BSHM Blazer (Male),BSHM,S,35,650.00
 1038,BSHM Blazer (Male),BSHM,M,45,650.00
 1038,BSHM Blazer (Male),BSHM,L,40,650.00
+1038,BSHM Blazer (Male),BSHM,XL,30,650.00
+1039,BSHM Pants (Male),BSHM,S,40,500.00
 1039,BSHM Pants (Male),BSHM,M,50,500.00
 1039,BSHM Pants (Male),BSHM,L,45,500.00
+1039,BSHM Pants (Male),BSHM,XL,35,500.00
 1040,BSHM Necktie,BSHM,One Size,75,180.00
+1041,Chef White Polo,BSHM,S,35,520.00
 1041,Chef White Polo,BSHM,M,45,520.00
 1041,Chef White Polo,BSHM,L,40,520.00
 1041,Chef White Polo,BSHM,XL,35,520.00
+1042,Chef White Pants,BSHM,S,35,550.00
 1042,Chef White Pants,BSHM,M,45,550.00
 1042,Chef White Pants,BSHM,L,40,550.00
 1042,Chef White Pants,BSHM,XL,35,550.00
@@ -80,139 +152,191 @@ ItemCode,ItemName,Course,Size,Quantity,Price
 1045,Tourism White Blouse (Female),BSTM,S,40,480.00
 1045,Tourism White Blouse (Female),BSTM,M,60,480.00
 1045,Tourism White Blouse (Female),BSTM,L,50,480.00
+1045,Tourism White Blouse (Female),BSTM,XL,40,480.00
 1046,Tourism Blazer (Female),BSTM,S,35,650.00
 1046,Tourism Blazer (Female),BSTM,M,50,650.00
 1046,Tourism Blazer (Female),BSTM,L,40,650.00
+1046,Tourism Blazer (Female),BSTM,XL,30,650.00
 1047,Tourism Blue Skirt (Female),BSTM,S,35,480.00
 1047,Tourism Blue Skirt (Female),BSTM,M,50,480.00
 1047,Tourism Blue Skirt (Female),BSTM,L,40,480.00
+1047,Tourism Blue Skirt (Female),BSTM,XL,30,480.00
+1048,Tourism Blue Slacks (Female),BSTM,S,35,500.00
 1048,Tourism Blue Slacks (Female),BSTM,M,45,500.00
+1048,Tourism Blue Slacks (Female),BSTM,L,40,500.00
+1048,Tourism Blue Slacks (Female),BSTM,XL,30,500.00
 1049,Tourism Yellow Scarf,BSTM,One Size,80,120.00
 1050,Tourism Pin,BSTM,One Size,100,80.00
+1051,Tourism White Long Polo (Male),BSTM,S,45,500.00
 1051,Tourism White Long Polo (Male),BSTM,M,55,500.00
 1051,Tourism White Long Polo (Male),BSTM,L,50,500.00
+1051,Tourism White Long Polo (Male),BSTM,XL,40,500.00
+1052,Tourism Blazer (Male),BSTM,S,35,650.00
 1052,Tourism Blazer (Male),BSTM,M,45,650.00
 1052,Tourism Blazer (Male),BSTM,L,40,650.00
+1052,Tourism Blazer (Male),BSTM,XL,30,650.00
+1053,Tourism Trousers (Male),BSTM,S,40,520.00
 1053,Tourism Trousers (Male),BSTM,M,50,520.00
 1053,Tourism Trousers (Male),BSTM,L,45,520.00
+1053,Tourism Trousers (Male),BSTM,XL,35,520.00
 1054,Tourism Necktie,BSTM,One Size,75,180.00
 1055,SHS White Blouse (Female),ABM,S,55,420.00
 1055,SHS White Blouse (Female),ABM,M,80,420.00
 1055,SHS White Blouse (Female),ABM,L,65,420.00
+1055,SHS White Blouse (Female),ABM,XL,50,420.00
 1056,SHS Vest (Female),ABM,S,50,300.00
 1056,SHS Vest (Female),ABM,M,70,300.00
 1056,SHS Vest (Female),ABM,L,60,300.00
+1056,SHS Vest (Female),ABM,XL,45,300.00
 1057,SHS Checkered Skirt,ABM,S,50,450.00
 1057,SHS Checkered Skirt,ABM,M,70,450.00
 1057,SHS Checkered Skirt,ABM,L,60,450.00
+1057,SHS Checkered Skirt,ABM,XL,45,450.00
 1058,SHS White Polo (Male),ABM,S,55,420.00
 1058,SHS White Polo (Male),ABM,M,80,420.00
 1058,SHS White Polo (Male),ABM,L,65,420.00
+1058,SHS White Polo (Male),ABM,XL,50,420.00
 1059,SHS Vest (Male),ABM,S,50,300.00
 1059,SHS Vest (Male),ABM,M,70,300.00
 1059,SHS Vest (Male),ABM,L,60,300.00
+1059,SHS Vest (Male),ABM,XL,45,300.00
 1060,SHS Checkered Pants,ABM,S,50,480.00
 1060,SHS Checkered Pants,ABM,M,70,480.00
 1060,SHS Checkered Pants,ABM,L,60,480.00
+1060,SHS Checkered Pants,ABM,XL,45,480.00
 1061,SHS White Blouse (Female),STEM,S,55,420.00
 1061,SHS White Blouse (Female),STEM,M,80,420.00
 1061,SHS White Blouse (Female),STEM,L,65,420.00
+1061,SHS White Blouse (Female),STEM,XL,50,420.00
 1062,SHS Vest (Female),STEM,S,50,300.00
 1062,SHS Vest (Female),STEM,M,70,300.00
 1062,SHS Vest (Female),STEM,L,60,300.00
+1062,SHS Vest (Female),STEM,XL,45,300.00
 1063,SHS Checkered Skirt,STEM,S,50,450.00
 1063,SHS Checkered Skirt,STEM,M,70,450.00
 1063,SHS Checkered Skirt,STEM,L,60,450.00
+1063,SHS Checkered Skirt,STEM,XL,45,450.00
 1064,SHS White Polo (Male),STEM,S,55,420.00
 1064,SHS White Polo (Male),STEM,M,80,420.00
 1064,SHS White Polo (Male),STEM,L,65,420.00
+1064,SHS White Polo (Male),STEM,XL,50,420.00
 1065,SHS Vest (Male),STEM,S,50,300.00
 1065,SHS Vest (Male),STEM,M,70,300.00
 1065,SHS Vest (Male),STEM,L,60,300.00
+1065,SHS Vest (Male),STEM,XL,45,300.00
 1066,SHS Checkered Pants,STEM,S,50,480.00
 1066,SHS Checkered Pants,STEM,M,70,480.00
 1066,SHS Checkered Pants,STEM,L,60,480.00
+1066,SHS Checkered Pants,STEM,XL,45,480.00
 1067,SHS White Blouse (Female),HUMSS,S,55,420.00
 1067,SHS White Blouse (Female),HUMSS,M,80,420.00
 1067,SHS White Blouse (Female),HUMSS,L,65,420.00
+1067,SHS White Blouse (Female),HUMSS,XL,50,420.00
 1068,SHS Vest (Female),HUMSS,S,50,300.00
 1068,SHS Vest (Female),HUMSS,M,70,300.00
 1068,SHS Vest (Female),HUMSS,L,60,300.00
+1068,SHS Vest (Female),HUMSS,XL,45,300.00
 1069,SHS Checkered Skirt,HUMSS,S,50,450.00
 1069,SHS Checkered Skirt,HUMSS,M,70,450.00
 1069,SHS Checkered Skirt,HUMSS,L,60,450.00
+1069,SHS Checkered Skirt,HUMSS,XL,45,450.00
 1070,SHS White Polo (Male),HUMSS,S,55,420.00
 1070,SHS White Polo (Male),HUMSS,M,80,420.00
 1070,SHS White Polo (Male),HUMSS,L,65,420.00
+1070,SHS White Polo (Male),HUMSS,XL,50,420.00
 1071,SHS Vest (Male),HUMSS,S,50,300.00
 1071,SHS Vest (Male),HUMSS,M,70,300.00
 1071,SHS Vest (Male),HUMSS,L,60,300.00
+1071,SHS Vest (Male),HUMSS,XL,45,300.00
 1072,SHS Checkered Pants,HUMSS,S,50,480.00
 1072,SHS Checkered Pants,HUMSS,M,70,480.00
 1072,SHS Checkered Pants,HUMSS,L,60,480.00
+1072,SHS Checkered Pants,HUMSS,XL,45,480.00
 1073,SHS White Blouse (Female),TVL-ICT,S,55,420.00
 1073,SHS White Blouse (Female),TVL-ICT,M,80,420.00
 1073,SHS White Blouse (Female),TVL-ICT,L,65,420.00
+1073,SHS White Blouse (Female),TVL-ICT,XL,50,420.00
 1074,SHS Vest (Female),TVL-ICT,S,50,300.00
 1074,SHS Vest (Female),TVL-ICT,M,70,300.00
 1074,SHS Vest (Female),TVL-ICT,L,60,300.00
+1074,SHS Vest (Female),TVL-ICT,XL,45,300.00
 1075,SHS Checkered Skirt,TVL-ICT,S,50,450.00
 1075,SHS Checkered Skirt,TVL-ICT,M,70,450.00
 1075,SHS Checkered Skirt,TVL-ICT,L,60,450.00
+1075,SHS Checkered Skirt,TVL-ICT,XL,45,450.00
 1076,SHS White Polo (Male),TVL-ICT,S,55,420.00
 1076,SHS White Polo (Male),TVL-ICT,M,80,420.00
 1076,SHS White Polo (Male),TVL-ICT,L,65,420.00
+1076,SHS White Polo (Male),TVL-ICT,XL,50,420.00
 1077,SHS Vest (Male),TVL-ICT,S,50,300.00
 1077,SHS Vest (Male),TVL-ICT,M,70,300.00
 1077,SHS Vest (Male),TVL-ICT,L,60,300.00
+1077,SHS Vest (Male),TVL-ICT,XL,45,300.00
 1078,SHS Checkered Pants,TVL-ICT,S,50,480.00
 1078,SHS Checkered Pants,TVL-ICT,M,70,480.00
 1078,SHS Checkered Pants,TVL-ICT,L,60,480.00
+1078,SHS Checkered Pants,TVL-ICT,XL,45,480.00
 1079,SHS White Blouse (Female),TVL-TO,S,55,420.00
 1079,SHS White Blouse (Female),TVL-TO,M,80,420.00
 1079,SHS White Blouse (Female),TVL-TO,L,65,420.00
+1079,SHS White Blouse (Female),TVL-TO,XL,50,420.00
 1080,SHS Vest (Female),TVL-TO,S,50,300.00
 1080,SHS Vest (Female),TVL-TO,M,70,300.00
 1080,SHS Vest (Female),TVL-TO,L,60,300.00
+1080,SHS Vest (Female),TVL-TO,XL,45,300.00
 1081,SHS Checkered Skirt,TVL-TO,S,50,450.00
 1081,SHS Checkered Skirt,TVL-TO,M,70,450.00
 1081,SHS Checkered Skirt,TVL-TO,L,60,450.00
+1081,SHS Checkered Skirt,TVL-TO,XL,45,450.00
 1082,SHS White Polo (Male),TVL-TO,S,55,420.00
 1082,SHS White Polo (Male),TVL-TO,M,80,420.00
 1082,SHS White Polo (Male),TVL-TO,L,65,420.00
+1082,SHS White Polo (Male),TVL-TO,XL,50,420.00
 1083,SHS Vest (Male),TVL-TO,S,50,300.00
 1083,SHS Vest (Male),TVL-TO,M,70,300.00
 1083,SHS Vest (Male),TVL-TO,L,60,300.00
+1083,SHS Vest (Male),TVL-TO,XL,45,300.00
 1084,SHS Checkered Pants,TVL-TO,S,50,480.00
 1084,SHS Checkered Pants,TVL-TO,M,70,480.00
 1084,SHS Checkered Pants,TVL-TO,L,60,480.00
+1084,SHS Checkered Pants,TVL-TO,XL,45,480.00
 1085,SHS White Blouse (Female),TVL-CA,S,55,420.00
 1085,SHS White Blouse (Female),TVL-CA,M,80,420.00
 1085,SHS White Blouse (Female),TVL-CA,L,65,420.00
+1085,SHS White Blouse (Female),TVL-CA,XL,50,420.00
 1086,SHS Vest (Female),TVL-CA,S,50,300.00
 1086,SHS Vest (Female),TVL-CA,M,70,300.00
 1086,SHS Vest (Female),TVL-CA,L,60,300.00
+1086,SHS Vest (Female),TVL-CA,XL,45,300.00
 1087,SHS Checkered Skirt,TVL-CA,S,50,450.00
 1087,SHS Checkered Skirt,TVL-CA,M,70,450.00
 1087,SHS Checkered Skirt,TVL-CA,L,60,450.00
+1087,SHS Checkered Skirt,TVL-CA,XL,45,450.00
 1088,SHS White Polo (Male),TVL-CA,S,55,420.00
 1088,SHS White Polo (Male),TVL-CA,M,80,420.00
 1088,SHS White Polo (Male),TVL-CA,L,65,420.00
+1088,SHS White Polo (Male),TVL-CA,XL,50,420.00
 1089,SHS Vest (Male),TVL-CA,S,50,300.00
 1089,SHS Vest (Male),TVL-CA,M,70,300.00
 1089,SHS Vest (Male),TVL-CA,L,60,300.00
+1089,SHS Vest (Male),TVL-CA,XL,45,300.00
 1090,SHS Checkered Pants,TVL-CA,S,50,480.00
 1090,SHS Checkered Pants,TVL-CA,M,70,480.00
 1090,SHS Checkered Pants,TVL-CA,L,60,480.00
+1090,SHS Checkered Pants,TVL-CA,XL,45,480.00
+1091,TVL Chef White Polo,TVL-CA,S,30,520.00
 1091,TVL Chef White Polo,TVL-CA,M,40,520.00
 1091,TVL Chef White Polo,TVL-CA,L,35,520.00
+1091,TVL Chef White Polo,TVL-CA,XL,25,520.00
+1092,TVL Chef White Pants,TVL-CA,S,30,550.00
 1092,TVL Chef White Pants,TVL-CA,M,40,550.00
 1092,TVL Chef White Pants,TVL-CA,L,35,550.00
+1092,TVL Chef White Pants,TVL-CA,XL,25,550.00
 1093,TVL Chef Apron,TVL-CA,One Size,55,250.00
 1094,TVL Chef Cap,TVL-CA,One Size,60,180.00
 1095,PE White Shirt,STI Special,S,80,300.00
 1095,PE White Shirt,STI Special,M,120,300.00
-1095,PE White Shirt,STI Special,L,100,300.00
+1095,PE White Shirt,STI Special,L,99,300.00
 1095,PE White Shirt,STI Special,XL,80,300.00
 1096,PE Blue Jogging Pants,STI Special,S,70,400.00
 1096,PE Blue Jogging Pants,STI Special,M,100,400.00
@@ -220,15 +344,27 @@ ItemCode,ItemName,Course,Size,Quantity,Price
 1096,PE Blue Jogging Pants,STI Special,XL,70,400.00
 1097,NSTP Gray Shirt (Male),STI Special,S,60,320.00
 1097,NSTP Gray Shirt (Male),STI Special,M,90,320.00
-1097,NSTP Gray Shirt (Male),STI Special,L,74,320.00
+1097,NSTP Gray Shirt (Male),STI Special,L,75,320.00
+1097,NSTP Gray Shirt (Male),STI Special,XL,54,320.00
 1098,NSTP Gray Shirt (Female),STI Special,S,60,320.00
 1098,NSTP Gray Shirt (Female),STI Special,M,90,320.00
 1098,NSTP Gray Shirt (Female),STI Special,L,75,320.00
+1098,NSTP Gray Shirt (Female),STI Special,XL,55,320.00
+1099,Anniversary Shirt,STI Special,S,75,350.00
 1099,Anniversary Shirt,STI Special,M,99,350.00
 1099,Anniversary Shirt,STI Special,L,90,350.00
+1099,Anniversary Shirt,STI Special,XL,70,350.00
+1100,Washday Shirt,STI Special,S,90,300.00
 1100,Washday Shirt,STI Special,M,120,300.00
 1100,Washday Shirt,STI Special,L,100,300.00
+1100,Washday Shirt,STI Special,XL,80,300.00
 1101,ID Lace,STI Special,One Size,200,50.00
 1102,STI Pin,STI Special,One Size,150,80.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,S,500,450.00
-1002,IT/Eng RTW Pants (Male),BSIT,S,80,500.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,600,450.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,L,549,450.00
+1001,IT/Eng Gray 3/4 Polo (Male),BSIT,XL,450,450.00
+1002,IT/Eng RTW Pants (Male),BSIT,S,79,500.00
+1002,IT/Eng RTW Pants (Male),BSIT,M,100,500.00
+1002,IT/Eng RTW Pants (Male),BSIT,L,90,500.00
+1002,IT/Eng RTW Pants (Male),BSIT,XL,70,500.00

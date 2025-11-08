@@ -69,4 +69,9 @@ public class Student extends User {
     public String getAccountStatus() {
         return isActive ? "Active" : "Deactivated";
     }
+    
+    // Setter for password reset
+    public void setPassword(String password) {
+        this.password = password;
+    }
 }

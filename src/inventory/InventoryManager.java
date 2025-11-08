@@ -293,6 +293,13 @@ public class InventoryManager {
     }
     
     /**
+     * Get the audit manager instance
+     */
+    public StockAuditManager getAuditManager() {
+        return auditManager;
+    }
+    
+    /**
      * Helper: Check if user has Staff role
      * This would typically be replaced with a proper role check from User/Session management
      */

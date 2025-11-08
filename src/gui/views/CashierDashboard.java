@@ -26,7 +26,6 @@ public class CashierDashboard {
     private CashierDashboardController controller;
     
     private Button paymentsBtn;
-    private Button reservationsBtn;
     private Button receiptsBtn;
     private Button logoutBtn;
     private Label logoLabel;
@@ -124,7 +123,6 @@ public class CashierDashboard {
         header.setPadding(new Insets(0, 0, 20, 0));
         
         paymentsBtn = createNavButton("💳 Process Payments", true);
-        reservationsBtn = createNavButton("📋 View Reservations", false);
         receiptsBtn = createNavButton("🧾 Receipts", false);
         
         Region spacer = new Region();
@@ -146,11 +144,6 @@ public class CashierDashboard {
             showPayments();
         });
         
-        reservationsBtn.setOnAction(e -> {
-            setActiveButton(reservationsBtn);
-            showReservations();
-        });
-        
         receiptsBtn.setOnAction(e -> {
             setActiveButton(receiptsBtn);
             showReceipts();
@@ -162,7 +155,6 @@ public class CashierDashboard {
             header,
             new Separator(),
             paymentsBtn,
-            reservationsBtn,
             receiptsBtn,
             spacer,
             new Separator(),
@@ -201,7 +193,7 @@ public class CashierDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {paymentsBtn, reservationsBtn, receiptsBtn};
+        Button[] buttons = {paymentsBtn, receiptsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -232,12 +224,6 @@ public class CashierDashboard {
         titleLabel.setText("Process Payments");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createPaymentsView());
-    }
-    
-    private void showReservations() {
-        titleLabel.setText("View Reservations");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createReservationsView());
     }
     
     private void showReceipts() {
@@ -300,7 +286,7 @@ public class CashierDashboard {
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         // Update navigation buttons
-        Button[] buttons = {paymentsBtn, reservationsBtn, receiptsBtn};
+        Button[] buttons = {paymentsBtn, receiptsBtn};
         for (Button btn : buttons) {
             String currentStyle = btn.getStyle();
             

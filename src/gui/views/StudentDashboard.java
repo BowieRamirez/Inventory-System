@@ -32,6 +32,7 @@ public class StudentDashboard {
     // Sidebar buttons
     private Button shopBtn;
     private Button cartBtn;
+    private Button claimItemsBtn;
     private Button myReservationsBtn;
     private Button profileBtn;
     private Button logoutBtn;
@@ -169,6 +170,7 @@ public class StudentDashboard {
         // Navigation buttons
         shopBtn = createNavButton("🛍️ Shop", true);
         cartBtn = createNavButton("🛒 Cart (0)", false);
+        claimItemsBtn = createNavButton("📦 Claim Items", false);
         myReservationsBtn = createNavButton("📋 My Reservations", false);
         profileBtn = createNavButton("👤 Profile", false);
         
@@ -197,6 +199,11 @@ public class StudentDashboard {
             showCart();
         });
         
+        claimItemsBtn.setOnAction(e -> {
+            setActiveButton(claimItemsBtn);
+            showClaimItems();
+        });
+        
         myReservationsBtn.setOnAction(e -> {
             setActiveButton(myReservationsBtn);
             showMyReservations();
@@ -218,6 +225,7 @@ public class StudentDashboard {
             new Separator(),
             shopBtn,
             cartBtn,
+            claimItemsBtn,
             myReservationsBtn,
             profileBtn,
             spacer,
@@ -263,7 +271,7 @@ public class StudentDashboard {
      * Set active navigation button
      */
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {shopBtn, cartBtn, myReservationsBtn, profileBtn};
+        Button[] buttons = {shopBtn, cartBtn, claimItemsBtn, myReservationsBtn, profileBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -317,12 +325,21 @@ public class StudentDashboard {
     }
     
     /**
-     * Show my reservations
+     * Show my reservations view
      */
     private void showMyReservations() {
         titleLabel.setText("My Reservations");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createMyReservationsView());
+    }
+    
+    /**
+     * Show claim items view
+     */
+    private void showClaimItems() {
+        titleLabel.setText("Claim Items");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createClaimItemsView());
     }
     
     /**
