@@ -6,8 +6,13 @@ import gui.utils.GUIValidator;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
 import utils.FileStorage;
+import utils.TermsAndConditions;
 import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+import javafx.geometry.Insets;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * SignupController - Handles student registration logic
@@ -36,7 +41,7 @@ public class SignupController {
     }
     
     /**
-     * Handle signup attempt
+     * Handle signup attempt - shows Terms and Conditions first
      * 
      * @param studentId The student ID
      * @param firstName The first name
@@ -49,7 +54,7 @@ public class SignupController {
     public void handleSignup(String studentId, String firstName, String lastName, 
                             String course, String gender, String password, String confirmPassword) {
         
-        // Validate all inputs
+        // Validate all inputs first
         if (!validateInputs(studentId, firstName, lastName, course, gender, password, confirmPassword)) {
             return;
         }
@@ -58,6 +63,12 @@ public class SignupController {
         if (studentIdExists(studentId)) {
             AlertHelper.showError("Registration Failed", 
                 "Student ID already exists. Please use a different ID or contact administrator.");
+            return;
+        }
+        
+        // Show Terms and Conditions dialog
+        if (!showTermsAndConditions()) {
+            // User declined Terms and Conditions
             return;
         }
         
@@ -86,6 +97,61 @@ public class SignupController {
             AlertHelper.showException("Registration Failed", 
                 "An error occurred during registration.", e);
         }
+    }
+    
+    /**
+     * Show Terms and Conditions dialog and get user acceptance
+     * 
+     * @return true if user accepts, false otherwise
+     */
+    private boolean showTermsAndConditions() {
+        // Create custom dialog
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Terms and Conditions");
+        dialog.setHeaderText("Please read and accept the Terms and Conditions");
+        
+        // Create scrollable text area for terms
+        TextArea termsArea = new TextArea(TermsAndConditions.getTermsAndConditionsText());
+        termsArea.setEditable(false);
+        termsArea.setWrapText(true);
+        termsArea.setPrefRowCount(20);
+        termsArea.setPrefColumnCount(60);
+        termsArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+        
+        // Wrap in VBox with padding
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(20));
+        content.getChildren().add(termsArea);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setPrefSize(700, 600);
+        
+        // Add buttons
+        ButtonType acceptButton = new ButtonType("I Accept", ButtonBar.ButtonData.OK_DONE);
+        ButtonType declineButton = new ButtonType("I Decline", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(acceptButton, declineButton);
+        
+        // Style the buttons
+        Button acceptBtn = (Button) dialog.getDialogPane().lookupButton(acceptButton);
+        acceptBtn.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 10 20;"
+        );
+        
+        Button declineBtn = (Button) dialog.getDialogPane().lookupButton(declineButton);
+        declineBtn.setStyle(
+            "-fx-background-color: #dc3545;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 10 20;"
+        );
+        
+        // Show dialog and wait for response
+        Optional<ButtonType> result = dialog.showAndWait();
+        
+        return result.isPresent() && result.get() == acceptButton;
     }
     
     /**
@@ -167,4 +233,3 @@ public class SignupController {
         SceneManager.setScene(scene);
     }
 }
-

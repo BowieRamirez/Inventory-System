@@ -40,11 +40,6 @@ public class SignupView {
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         
-        // Center content
-        VBox centerBox = new VBox(20);
-        centerBox.setAlignment(Pos.CENTER);
-        centerBox.setPadding(new Insets(30));
-        
         // Signup card
         VBox signupCard = new VBox(20);
         signupCard.setAlignment(Pos.CENTER_LEFT);
@@ -154,8 +149,20 @@ public class SignupView {
             buttonBox
         );
         
-        centerBox.getChildren().add(signupCard);
-        view.setCenter(centerBox);
+        // Wrap signup card in ScrollPane for better alignment
+        ScrollPane scrollPane = new ScrollPane(signupCard);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        scrollPane.setPadding(new Insets(30));
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        
+        // Center the scroll pane content
+        StackPane centerWrapper = new StackPane(scrollPane);
+        centerWrapper.setAlignment(Pos.CENTER);
+        
+        view.setCenter(centerWrapper);
     }
     
     /**
