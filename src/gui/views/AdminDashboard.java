@@ -178,6 +178,7 @@ public class AdminDashboard {
         accountsBtn = createNavButton("👥 Accounts", false);
         stockApprovalsBtn = createNavButton("✅ Stock Approvals", false);
         stockLogsBtn = createNavButton("📝 Stock Logs", false);
+        Button systemSettingsBtn = createNavButton("⚙️ System Settings", false);
         
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
@@ -214,6 +215,11 @@ public class AdminDashboard {
             showStockLogs();
         });
         
+        systemSettingsBtn.setOnAction(e -> {
+            setActiveButton(systemSettingsBtn);
+            showSystemSettings();
+        });
+        
         logoutBtn.setOnAction(e -> controller.handleLogout());
         
         sidebar.getChildren().addAll(
@@ -223,6 +229,7 @@ public class AdminDashboard {
             accountsBtn,
             stockApprovalsBtn,
             stockLogsBtn,
+            systemSettingsBtn,
             spacer,
             new Separator(),
             logoutBtn
@@ -330,6 +337,15 @@ public class AdminDashboard {
         titleLabel.setText("Stock Logs");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createStockLogsView());
+    }
+    
+    /**
+     * Show system settings
+     */
+    private void showSystemSettings() {
+        titleLabel.setText("System Settings");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createSystemSettingsView());
     }
     
     /**

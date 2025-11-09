@@ -149,19 +149,25 @@ public class SignupView {
             buttonBox
         );
         
-        // Wrap signup card in ScrollPane for better alignment
+        // Add extra spacing at the bottom for better layout
+        Region bottomSpacer = new Region();
+        bottomSpacer.setPrefHeight(30);
+        signupCard.getChildren().add(bottomSpacer);
+        
+        // Wrap signup card in a centered container
+        StackPane centerWrapper = new StackPane();
+        centerWrapper.setAlignment(Pos.CENTER);
+        centerWrapper.setPadding(new Insets(20));
+        
+        // Wrap signup card in ScrollPane for better scrolling
         ScrollPane scrollPane = new ScrollPane(signupCard);
         scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
         scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        scrollPane.setPadding(new Insets(30));
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setMaxWidth(550);
         
-        // Center the scroll pane content
-        StackPane centerWrapper = new StackPane(scrollPane);
-        centerWrapper.setAlignment(Pos.CENTER);
-        
+        centerWrapper.getChildren().add(scrollPane);
         view.setCenter(centerWrapper);
     }
     
@@ -183,6 +189,7 @@ public class SignupView {
      * Handle signup button click
      */
     private void handleSignup() {
+        System.out.println("=== SIGNUP BUTTON CLICKED ===");
         String studentId = studentIdField.getText().trim();
         String firstName = firstNameField.getText().trim();
         String lastName = lastNameField.getText().trim();
@@ -191,6 +198,7 @@ public class SignupView {
         String password = passwordField.getText();
         String confirmPassword = confirmPasswordField.getText();
         
+        System.out.println("Calling controller.handleSignup()...");
         controller.handleSignup(studentId, firstName, lastName, course, gender, password, confirmPassword);
     }
     

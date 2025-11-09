@@ -51,21 +51,25 @@ Four distinct user roles with specialized dashboards:
 #### 🎓 **Student Dashboard**
 - 🛍️ Browse available items by course
 - 📦 View item details (Name, Code, Size, Price, Stock)
-- 🛒 Create reservations
+- 🛒 Create reservations (single items or bundles)
 - 📋 Track reservation status
-- 👤 Profile management
+- ↩️ **Selective bundle returns** - Choose specific items to return
+- � Request returns within 10-day window
+- �👤 Profile management
 - Filter items by course and size
 
 #### 💰 **Cashier Dashboard**
 - 💳 Process payments for approved reservations
-- 📋 View all reservations
-- 🧾 Generate and print receipts
+- 📋 View all reservations (deduplicated bundles)
+- 🧾 Generate and print receipts with full itemization
 - Payment method support (Cash, GCash, Card, Bank)
+- Bundle receipt management
 
 #### 👔 **Staff Dashboard**
-- 📋 Approve pending reservations
+- 📋 Approve pending reservations (single & bundle)
 - 📦 Manage inventory stock
 - 📝 View stock logs
+- ↩️ Process return requests
 - Stock return processing
 
 ### 🔐 **Authentication & Security**
@@ -80,19 +84,31 @@ Four distinct user roles with specialized dashboards:
 - Size management (XS, S, M, L, XL, XXL, One Size)
 - Stock tracking and low-stock alerts
 - Item code validation (1000-9999)
+- Bundle order support with unique IDs
 
 ### 📋 **Reservation System**
 - Complete reservation lifecycle:
   - `PENDING` → `APPROVED - WAITING FOR PAYMENT` → `PAID - READY FOR PICKUP` → `COMPLETED`
-- Return policy (10-day window)
+- **Bundle orders** with multiple items linked by Bundle ID
+- **Selective return** feature - Choose specific items from bundles
+- Return policy (10-day window from completion)
 - Cancellation support
 - Payment tracking
+- Individual item status within bundles
 
 ### 🎓 **Student Management**
 - Student registration with validation
 - Course assignment (ABM, STEM, HUMSS, TVL, BSCS, BSIT, etc.)
 - Account status management
 - Password management
+
+### 🆕 **Latest Features**
+- ✨ **Selective Bundle Returns** (Nov 2025)
+  - Students can choose which items from a bundle to return
+  - Checkbox interface for easy selection
+  - Select All / Deselect All buttons
+  - Keep good items while returning problematic ones
+  - See [Selective Bundle Return Documentation](docs/features/SELECTIVE_BUNDLE_RETURN.md)
 
 ---
 

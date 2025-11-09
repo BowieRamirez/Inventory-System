@@ -2198,5 +2198,177 @@ public class AdminDashboardController {
     public Button getManageAccountsBtn() {
         return manageAccountsBtn;
     }
+    
+    /**
+     * Create System Settings View
+     */
+    public Node createSystemSettingsView() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(20));
+        
+        // Title
+        Label titleLabel = new Label("⚙️ System Configuration");
+        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        
+        // Maintenance Mode Card
+        VBox maintenanceCard = new VBox(15);
+        maintenanceCard.setPadding(new Insets(20));
+        maintenanceCard.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 8px;" +
+            "-fx-background-radius: 8px;"
+        );
+        
+        Label maintenanceTitleLabel = new Label("🔧 Maintenance Mode");
+        maintenanceTitleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        
+        Label maintenanceDescLabel = new Label(
+            "When maintenance mode is activated, staff, cashiers, and students will be unable to log in to the system.\n" +
+            "Administrators can still access the system during maintenance mode."
+        );
+        maintenanceDescLabel.setWrapText(true);
+        maintenanceDescLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 13px;");
+        
+        Separator separator = new Separator();
+        
+        // Status indicator
+        utils.SystemConfigManager configManager = utils.SystemConfigManager.getInstance();
+        boolean isActive = configManager.isMaintenanceModeActive();
+        
+        HBox statusBox = new HBox(10);
+        statusBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label statusTitleLabel = new Label("Current Status:");
+        statusTitleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        
+        Label statusValueLabel = new Label(isActive ? "🔴 ACTIVE" : "🟢 INACTIVE");
+        statusValueLabel.setStyle(
+            "-fx-font-size: 14px; " +
+            "-fx-font-weight: bold; " +
+            "-fx-text-fill: " + (isActive ? "#CF222E" : "#1A7F37") + ";"
+        );
+        
+        statusBox.getChildren().addAll(statusTitleLabel, statusValueLabel);
+        
+        // Message display
+        Label messageLabel = new Label("Current Message:");
+        messageLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        
+        Label messageValueLabel = new Label("\"" + configManager.getMaintenanceMessage() + "\"");
+        messageValueLabel.setWrapText(true);
+        messageValueLabel.setStyle(
+            "-fx-text-fill: -color-fg-muted; " +
+            "-fx-font-style: italic; " +
+            "-fx-background-color: -color-bg-default; " +
+            "-fx-padding: 10; " +
+            "-fx-background-radius: 5;"
+        );
+        
+        // Action buttons
+        HBox buttonBox = new HBox(15);
+        buttonBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Button toggleButton = new Button(isActive ? "✅ Deactivate Maintenance Mode" : "🔧 Activate Maintenance Mode");
+        toggleButton.setPrefWidth(250);
+        toggleButton.setPrefHeight(40);
+        toggleButton.setStyle(
+            "-fx-background-color: " + (isActive ? "#1A7F37" : "#CF222E") + ";" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;"
+        );
+        
+        Button editMessageButton = new Button("✏️ Edit Message");
+        editMessageButton.setPrefWidth(150);
+        editMessageButton.setPrefHeight(40);
+        editMessageButton.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;"
+        );
+        
+        buttonBox.getChildren().addAll(toggleButton, editMessageButton);
+        
+        // Toggle button action
+        toggleButton.setOnAction(e -> {
+            boolean currentStatus = configManager.isMaintenanceModeActive();
+            
+            String confirmMessage = currentStatus ? 
+                "Are you sure you want to DEACTIVATE maintenance mode?\n\n" +
+                "Staff, cashiers, and students will be able to log in again." :
+                "Are you sure you want to ACTIVATE maintenance mode?\n\n" +
+                "This will prevent staff, cashiers, and students from logging in.\n" +
+                "Only administrators will have access to the system.";
+            
+            boolean confirmed = AlertHelper.showConfirmation(
+                currentStatus ? "Deactivate Maintenance Mode" : "Activate Maintenance Mode",
+                confirmMessage
+            );
+            
+            if (confirmed) {
+                configManager.setMaintenanceMode(!currentStatus);
+                
+                AlertHelper.showSuccess(
+                    "Success",
+                    "Maintenance mode has been " + (currentStatus ? "DEACTIVATED" : "ACTIVATED") + ".\n\n" +
+                    (currentStatus ? 
+                        "Users can now log in to the system." :
+                        "Non-admin users will see the maintenance message when attempting to log in.")
+                );
+                
+                // Refresh the view
+                container.getChildren().clear();
+                Node refreshedView = createSystemSettingsView();
+                container.getChildren().addAll(((VBox) refreshedView).getChildren());
+            }
+        });
+        
+        // Edit message button action
+        editMessageButton.setOnAction(e -> {
+            javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(
+                configManager.getMaintenanceMessage()
+            );
+            dialog.setTitle("Edit Maintenance Message");
+            dialog.setHeaderText("Enter the maintenance message:");
+            dialog.setContentText("Message:");
+            
+            dialog.showAndWait().ifPresent(newMessage -> {
+                if (newMessage.trim().isEmpty()) {
+                    AlertHelper.showError("Error", "Message cannot be empty!");
+                    return;
+                }
+                
+                configManager.setMaintenanceMessage(newMessage.trim());
+                
+                AlertHelper.showSuccess("Success", "Maintenance message updated successfully!");
+                
+                // Refresh the view
+                container.getChildren().clear();
+                Node refreshedView = createSystemSettingsView();
+                container.getChildren().addAll(((VBox) refreshedView).getChildren());
+            });
+        });
+        
+        maintenanceCard.getChildren().addAll(
+            maintenanceTitleLabel,
+            maintenanceDescLabel,
+            separator,
+            statusBox,
+            messageLabel,
+            messageValueLabel,
+            buttonBox
+        );
+        
+        container.getChildren().addAll(titleLabel, maintenanceCard);
+        
+        return container;
+    }
 }
 

@@ -11,6 +11,7 @@ import gui.views.SignupView;
 import javafx.scene.Scene;
 import student.Student;
 import utils.FileStorage;
+import utils.SystemConfigManager;
 import utils.SystemLogger;
 
 /**
@@ -70,10 +71,20 @@ public class LoginController {
             return;
         }
 
-        // Try to authenticate as Admin
+        // Try to authenticate as Admin first (admin can always login)
         if (authenticateAdmin(username, password)) {
             SystemLogger.logLogin(username, "Admin");
             navigateToAdminDashboard();
+            return;
+        }
+        
+        // Check maintenance mode for non-admin users
+        SystemConfigManager configManager = SystemConfigManager.getInstance();
+        if (configManager.isMaintenanceModeActive()) {
+            AlertHelper.showWarning("System Maintenance", 
+                "⚠️ " + configManager.getMaintenanceMessage() + "\n\n" +
+                "Please contact the administrator for more information.");
+            SystemLogger.logAuthenticationFailure(username, "System under maintenance");
             return;
         }
 

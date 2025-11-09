@@ -54,7 +54,20 @@ public class SignupController {
     public void handleSignup(String studentId, String firstName, String lastName, 
                             String course, String gender, String password, String confirmPassword) {
         
-        // Validate all inputs first
+        System.out.println("Showing Terms and Conditions dialog...");
+        
+        // Show Terms and Conditions dialog FIRST - before any validation
+        if (!showTermsAndConditions()) {
+            // User declined Terms and Conditions
+            System.out.println("User declined Terms and Conditions");
+            AlertHelper.showInfo("Registration Cancelled", 
+                "You must accept the Terms and Conditions to create an account.");
+            return;
+        }
+        
+        System.out.println("User accepted Terms and Conditions, proceeding with validation...");
+        
+        // Now validate all inputs
         if (!validateInputs(studentId, firstName, lastName, course, gender, password, confirmPassword)) {
             return;
         }
@@ -63,12 +76,6 @@ public class SignupController {
         if (studentIdExists(studentId)) {
             AlertHelper.showError("Registration Failed", 
                 "Student ID already exists. Please use a different ID or contact administrator.");
-            return;
-        }
-        
-        // Show Terms and Conditions dialog
-        if (!showTermsAndConditions()) {
-            // User declined Terms and Conditions
             return;
         }
         
@@ -105,53 +112,73 @@ public class SignupController {
      * @return true if user accepts, false otherwise
      */
     private boolean showTermsAndConditions() {
-        // Create custom dialog
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("Terms and Conditions");
-        dialog.setHeaderText("Please read and accept the Terms and Conditions");
-        
-        // Create scrollable text area for terms
-        TextArea termsArea = new TextArea(TermsAndConditions.getTermsAndConditionsText());
-        termsArea.setEditable(false);
-        termsArea.setWrapText(true);
-        termsArea.setPrefRowCount(20);
-        termsArea.setPrefColumnCount(60);
-        termsArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
-        
-        // Wrap in VBox with padding
-        VBox content = new VBox(10);
-        content.setPadding(new Insets(20));
-        content.getChildren().add(termsArea);
-        
-        dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefSize(700, 600);
-        
-        // Add buttons
-        ButtonType acceptButton = new ButtonType("I Accept", ButtonBar.ButtonData.OK_DONE);
-        ButtonType declineButton = new ButtonType("I Decline", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().addAll(acceptButton, declineButton);
-        
-        // Style the buttons
-        Button acceptBtn = (Button) dialog.getDialogPane().lookupButton(acceptButton);
-        acceptBtn.setStyle(
-            "-fx-background-color: #0969DA;" +
-            "-fx-text-fill: white;" +
-            "-fx-font-weight: bold;" +
-            "-fx-padding: 10 20;"
-        );
-        
-        Button declineBtn = (Button) dialog.getDialogPane().lookupButton(declineButton);
-        declineBtn.setStyle(
-            "-fx-background-color: #dc3545;" +
-            "-fx-text-fill: white;" +
-            "-fx-font-weight: bold;" +
-            "-fx-padding: 10 20;"
-        );
-        
-        // Show dialog and wait for response
-        Optional<ButtonType> result = dialog.showAndWait();
-        
-        return result.isPresent() && result.get() == acceptButton;
+        try {
+            System.out.println("Creating Terms and Conditions dialog...");
+            
+            // Create custom dialog
+            Alert alert = new Alert(Alert.AlertType.NONE);
+            alert.setTitle("Terms and Conditions");
+            alert.setHeaderText("Please read and accept the Terms and Conditions");
+            
+            // Create scrollable text area for terms
+            TextArea termsArea = new TextArea(TermsAndConditions.getTermsAndConditionsText());
+            termsArea.setEditable(false);
+            termsArea.setWrapText(true);
+            termsArea.setPrefRowCount(20);
+            termsArea.setPrefColumnCount(60);
+            termsArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+            
+            // Wrap in VBox with padding
+            VBox content = new VBox(10);
+            content.setPadding(new Insets(20));
+            content.getChildren().add(termsArea);
+            
+            alert.getDialogPane().setContent(content);
+            alert.getDialogPane().setPrefSize(700, 600);
+            
+            // Add buttons
+            ButtonType acceptButton = new ButtonType("I Accept", ButtonBar.ButtonData.OK_DONE);
+            ButtonType declineButton = new ButtonType("I Decline", ButtonBar.ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(acceptButton, declineButton);
+            
+            // Style the buttons
+            Button acceptBtn = (Button) alert.getDialogPane().lookupButton(acceptButton);
+            if (acceptBtn != null) {
+                acceptBtn.setStyle(
+                    "-fx-background-color: #0969DA;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-padding: 10 20;"
+                );
+            }
+            
+            Button declineBtn = (Button) alert.getDialogPane().lookupButton(declineButton);
+            if (declineBtn != null) {
+                declineBtn.setStyle(
+                    "-fx-background-color: #dc3545;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-padding: 10 20;"
+                );
+            }
+            
+            System.out.println("Showing Terms and Conditions dialog now...");
+            
+            // Show dialog and wait for response
+            Optional<ButtonType> result = alert.showAndWait();
+            
+            System.out.println("Dialog closed. Result present: " + result.isPresent());
+            if (result.isPresent()) {
+                System.out.println("Button clicked: " + result.get().getText());
+            }
+            
+            return result.isPresent() && result.get() == acceptButton;
+        } catch (Exception e) {
+            System.err.println("ERROR: Exception in showTermsAndConditions: " + e.getMessage());
+            e.printStackTrace();
+            AlertHelper.showError("Error", "Failed to show Terms and Conditions. Please try again.");
+            return false;
+        }
     }
     
     /**

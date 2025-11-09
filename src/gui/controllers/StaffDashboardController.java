@@ -3,6 +3,7 @@ package gui.controllers;
 import java.util.ArrayList;
 import java.util.List;
 
+import audit.StockAuditManager;
 import gui.utils.AlertHelper;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
@@ -37,11 +38,13 @@ public class StaffDashboardController {
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
     private ReceiptManager receiptManager;
+    private StockAuditManager auditManager;
 
     public StaffDashboardController() {
         inventoryManager = new InventoryManager();
         reservationManager = new ReservationManager(inventoryManager);
         receiptManager = new ReceiptManager();
+        auditManager = new StockAuditManager();
 
         // Link receipt manager to reservation manager for synchronization
         reservationManager.setReceiptManager(receiptManager);
@@ -359,23 +362,44 @@ public class StaffDashboardController {
                 HBox itemRow = new HBox(10);
                 itemRow.setAlignment(Pos.CENTER_LEFT);
                 
-                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
+                // Determine status indicator and color
+                String statusIndicator = "";
+                String statusColor = "-color-fg-default";
+                
+                if (item.getStatus().contains("RETURNED")) {
+                    statusIndicator = " (RETURNED)";
+                    statusColor = "#656D76"; // Gray
+                } else if ("COMPLETED".equals(item.getStatus())) {
+                    statusIndicator = " (COMPLETED)";
+                    statusColor = "#1A7F37"; // Green
+                } else if (item.getStatus().contains("RETURN REQUESTED")) {
+                    statusIndicator = " (RETURN REQUESTED)";
+                    statusColor = "#BF8700"; // Orange
+                }
+                
+                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName() + statusIndicator);
                 itemName.setMinWidth(250);
+                itemName.setStyle("-fx-text-fill: " + statusColor + ";");
                 
                 javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
                 itemSize.setMinWidth(70);
+                itemSize.setStyle("-fx-text-fill: " + statusColor + ";");
                 
                 javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
                 itemQty.setMinWidth(60);
+                itemQty.setStyle("-fx-text-fill: " + statusColor + ";");
                 
                 javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", item.getTotalPrice()));
-                itemPrice.setStyle("-fx-font-weight: bold;");
+                itemPrice.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
                 
                 itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
                 itemsSection.getChildren().add(itemRow);
                 
-                totalPrice += item.getTotalPrice();
-                totalQuantity += item.getQuantity();
+                // Only add to total if not returned
+                if (!item.getStatus().contains("RETURNED")) {
+                    totalPrice += item.getTotalPrice();
+                    totalQuantity += item.getQuantity();
+                }
             }
         } else {
             // Single item
@@ -421,6 +445,22 @@ public class StaffDashboardController {
         orderTypeLabel.setStyle("-fx-font-size: 12px;");
         
         summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+
+        // Show reason if exists (for returns, cancellations, rejections)
+        if (reservation.getReason() != null && !reservation.getReason().isEmpty()) {
+            VBox reasonSection = new VBox(8);
+            reasonSection.setStyle("-fx-background-color: #FFF8C5; -fx-padding: 15; -fx-background-radius: 5; -fx-border-color: #9A6700; -fx-border-width: 1px; -fx-border-radius: 5;");
+            
+            javafx.scene.control.Label reasonHeader = new javafx.scene.control.Label("REASON/NOTE");
+            reasonHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #6F4400;");
+            
+            javafx.scene.control.Label reasonText = new javafx.scene.control.Label(reservation.getReason());
+            reasonText.setWrapText(true);
+            reasonText.setStyle("-fx-font-size: 12px; -fx-text-fill: #6F4400;");
+            
+            reasonSection.getChildren().addAll(reasonHeader, reasonText);
+            content.getChildren().add(reasonSection);
+        }
 
         content.getChildren().addAll(customerSection, itemsSection, summarySection);
         
@@ -832,22 +872,42 @@ public class StaffDashboardController {
                         return;
                     }
                     
-                    // Submit stock adjustment request (requires admin approval)
-                    boolean success = inventoryManager.requestStockAdjustment(
-                        "staff", // This should be the logged-in staff username
+                    // Calculate the difference
+                    int oldQuantity = item.getQuantity();
+                    int stockChange = newQuantity - oldQuantity;
+                    String action = stockChange > 0 ? "ADD" : (stockChange < 0 ? "REMOVE" : "ADJUST");
+                    
+                    // Log the stock change to audit system
+                    auditManager.logStockChange(
+                        "staff", // Performed by staff
+                        item.getName(),
                         item.getCode(),
                         item.getSize(),
+                        oldQuantity,
                         newQuantity,
-                        reason.trim()
+                        reason.trim(),
+                        action
+                    );
+                    
+                    // Update the stock directly using InventoryManager
+                    boolean success = inventoryManager.updateItemQuantityBySize(
+                        item.getCode(),
+                        item.getSize(),
+                        newQuantity
                     );
                     
                     if (success) {
-                        AlertHelper.showSuccess("Request Submitted", 
-                            "Stock adjustment request submitted successfully!\n\n" +
-                            "Change: " + item.getQuantity() + " → " + newQuantity + "\n" +
-                            "Status: Pending Admin Approval");
+                        // Refresh the table to show updated stock
+                        table.refresh();
+                        
+                        AlertHelper.showSuccess("Stock Updated", 
+                            "Stock updated successfully!\n\n" +
+                            "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
+                            "Old Quantity: " + oldQuantity + "\n" +
+                            "New Quantity: " + newQuantity + "\n" +
+                            "Change: " + (stockChange > 0 ? "+" : "") + stockChange);
                     } else {
-                        AlertHelper.showError("Error", "Failed to submit stock adjustment request!");
+                        AlertHelper.showError("Error", "Failed to update stock!");
                     }
                 });
                 

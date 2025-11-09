@@ -481,17 +481,28 @@ public class CashierDashboardController {
                         .mapToInt(Reservation::getQuantity)
                         .sum();
                     
-                    // Create a single receipt for the entire bundle
-                    Receipt receipt = receiptManager.createReceipt(
-                        "PAID",
-                        bundleTotalQuantity,
-                        bundleTotalPrice,
-                        reservation.getItemCode(),
-                        "BUNDLE ORDER (" + bundleItems.size() + " items)",
-                        "Bundle",
-                        reservation.getStudentName(),
-                        bundleId
-                    );
+                    // Create individual receipts for EACH item in the bundle
+                    // All receipts will share the same bundleId for grouping
+                    for (Reservation bundleItem : bundleItems) {
+                        receiptManager.createReceipt(
+                            "COMPLETED",
+                            bundleItem.getQuantity(),
+                            bundleItem.getTotalPrice(),
+                            bundleItem.getItemCode(),
+                            bundleItem.getItemName(),
+                            bundleItem.getSize(),
+                            bundleItem.getStudentName(),
+                            bundleId  // Link all items with the same bundle ID
+                        );
+                    }
+                    
+                    // Get the first receipt ID for display (any receipt from the bundle)
+                    Receipt firstReceipt = receiptManager.getAllReceipts().stream()
+                        .filter(r -> bundleId.equals(r.getBundleId()))
+                        .findFirst()
+                        .orElse(null);
+                    
+                    int displayReceiptId = firstReceipt != null ? firstReceipt.getReceiptId() : 0;
                     
                     // Log each item in the bundle
                     for (Reservation bundleItem : bundleItems) {
@@ -519,7 +530,7 @@ public class CashierDashboardController {
                     
                     AlertHelper.showSuccess("Success",
                         "Bundle payment processed successfully!\n\n" +
-                        "Receipt ID: " + receipt.getReceiptId() + "\n" +
+                        "Receipt ID: " + displayReceiptId + "\n" +
                         "Payment Method: " + paymentMethod + "\n" +
                         "Bundle ID: " + bundleId + "\n" +
                         "Total Items: " + bundleItems.size() + "\n" +
@@ -764,19 +775,62 @@ public class CashierDashboardController {
         buyerCol.setPrefWidth(150);
 
         TableColumn<Receipt, String> itemCol = new TableColumn<>("Item");
-        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getItemName()));
+        itemCol.setCellValueFactory(data -> {
+            Receipt r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // Count items in this bundle
+                String bundleId = r.getBundleId();
+                long itemCount = receiptManager.getAllReceipts().stream()
+                    .filter(receipt -> bundleId.equals(receipt.getBundleId()))
+                    .count();
+                return new javafx.beans.property.SimpleStringProperty(
+                    "BUNDLE ORDER (" + itemCount + " items)"
+                );
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getItemName());
+        });
         itemCol.setPrefWidth(200);
 
         TableColumn<Receipt, String> sizeCol = new TableColumn<>("Size");
-        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setCellValueFactory(data -> {
+            Receipt r = data.getValue();
+            if (r.isPartOfBundle()) {
+                return new javafx.beans.property.SimpleStringProperty("Bundle");
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getSize());
+        });
         sizeCol.setPrefWidth(60);
 
         TableColumn<Receipt, Integer> qtyCol = new TableColumn<>("Qty");
-        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getQuantity()));
+        qtyCol.setCellValueFactory(data -> {
+            Receipt r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // Sum quantities for all items in bundle
+                String bundleId = r.getBundleId();
+                int totalQty = receiptManager.getAllReceipts().stream()
+                    .filter(receipt -> bundleId.equals(receipt.getBundleId()))
+                    .mapToInt(Receipt::getQuantity)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalQty);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
+        });
         qtyCol.setPrefWidth(60);
 
         TableColumn<Receipt, Double> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getAmount()));
+        amountCol.setCellValueFactory(data -> {
+            Receipt r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // Sum amounts for all items in bundle
+                String bundleId = r.getBundleId();
+                double totalAmount = receiptManager.getAllReceipts().stream()
+                    .filter(receipt -> bundleId.equals(receipt.getBundleId()))
+                    .mapToDouble(Receipt::getAmount)
+                    .sum();
+                return new javafx.beans.property.SimpleObjectProperty<>(totalAmount);
+            }
+            return new javafx.beans.property.SimpleObjectProperty<>(r.getAmount());
+        });
         amountCol.setCellFactory(col -> new TableCell<Receipt, Double>() {
             @Override
             protected void updateItem(Double amount, boolean empty) {
@@ -817,8 +871,8 @@ public class CashierDashboardController {
 
         table.getColumns().addAll(idCol, dateCol, buyerCol, itemCol, sizeCol, qtyCol, amountCol, statusCol, bundleCol);
 
-        // Load all receipts
-        List<Receipt> allReceipts = receiptManager.getAllReceipts();
+        // Load all receipts and deduplicate bundles
+        List<Receipt> allReceipts = deduplicateBundleReceipts(receiptManager.getAllReceipts());
         ObservableList<Receipt> receiptsList = FXCollections.observableArrayList(allReceipts);
         table.setItems(receiptsList);
 
@@ -836,7 +890,7 @@ public class CashierDashboardController {
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
-            List<Receipt> refreshed = receiptManager.getAllReceipts();
+            List<Receipt> refreshed = deduplicateBundleReceipts(receiptManager.getAllReceipts());
             table.setItems(FXCollections.observableArrayList(refreshed));
             searchField.clear();
         });
@@ -904,50 +958,146 @@ public class CashierDashboardController {
                 .filter(r -> bundleId.equals(r.getBundleId()))
                 .collect(java.util.stream.Collectors.toList());
             
-            for (Receipt item : bundleItems) {
-                HBox itemRow = new HBox(10);
-                itemRow.setAlignment(Pos.CENTER_LEFT);
+            // Check if this is an old-style bundle (only one receipt entry)
+            if (bundleItems.size() == 1 && receipt.getItemName().contains("BUNDLE ORDER")) {
+                // Old-style bundle - show what we have
+                VBox itemBox = new VBox(5);
+                itemBox.setStyle("-fx-padding: 10; -fx-border-color: #FFA500; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-color: #FFF3CD; -fx-background-radius: 5;");
                 
-                javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
-                itemName.setMinWidth(250);
+                javafx.scene.control.Label warningLabel = new javafx.scene.control.Label("⚠ Legacy Bundle Receipt");
+                warningLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #856404;");
                 
-                javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
-                itemSize.setMinWidth(70);
+                javafx.scene.control.Label itemName = new javafx.scene.control.Label(receipt.getItemName());
+                itemName.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
                 
-                javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
-                itemQty.setMinWidth(60);
+                HBox detailsRow = new HBox(15);
+                detailsRow.setAlignment(Pos.CENTER_LEFT);
                 
-                javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", item.getAmount()));
-                itemPrice.setStyle("-fx-font-weight: bold;");
+                javafx.scene.control.Label itemCode = new javafx.scene.control.Label("Code: " + receipt.getItemCode());
+                javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + receipt.getSize());
+                javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + receipt.getQuantity());
+                javafx.scene.control.Label itemTotalPrice = new javafx.scene.control.Label("Total: ₱" + String.format("%.2f", receipt.getAmount()));
+                itemTotalPrice.setStyle("-fx-font-weight: bold;");
                 
-                itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
-                itemsSection.getChildren().add(itemRow);
+                detailsRow.getChildren().addAll(itemCode, itemSize, itemQty, itemTotalPrice);
                 
-                totalAmount += item.getAmount();
-                totalQuantity += item.getQuantity();
+                javafx.scene.control.Label infoLabel = new javafx.scene.control.Label("Note: Individual item details not available for this older receipt format.");
+                infoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #856404; -fx-font-style: italic;");
+                
+                itemBox.getChildren().addAll(warningLabel, itemName, detailsRow, infoLabel);
+                itemsSection.getChildren().add(itemBox);
+                
+                totalAmount = receipt.getAmount();
+                totalQuantity = receipt.getQuantity();
+            } else {
+                // New-style bundle - show all individual items
+                for (Receipt item : bundleItems) {
+                    // Find corresponding reservation to check status
+                    String itemStatus = getItemStatusFromReservation(item);
+                    String statusTag = "";
+                    String statusColor = "-color-fg-default";
+                    String borderColor = "-color-border-default";
+                    
+                    if (itemStatus.contains("RETURNED")) {
+                        statusTag = " (REFUNDED)";
+                        statusColor = "#656D76"; // Gray
+                        borderColor = "#656D76";
+                    } else if ("COMPLETED".equals(itemStatus)) {
+                        statusTag = " (COMPLETED)";
+                        statusColor = "#1A7F37"; // Green
+                        borderColor = "#1A7F37";
+                    } else if (itemStatus.contains("RETURN REQUESTED")) {
+                        statusTag = " (RETURN REQUESTED)";
+                        statusColor = "#BF8700"; // Orange
+                        borderColor = "#BF8700";
+                    }
+                    
+                    VBox itemBox = new VBox(5);
+                    itemBox.setStyle("-fx-padding: 5; -fx-border-color: " + borderColor + "; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-color: -color-bg-default; -fx-background-radius: 3;");
+                    
+                    javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName() + statusTag);
+                    itemName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
+                    
+                    HBox detailsRow = new HBox(15);
+                    detailsRow.setAlignment(Pos.CENTER_LEFT);
+                    
+                    javafx.scene.control.Label itemCode = new javafx.scene.control.Label("Code: " + item.getItemCode());
+                    itemCode.setStyle("-fx-text-fill: " + statusColor + ";");
+                    javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + item.getSize());
+                    itemSize.setStyle("-fx-text-fill: " + statusColor + ";");
+                    javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + item.getQuantity());
+                    itemQty.setStyle("-fx-text-fill: " + statusColor + ";");
+                    
+                    double unitPrice = item.getAmount() / item.getQuantity();
+                    javafx.scene.control.Label itemUnitPrice = new javafx.scene.control.Label("Unit Price: ₱" + String.format("%.2f", unitPrice));
+                    itemUnitPrice.setStyle("-fx-text-fill: " + statusColor + ";");
+                    javafx.scene.control.Label itemTotalPrice = new javafx.scene.control.Label("Total: ₱" + String.format("%.2f", item.getAmount()));
+                    itemTotalPrice.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
+                    
+                    detailsRow.getChildren().addAll(itemCode, itemSize, itemQty, itemUnitPrice, itemTotalPrice);
+                    itemBox.getChildren().addAll(itemName, detailsRow);
+                    itemsSection.getChildren().add(itemBox);
+                    
+                    // Only add to total if not returned
+                    if (!itemStatus.contains("RETURNED")) {
+                        totalAmount += item.getAmount();
+                        totalQuantity += item.getQuantity();
+                    }
+                }
             }
         } else {
             // Single item
-            HBox itemRow = new HBox(10);
-            itemRow.setAlignment(Pos.CENTER_LEFT);
+            // Find corresponding reservation to check status
+            String itemStatus = getItemStatusFromReservation(receipt);
+            String statusTag = "";
+            String statusColor = "-color-fg-default";
+            String borderColor = "-color-border-default";
             
-            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + receipt.getItemName());
-            itemName.setMinWidth(250);
+            if (itemStatus.contains("RETURNED")) {
+                statusTag = " (REFUNDED)";
+                statusColor = "#656D76"; // Gray
+                borderColor = "#656D76";
+            } else if ("COMPLETED".equals(itemStatus)) {
+                statusTag = " (COMPLETED)";
+                statusColor = "#1A7F37"; // Green
+                borderColor = "#1A7F37";
+            } else if (itemStatus.contains("RETURN REQUESTED")) {
+                statusTag = " (RETURN REQUESTED)";
+                statusColor = "#BF8700"; // Orange
+                borderColor = "#BF8700";
+            }
             
+            VBox itemBox = new VBox(5);
+            itemBox.setStyle("-fx-padding: 5; -fx-border-color: " + borderColor + "; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-color: -color-bg-default; -fx-background-radius: 3;");
+            
+            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + receipt.getItemName() + statusTag);
+            itemName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
+            
+            HBox detailsRow = new HBox(15);
+            detailsRow.setAlignment(Pos.CENTER_LEFT);
+            
+            javafx.scene.control.Label itemCode = new javafx.scene.control.Label("Code: " + receipt.getItemCode());
+            itemCode.setStyle("-fx-text-fill: " + statusColor + ";");
             javafx.scene.control.Label itemSize = new javafx.scene.control.Label("Size: " + receipt.getSize());
-            itemSize.setMinWidth(70);
-            
+            itemSize.setStyle("-fx-text-fill: " + statusColor + ";");
             javafx.scene.control.Label itemQty = new javafx.scene.control.Label("Qty: " + receipt.getQuantity());
-            itemQty.setMinWidth(60);
+            itemQty.setStyle("-fx-text-fill: " + statusColor + ";");
             
-            javafx.scene.control.Label itemPrice = new javafx.scene.control.Label("₱" + String.format("%.2f", receipt.getAmount()));
-            itemPrice.setStyle("-fx-font-weight: bold;");
+            double unitPrice = receipt.getAmount() / receipt.getQuantity();
+            javafx.scene.control.Label itemUnitPrice = new javafx.scene.control.Label("Unit Price: ₱" + String.format("%.2f", unitPrice));
+            itemUnitPrice.setStyle("-fx-text-fill: " + statusColor + ";");
+            javafx.scene.control.Label itemTotalPrice = new javafx.scene.control.Label("Total: ₱" + String.format("%.2f", receipt.getAmount()));
+            itemTotalPrice.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
             
-            itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
-            itemsSection.getChildren().add(itemRow);
+            detailsRow.getChildren().addAll(itemCode, itemSize, itemQty, itemUnitPrice, itemTotalPrice);
+            itemBox.getChildren().addAll(itemName, detailsRow);
+            itemsSection.getChildren().add(itemBox);
             
-            totalAmount = receipt.getAmount();
-            totalQuantity = receipt.getQuantity();
+            // Only add to total if not returned
+            if (!itemStatus.contains("RETURNED")) {
+                totalAmount = receipt.getAmount();
+                totalQuantity = receipt.getQuantity();
+            }
         }
 
         // Payment Summary Section
@@ -976,6 +1126,63 @@ public class CashierDashboardController {
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().setMinWidth(600);
         dialog.showAndWait();
+    }
+    
+    /**
+     * Deduplicate bundle receipts - show only one entry per bundle
+     */
+    private List<Receipt> deduplicateBundleReceipts(List<Receipt> receipts) {
+        List<Receipt> deduplicated = new java.util.ArrayList<>();
+        java.util.Set<String> processedBundles = new java.util.HashSet<>();
+        
+        for (Receipt receipt : receipts) {
+            if (receipt.isPartOfBundle()) {
+                String bundleId = receipt.getBundleId();
+                // Only add the first receipt from each bundle
+                if (!processedBundles.contains(bundleId)) {
+                    deduplicated.add(receipt);
+                    processedBundles.add(bundleId);
+                }
+            } else {
+                // Not a bundle, always add
+                deduplicated.add(receipt);
+            }
+        }
+        
+        return deduplicated;
+    }
+    
+    /**
+     * Get item status from corresponding reservation
+     */
+    private String getItemStatusFromReservation(Receipt receipt) {
+        // Try to find the corresponding reservation
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+        
+        // Match by buyer name, item code, size, and quantity
+        for (Reservation reservation : allReservations) {
+            if (reservation.getStudentName().equals(receipt.getBuyerName()) &&
+                reservation.getItemCode() == receipt.getItemCode() &&
+                reservation.getSize().equals(receipt.getSize()) &&
+                reservation.getQuantity() == receipt.getQuantity()) {
+                return reservation.getStatus();
+            }
+        }
+        
+        // If bundle, try to match by bundle ID
+        if (receipt.isPartOfBundle()) {
+            String bundleId = receipt.getBundleId();
+            for (Reservation reservation : allReservations) {
+                if (bundleId.equals(reservation.getBundleId()) &&
+                    reservation.getItemCode() == receipt.getItemCode() &&
+                    reservation.getSize().equals(receipt.getSize())) {
+                    return reservation.getStatus();
+                }
+            }
+        }
+        
+        // Default to COMPLETED if no reservation found (item already picked up)
+        return "COMPLETED";
     }
     
     public void handleLogout() {
