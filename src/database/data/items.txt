@@ -1,7 +1,7 @@
 ItemCode,ItemName,Course,Size,Quantity,Price
-1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,S,100,450.00
-1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,M,70,450.00
-1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,L,50,450.00
+1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,S,98,450.00
+1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,M,68,450.00
+1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,L,48,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,XL,40,450.00
 1004,IT/Eng RTW Skirt (Female),BSIT,S,39,480.00
 1004,IT/Eng RTW Skirt (Female),BSIT,M,47,480.00
@@ -335,7 +335,7 @@ ItemCode,ItemName,Course,Size,Quantity,Price
 1093,TVL Chef Apron,TVL-CA,One Size,55,250.00
 1094,TVL Chef Cap,TVL-CA,One Size,60,180.00
 1095,PE White Shirt,STI Special,S,80,300.00
-1095,PE White Shirt,STI Special,M,120,300.00
+1095,PE White Shirt,STI Special,M,119,300.00
 1095,PE White Shirt,STI Special,L,98,300.00
 1095,PE White Shirt,STI Special,XL,80,300.00
 1096,PE Blue Jogging Pants,STI Special,S,70,400.00
@@ -359,7 +359,7 @@ ItemCode,ItemName,Course,Size,Quantity,Price
 1100,Washday Shirt,STI Special,L,100,300.00
 1100,Washday Shirt,STI Special,XL,80,300.00
 1101,ID Lace,STI Special,One Size,200,50.00
-1102,STI Pin,STI Special,One Size,150,80.00
+1102,STI Pin,STI Special,One Size,149,80.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,S,500,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,M,600,450.00
 1001,IT/Eng Gray 3/4 Polo (Male),BSIT,L,548,450.00

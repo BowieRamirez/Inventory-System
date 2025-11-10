@@ -59,6 +59,38 @@ public class CashierDashboardController {
         VBox container = new VBox(15);
         container.setPadding(new Insets(20));
 
+        // Search bar
+        HBox searchBar = new HBox(10);
+        searchBar.setAlignment(Pos.CENTER_LEFT);
+        
+        Label searchLabel = new Label("🔍 Search:");
+        searchLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
+        
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by Student Name, ID, Order ID, or Item...");
+        searchField.setPrefWidth(400);
+        searchField.setStyle(
+            "-fx-background-color: white;" +
+            "-fx-border-color: #d0d7de;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-padding: 8px;" +
+            "-fx-font-size: 13px;"
+        );
+        
+        Button clearSearchBtn = new Button("✖ Clear");
+        clearSearchBtn.setStyle(
+            "-fx-background-color: #6c757d;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;" +
+            "-fx-pref-height: 36px;"
+        );
+        
+        searchBar.getChildren().addAll(searchLabel, searchField, clearSearchBtn);
+
         // Action buttons
         HBox actionBar = new HBox(15);
         actionBar.setAlignment(Pos.CENTER_LEFT);
@@ -110,7 +142,25 @@ public class CashierDashboardController {
         itemCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
-        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // Check if bundle has multiple different sizes
+                String bundleId = r.getBundleId();
+                long distinctSizes = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .map(Reservation::getSize)
+                    .distinct()
+                    .count();
+                
+                if (distinctSizes > 1) {
+                    return new javafx.beans.property.SimpleStringProperty("Bundle - Click to see");
+                }
+                // If all items have the same size, show that size
+                return new javafx.beans.property.SimpleStringProperty(r.getSize());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getSize());
+        });
         sizeCol.setPrefWidth(60);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
@@ -219,7 +269,64 @@ public class CashierDashboardController {
                 .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
                 .collect(java.util.stream.Collectors.toList())
         );
-        table.setItems(FXCollections.observableArrayList(pendingPaymentReservations));
+        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(pendingPaymentReservations);
+        ObservableList<Reservation> filteredReservations = FXCollections.observableArrayList(allReservations);
+        table.setItems(filteredReservations);
+
+        // Search functionality
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            String searchText = newValue.toLowerCase().trim();
+            
+            if (searchText.isEmpty()) {
+                filteredReservations.setAll(allReservations);
+            } else {
+                List<Reservation> filtered = allReservations.stream()
+                    .filter(r -> {
+                        // Search by Order ID
+                        String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
+                        if (orderId.toLowerCase().contains(searchText)) {
+                            return true;
+                        }
+                        
+                        // Search by Student Name
+                        if (r.getStudentName().toLowerCase().contains(searchText)) {
+                            return true;
+                        }
+                        
+                        // Search by Student ID
+                        if (r.getStudentId().toLowerCase().contains(searchText)) {
+                            return true;
+                        }
+                        
+                        // Search by Item Name
+                        if (r.getItemName().toLowerCase().contains(searchText)) {
+                            return true;
+                        }
+                        
+                        // For bundle orders, search in all bundle items
+                        if (r.isPartOfBundle()) {
+                            String bundleId = r.getBundleId();
+                            boolean matchInBundle = reservationManager.getAllReservations().stream()
+                                .filter(res -> bundleId.equals(res.getBundleId()))
+                                .anyMatch(res -> res.getItemName().toLowerCase().contains(searchText));
+                            if (matchInBundle) {
+                                return true;
+                            }
+                        }
+                        
+                        return false;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+                
+                filteredReservations.setAll(filtered);
+            }
+        });
+        
+        // Clear search button action
+        clearSearchBtn.setOnAction(e -> {
+            searchField.clear();
+            filteredReservations.setAll(allReservations);
+        });
 
         // Refresh button action - reload only approved unpaid reservations
         refreshBtn.setOnAction(e -> {
@@ -228,11 +335,13 @@ public class CashierDashboardController {
                     .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
                     .collect(java.util.stream.Collectors.toList())
             );
-            table.setItems(FXCollections.observableArrayList(refreshed));
+            allReservations.setAll(refreshed);
+            searchField.clear(); // Clear search when refreshing
+            filteredReservations.setAll(allReservations);
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(searchBar, actionBar, table);
 
         // Add row click handler to show order details
         table.setRowFactory(tv -> {
@@ -350,6 +459,40 @@ public class CashierDashboardController {
         javafx.scene.control.Label statusLabel = new javafx.scene.control.Label("Status: " + reservation.getStatus());
         statusLabel.setStyle("-fx-font-size: 12px;");
         
+        // Payment deadline display
+        VBox deadlineBox = new VBox(3);
+        if (reservation.getPaymentDeadline() != null && "APPROVED - WAITING FOR PAYMENT".equals(reservation.getStatus())) {
+            javafx.scene.control.Label deadlineLabel = new javafx.scene.control.Label("Payment Deadline: " + reservation.getFormattedPaymentDeadline());
+            long hoursRemaining = reservation.getHoursUntilPaymentDeadline();
+            
+            if (hoursRemaining <= 0) {
+                deadlineLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #ff0000; -fx-font-weight: bold;");
+            } else if (hoursRemaining <= 6) {
+                deadlineLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #ff6b6b; -fx-font-weight: bold;");
+            } else if (hoursRemaining <= 24) {
+                deadlineLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #ffa500; -fx-font-weight: bold;");
+            } else {
+                deadlineLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #4CAF50;");
+            }
+            
+            javafx.scene.control.Label timeRemainingLabel = new javafx.scene.control.Label(
+                String.format("Time Remaining: %d hours", hoursRemaining)
+            );
+            
+            if (hoursRemaining <= 0) {
+                timeRemainingLabel.setText("⚠️ OVERDUE - Payment deadline has passed!");
+                timeRemainingLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #ff0000; -fx-font-weight: bold;");
+            } else if (hoursRemaining <= 6) {
+                timeRemainingLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #ff6b6b;");
+            } else if (hoursRemaining <= 24) {
+                timeRemainingLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #ffa500;");
+            } else {
+                timeRemainingLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666;");
+            }
+            
+            deadlineBox.getChildren().addAll(deadlineLabel, timeRemainingLabel);
+        }
+        
         javafx.scene.control.Label qtyLabel = new javafx.scene.control.Label("Total Quantity: " + totalQuantity);
         qtyLabel.setStyle("-fx-font-size: 12px;");
         
@@ -359,7 +502,12 @@ public class CashierDashboardController {
         javafx.scene.control.Label orderTypeLabel = new javafx.scene.control.Label("Order Type: " + (reservation.isPartOfBundle() ? "Bundle Order" : "Single Item"));
         orderTypeLabel.setStyle("-fx-font-size: 12px;");
         
-        summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+        // Add deadline box if it has content
+        if (deadlineBox.getChildren().isEmpty()) {
+            summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+        } else {
+            summarySection.getChildren().addAll(summaryHeader, statusLabel, deadlineBox, orderTypeLabel, qtyLabel, totalLabel);
+        }
 
         content.getChildren().addAll(customerSection, itemsSection, summarySection);
         
@@ -599,9 +747,6 @@ public class CashierDashboardController {
                     double bundleTotalPrice = bundleItems.stream()
                         .mapToDouble(Reservation::getTotalPrice)
                         .sum();
-                    int bundleTotalQuantity = bundleItems.stream()
-                        .mapToInt(Reservation::getQuantity)
-                        .sum();
                     
                     // Create individual receipts for EACH item in the bundle
                     // All receipts will share the same bundleId for grouping
@@ -767,7 +912,25 @@ public class CashierDashboardController {
         itemCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
-        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // Check if bundle has multiple different sizes
+                String bundleId = r.getBundleId();
+                long distinctSizes = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .map(Reservation::getSize)
+                    .distinct()
+                    .count();
+                
+                if (distinctSizes > 1) {
+                    return new javafx.beans.property.SimpleStringProperty("Bundle - Click to see");
+                }
+                // If all items have the same size, show that size
+                return new javafx.beans.property.SimpleStringProperty(r.getSize());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getSize());
+        });
         sizeCol.setPrefWidth(60);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
@@ -1324,7 +1487,7 @@ public class CashierDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1024, 768);
+            Scene scene = new Scene(loginView.getView(), 1920, 1080);
             SceneManager.setScene(scene);
         }
     }

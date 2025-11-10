@@ -46,8 +46,10 @@ public class SignupView {
     }
     
     private void initializeView() {
-        // Main container
+        // Main container - fills entire screen
         view = new BorderPane();
+        view.setMaxWidth(Double.MAX_VALUE);
+        view.setMaxHeight(Double.MAX_VALUE);
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         

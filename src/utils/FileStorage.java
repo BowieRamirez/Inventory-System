@@ -446,7 +446,7 @@ public class FileStorage {
     
     /**
      * Parse reservation from file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId
+     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline
      */
     private static Reservation parseReservation(String line) {
         String[] parts = line.split("\\|", -1); // -1 to keep empty trailing fields
@@ -470,6 +470,7 @@ public class FileStorage {
             String completedDateStr = parts[13];
             String reason = parts[14];
             String bundleId = (parts.length > 15 && !parts[15].isEmpty()) ? parts[15] : null;
+            String paymentDeadlineStr = (parts.length > 16 && !parts[16].isEmpty()) ? parts[16] : "";
 
             // Create reservation with bundleId
             Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
@@ -485,6 +486,13 @@ public class FileStorage {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 LocalDateTime completedDate = LocalDateTime.parse(completedDateStr, formatter);
                 reservation.setCompletedDate(completedDate);
+            }
+
+            // Set payment deadline if exists
+            if (!paymentDeadlineStr.isEmpty()) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime paymentDeadline = LocalDateTime.parse(paymentDeadlineStr, formatter);
+                reservation.setPaymentDeadline(paymentDeadline);
             }
 
             // Set reason if exists
@@ -528,7 +536,7 @@ public class FileStorage {
     
     /**
      * Convert reservation to file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId
+     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline
      */
     private static String reservationToFileFormat(Reservation reservation) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -537,6 +545,8 @@ public class FileStorage {
                                reservation.getCompletedDate().format(formatter) : "";
         String reason = reservation.getReason() != null ? reservation.getReason() : "";
         String bundleId = reservation.getBundleId() != null ? reservation.getBundleId() : "";
+        String paymentDeadline = reservation.getPaymentDeadline() != null ? 
+                                 reservation.getPaymentDeadline().format(formatter) : "";
         
         return reservation.getReservationId() + "|" +
                reservation.getStudentName() + "|" +
@@ -553,7 +563,8 @@ public class FileStorage {
                reservationTime + "|" +
                completedDate + "|" +
                reason + "|" +
-               bundleId;
+               bundleId + "|" +
+               paymentDeadline;
     }
     
     /**

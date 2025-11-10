@@ -271,7 +271,7 @@ public class SignupController {
      */
     public void navigateToLogin() {
         LoginView loginView = new LoginView();
-        Scene scene = new Scene(loginView.getView(), 1024, 768);
+        Scene scene = new Scene(loginView.getView(), 1920, 1080);
         SceneManager.setScene(scene);
     }
 }

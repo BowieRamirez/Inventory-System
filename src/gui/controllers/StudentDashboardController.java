@@ -1,6 +1,5 @@
 package gui.controllers;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1112,7 +1111,7 @@ public class StudentDashboardController {
     }
     
     /**
-     * Create claim items view - Shows only items ready for pickup (PAID - READY FOR PICKUP status)
+     * Create claim items view - Shows items that need pickup request or are ready for pickup
      */
     public Node createClaimItemsView() {
         VBox container = new VBox(20);
@@ -1122,34 +1121,34 @@ public class StudentDashboardController {
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
         titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
-        Label subtitleLabel = new Label("Items ready for pickup - Click 'Claim Item' to confirm you've received the item");
+        Label subtitleLabel = new Label("Request pickup approval or claim approved items");
         subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
         subtitleLabel.setWrapText(true);
         
         // Reload reservations from file to ensure we have latest data
         List<Reservation> allReservations = FileStorage.loadReservations();
         
-        // Get student's reservations that are ready for pickup
-        // For bundles, ensure ALL items in the bundle have "PAID - READY FOR PICKUP" status
-        List<Reservation> readyForPickup = allReservations.stream()
+        // Get student's reservations in various pickup-related statuses
+        List<Reservation> pickupItems = allReservations.stream()
             .filter(r -> r.getStudentId().equals(student.getStudentId()))
-            .filter(r -> "PAID - READY FOR PICKUP".equals(r.getStatus()))
+            .filter(r -> "PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus()) || 
+                        "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus()) ||
+                        "APPROVED FOR PICKUP".equals(r.getStatus()))
             .filter(r -> {
-                // For bundles, verify all items in the bundle are ready for pickup
+                // For bundles, verify all items in the bundle have the same status
                 if (r.isPartOfBundle()) {
                     String bundleId = r.getBundleId();
-                    // Check if ALL items in this bundle have "PAID - READY FOR PICKUP" status
+                    String expectedStatus = r.getStatus();
                     return allReservations.stream()
                         .filter(res -> bundleId.equals(res.getBundleId()))
-                        .allMatch(res -> "PAID - READY FOR PICKUP".equals(res.getStatus()));
+                        .allMatch(res -> expectedStatus.equals(res.getStatus()));
                 }
-                // For single items, status is already checked above
                 return true;
             })
             .collect(Collectors.toList());
         
         // Deduplicate bundles - show only one card per bundle
-        List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(readyForPickup);
+        List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(pickupItems);
         
         if (deduplicatedReservations.isEmpty()) {
             VBox emptyBox = new VBox(20);
@@ -1270,27 +1269,140 @@ public class StudentDashboardController {
         priceLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         priceLabel.setStyle("-fx-text-fill: #1A7F37;");
         
-        // Claim button
-        Button claimBtn = new Button("✓ Claim Item");
-        claimBtn.setMaxWidth(Double.MAX_VALUE);
-        claimBtn.setPrefHeight(40);
-        claimBtn.setStyle(
-            "-fx-background-color: #1A7F37;" +
-            "-fx-text-fill: white;" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-cursor: hand;"
-        );
-        claimBtn.setOnAction(e -> handleClaimItem(r));
+        // Status and action button based on current status
+        String status = r.getStatus();
+        VBox actionBox = new VBox(10);
         
-        Label noteLabel = new Label("💡 Tip: After claiming, you'll have 10 days to request a return if needed.");
-        noteLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
-        noteLabel.setWrapText(true);
+        if ("PAID - AWAITING PICKUP APPROVAL".equals(status)) {
+            // Student needs to request pickup
+            Label awaitingLabel = new Label("📋 Status: Payment Completed");
+            awaitingLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold;");
+            
+            Button requestBtn = new Button("📦 Request Pickup");
+            requestBtn.setMaxWidth(Double.MAX_VALUE);
+            requestBtn.setPrefHeight(40);
+            requestBtn.setStyle(
+                "-fx-background-color: #0969DA;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+            requestBtn.setOnAction(e -> handleRequestPickup(r));
+            
+            Label awaitingNote = new Label("💡 Click to request admin approval for pickup");
+            awaitingNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+            awaitingNote.setWrapText(true);
+            
+            actionBox.getChildren().addAll(awaitingLabel, requestBtn, awaitingNote);
+            
+        } else if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(status)) {
+            // Waiting for admin approval
+            Label pendingLabel = new Label("⏳ Status: Waiting for Admin Approval");
+            pendingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-weight: bold;");
+            
+            Button pendingBtn = new Button("⏳ Pending Admin Approval");
+            pendingBtn.setMaxWidth(Double.MAX_VALUE);
+            pendingBtn.setPrefHeight(40);
+            pendingBtn.setStyle(
+                "-fx-background-color: #BF8700;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-opacity: 0.7;"
+            );
+            pendingBtn.setDisable(true);
+            
+            Label pendingNote = new Label("⏱️ Please wait for admin to approve your pickup request");
+            pendingNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+            pendingNote.setWrapText(true);
+            
+            actionBox.getChildren().addAll(pendingLabel, pendingBtn, pendingNote);
+            
+        } else if ("APPROVED FOR PICKUP".equals(status)) {
+            // Approved - student can claim
+            Label approvedLabel = new Label("✅ Status: Approved for Pickup");
+            approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-weight: bold;");
+            
+            Button claimBtn = new Button("✓ Claim Item");
+            claimBtn.setMaxWidth(Double.MAX_VALUE);
+            claimBtn.setPrefHeight(40);
+            claimBtn.setStyle(
+                "-fx-background-color: #1A7F37;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+            claimBtn.setOnAction(e -> handleClaimItem(r));
+            
+            Label approvedNote = new Label("💡 Confirm you've received the item from admin");
+            approvedNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+            approvedNote.setWrapText(true);
+            
+            actionBox.getChildren().addAll(approvedLabel, claimBtn, approvedNote);
+        }
 
-        card.getChildren().addAll(header, new Separator(), itemsBox, qtyLabel, priceLabel, claimBtn, noteLabel);
+        card.getChildren().addAll(header, new Separator(), itemsBox, qtyLabel, priceLabel, actionBox);
 
         return card;
+    }
+    
+    /**
+     * Handle pickup request (student requests admin approval)
+     */
+    private void handleRequestPickup(Reservation r) {
+        String itemDescription = r.isPartOfBundle() ? 
+            "bundle order (" + r.getBundleId() + ")" : 
+            r.getItemName() + " - " + r.getSize();
+        
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Request Pickup");
+        confirmAlert.setHeaderText("Request Pickup Approval");
+        confirmAlert.setContentText(
+            "Request admin approval to pickup this " + itemDescription + "?\n\n" +
+            "After approval, you'll be able to claim your item.\n\n" +
+            "Total Paid: ₱" + String.format("%.2f", r.getTotalPrice())
+        );
+
+        confirmAlert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                boolean success;
+                if (r.isPartOfBundle()) {
+                    // Request pickup for all items in the bundle
+                    String bundleId = r.getBundleId();
+                    List<Reservation> bundleItems = FileStorage.loadReservations().stream()
+                        .filter(res -> bundleId.equals(res.getBundleId()))
+                        .collect(Collectors.toList());
+                    
+                    success = true;
+                    for (Reservation item : bundleItems) {
+                        if (!reservationManager.requestPickup(item.getReservationId())) {
+                            success = false;
+                            break;
+                        }
+                    }
+                } else {
+                    success = reservationManager.requestPickup(r.getReservationId());
+                }
+                
+                if (success) {
+                    // Refresh the claim items view
+                    if (refreshCallback != null) {
+                        refreshCallback.run();
+                    }
+                    
+                    AlertHelper.showSuccess("Request Sent", 
+                        "Pickup request submitted successfully!\n\n" +
+                        "Please wait for admin approval.");
+                } else {
+                    AlertHelper.showError("Error", "Failed to send pickup request. Please try again.");
+                }
+            }
+        });
     }
     
     /**
@@ -1495,10 +1607,18 @@ public class StudentDashboardController {
             Label pendingLabel = new Label("⏳ Click to view details or cancel");
             pendingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-style: italic;");
             card.getChildren().add(pendingLabel);
-        } else if ("PAID - READY FOR PICKUP".equals(r.getStatus())) {
-            Label pickupLabel = new Label("✓ Payment completed! Go to 'Claim Items' to pick up");
-            pickupLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-style: italic;");
+        } else if ("PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus())) {
+            Label pickupLabel = new Label("📋 Payment completed! Go to 'Claim Items' to request pickup");
+            pickupLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-style: italic; -fx-font-weight: bold;");
             card.getChildren().add(pickupLabel);
+        } else if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
+            Label awaitingLabel = new Label("⏳ Pickup request sent - Waiting for admin approval");
+            awaitingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-style: italic;");
+            card.getChildren().add(awaitingLabel);
+        } else if ("APPROVED FOR PICKUP".equals(r.getStatus())) {
+            Label approvedLabel = new Label("✅ Approved! Go to 'Claim Items' to pick up");
+            approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-style: italic; -fx-font-weight: bold;");
+            card.getChildren().add(approvedLabel);
         } else if ("COMPLETED".equals(r.getStatus()) && r.isEligibleForReturn()) {
             Label returnLabel = new Label("↩ Click to request return (" + r.getDaysUntilReturnExpires() + " days left)");
             returnLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold; -fx-font-style: italic;");
@@ -1531,36 +1651,6 @@ public class StudentDashboardController {
         }
 
         return card;
-    }
-
-    /**
-     * Handle pickup confirmation
-     */
-    private void handlePickup(Reservation r) {
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Confirm Pickup");
-        confirmAlert.setHeaderText("Confirm Item Pickup");
-        confirmAlert.setContentText(
-            "Are you sure you want to confirm pickup for:\n\n" +
-            r.getItemName() + " - " + r.getSize() + "\n" +
-            "Quantity: " + r.getQuantity() + "x\n\n" +
-            "You will have 10 days to request a return if the item is damaged."
-        );
-
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                boolean success = reservationManager.markAsPickedUp(r.getReservationId());
-                if (success) {
-                    AlertHelper.showSuccess("Success",
-                        "Item picked up successfully!\n\n" +
-                        "You have 10 days to request a return if needed.");
-                    // Refresh the view
-                    refreshReservationsView();
-                } else {
-                    AlertHelper.showError("Error", "Failed to confirm pickup. Please try again.");
-                }
-            }
-        });
     }
 
     /**
@@ -1602,8 +1692,9 @@ public class StudentDashboardController {
         grid.setVgap(10);
         grid.setPadding(new Insets(20));
 
-        // Create checkboxes for selecting items to return (for bundles only)
+        // Create checkboxes and quantity spinners for selecting items to return (for bundles only)
         Map<CheckBox, Reservation> itemCheckBoxMap = new HashMap<>();
+        Map<Reservation, Spinner<Integer>> quantitySpinners = new HashMap<>();
         
         if (r.isPartOfBundle()) {
             Label selectLabel = new Label("Select items to return:");
@@ -1631,16 +1722,37 @@ public class StudentDashboardController {
             selectAllBox.getChildren().addAll(selectAllBtn, deselectAllBtn);
             itemsList.getChildren().add(selectAllBox);
             
-            // Create checkbox for each item
+            // Create checkbox with quantity spinner for each item
             for (Reservation item : availableItems) {
+                HBox itemRow = new HBox(10);
+                itemRow.setAlignment(Pos.CENTER_LEFT);
+                
                 CheckBox checkBox = new CheckBox(
-                    item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x)" +
+                    item.getItemName() + " - " + item.getSize() +
                     " - ₱" + String.format("%.2f", item.getTotalPrice())
                 );
                 checkBox.setSelected(true); // Select all by default
                 checkBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
                 itemCheckBoxMap.put(checkBox, item);
-                itemsList.getChildren().add(checkBox);
+                
+                // Add quantity spinner
+                Label qtyLabel = new Label("Qty:");
+                qtyLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+                
+                Spinner<Integer> qtySpinner = new Spinner<>(1, item.getQuantity(), item.getQuantity());
+                qtySpinner.setEditable(true);
+                qtySpinner.setPrefWidth(70);
+                qtySpinner.setStyle("-fx-font-size: 12px;");
+                quantitySpinners.put(item, qtySpinner);
+                
+                // Disable spinner when checkbox is unchecked
+                qtySpinner.setDisable(!checkBox.isSelected());
+                checkBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                    qtySpinner.setDisable(!newVal);
+                });
+                
+                itemRow.getChildren().addAll(checkBox, qtyLabel, qtySpinner);
+                itemsList.getChildren().add(itemRow);
             }
             
             // Select/Deselect All functionality
@@ -1693,51 +1805,67 @@ public class StudentDashboardController {
 
         final List<Reservation> finalAvailableItems = availableItems;
         final Map<CheckBox, Reservation> finalItemCheckBoxMap = itemCheckBoxMap;
+        final Map<Reservation, Spinner<Integer>> finalQuantitySpinners = quantitySpinners;
         
         dialog.showAndWait().ifPresent(reason -> {
             if (reason != null) {
-                // Get selected items to return
-                List<Reservation> selectedItemsToReturn = new ArrayList<>();
+                // Get selected items to return with their quantities
+                Map<Reservation, Integer> itemsToReturnWithQty = new HashMap<>();
                 
                 if (r.isPartOfBundle()) {
-                    // Get only selected items from checkboxes
+                    // Get only selected items from checkboxes with their quantities
                     for (Map.Entry<CheckBox, Reservation> entry : finalItemCheckBoxMap.entrySet()) {
                         if (entry.getKey().isSelected()) {
-                            selectedItemsToReturn.add(entry.getValue());
+                            Reservation item = entry.getValue();
+                            int qtyToReturn = finalQuantitySpinners.get(item).getValue();
+                            itemsToReturnWithQty.put(item, qtyToReturn);
                         }
                     }
                     
                     // Validate that at least one item is selected
-                    if (selectedItemsToReturn.isEmpty()) {
+                    if (itemsToReturnWithQty.isEmpty()) {
                         AlertHelper.showError("Error", "Please select at least one item to return.");
                         return;
                     }
                 } else {
-                    // For single items, just add the single reservation
-                    selectedItemsToReturn.addAll(finalAvailableItems);
+                    // For single items, add the full quantity
+                    itemsToReturnWithQty.put(finalAvailableItems.get(0), finalAvailableItems.get(0).getQuantity());
                 }
                 
-                // Request return for selected items
+                // Request return for selected items with quantities
                 boolean allSuccess = true;
                 int successCount = 0;
+                int totalItemsToReturn = itemsToReturnWithQty.values().stream().mapToInt(Integer::intValue).sum();
                 
-                for (Reservation item : selectedItemsToReturn) {
-                    boolean success = reservationManager.requestReturn(item.getReservationId(), reason);
-                    if (success) {
-                        successCount++;
-                    } else {
-                        allSuccess = false;
+                for (Map.Entry<Reservation, Integer> entry : itemsToReturnWithQty.entrySet()) {
+                    Reservation item = entry.getKey();
+                    int qtyToReturn = entry.getValue();
+                    int originalQty = item.getQuantity();
+                    
+                    if (qtyToReturn == originalQty) {
+                        // Return all items in this reservation
+                        boolean success = reservationManager.requestReturn(item.getReservationId(), reason);
+                        if (success) {
+                            successCount += qtyToReturn;
+                        } else {
+                            allSuccess = false;
+                        }
+                    } else if (qtyToReturn < originalQty) {
+                        // Partial return - need to split the reservation
+                        boolean success = reservationManager.requestPartialReturn(
+                            item.getReservationId(), qtyToReturn, reason);
+                        if (success) {
+                            successCount += qtyToReturn;
+                        } else {
+                            allSuccess = false;
+                        }
                     }
                 }
                 
                 if (allSuccess) {
                     String message;
                     if (r.isPartOfBundle()) {
-                        if (successCount == finalAvailableItems.size()) {
-                            message = "Return request submitted successfully for all " + successCount + " items in the bundle!\n\n";
-                        } else {
-                            message = "Return request submitted successfully for " + successCount + " selected item(s)!\n\n";
-                        }
+                        message = "Return request submitted successfully for " + successCount + " item(s)!\n\n";
                     } else {
                         message = "Return request submitted successfully!\n\n";
                     }
@@ -1747,7 +1875,7 @@ public class StudentDashboardController {
                     refreshReservationsView();
                 } else if (successCount > 0) {
                     AlertHelper.showWarning("Partial Success",
-                        "Return request submitted for " + successCount + " out of " + selectedItemsToReturn.size() + " items.\n" +
+                        "Return request submitted for " + successCount + " out of " + totalItemsToReturn + " items.\n" +
                         "Some items may have exceeded the return period (10 days limit).");
                     refreshReservationsView();
                 } else {
@@ -2140,7 +2268,7 @@ public class StudentDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1024, 768);
+            Scene scene = new Scene(loginView.getView(), 1920, 1080);
             SceneManager.setScene(scene);
         }
     }

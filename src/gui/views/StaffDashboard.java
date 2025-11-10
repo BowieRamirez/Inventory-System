@@ -26,6 +26,7 @@ public class StaffDashboard {
     private StaffDashboardController controller;
     
     private Button reservationsBtn;
+    private Button pickupApprovalsBtn;
     private Button completedBtn;
     private Button returnedBtn;
     private Button cancelledBtn;
@@ -44,6 +45,8 @@ public class StaffDashboard {
     
     private void initializeView() {
         view = new BorderPane();
+        view.setMaxWidth(Double.MAX_VALUE);
+        view.setMaxHeight(Double.MAX_VALUE);
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         
@@ -53,6 +56,8 @@ public class StaffDashboard {
         
         contentArea = new StackPane();
         contentArea.setPadding(new Insets(20));
+        contentArea.setMaxWidth(Double.MAX_VALUE);
+        contentArea.setMaxHeight(Double.MAX_VALUE);
         String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         contentArea.setStyle("-fx-background-color: " + contentBg + ";");
         view.setCenter(contentArea);
@@ -129,6 +134,7 @@ public class StaffDashboard {
         header.setPadding(new Insets(0, 0, 20, 0));
         
         reservationsBtn = createNavButton("📋 Reservations", true);
+        pickupApprovalsBtn = createNavButton("📦 Pickup Approvals", false);
         completedBtn = createNavButton("✅ Completed", false);
         returnedBtn = createNavButton("↩️ Returned", false);
         cancelledBtn = createNavButton("❌ Cancelled", false);
@@ -152,6 +158,11 @@ public class StaffDashboard {
         reservationsBtn.setOnAction(e -> {
             setActiveButton(reservationsBtn);
             showReservations();
+        });
+        
+        pickupApprovalsBtn.setOnAction(e -> {
+            setActiveButton(pickupApprovalsBtn);
+            showPickupApprovals();
         });
         
         completedBtn.setOnAction(e -> {
@@ -185,6 +196,7 @@ public class StaffDashboard {
             header,
             new Separator(),
             reservationsBtn,
+            pickupApprovalsBtn,
             completedBtn,
             returnedBtn,
             cancelledBtn,
@@ -227,7 +239,7 @@ public class StaffDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {reservationsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
+        Button[] buttons = {reservationsBtn, pickupApprovalsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -258,6 +270,12 @@ public class StaffDashboard {
         titleLabel.setText("Reservations");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createReservationsView());
+    }
+    
+    private void showPickupApprovals() {
+        titleLabel.setText("Pickup Approvals");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createPickupApprovalsView());
     }
     
     private void showInventory() {

@@ -13,3 +13,9 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-09 22:05:33|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|M|-5/65|USER_PICKUP|Student Lebron, Jims (02000242424) picked up item
 2025-11-09 22:05:33|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-5/50|USER_PICKUP|Student Lebron, Jims (02000242424) picked up item
 2025-11-10 14:24:42|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|M|+5/70|USER_RETURN|Student Lebron, Jims (02000242424) returned - Reason: gusto ko lang ireturn
+2025-11-10 15:46:32|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-1/48|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-10 15:46:35|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|-1/69|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-10 15:46:35|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-1/48|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-10 16:27:46|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|-1/98|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-10 16:27:49|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|-1/98|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-10 16:27:49|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|-1/68|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item

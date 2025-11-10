@@ -34,13 +34,15 @@ public class MainApp extends Application {
         stage.setTitle("STI ProWear System - Modern Inventory Management");
         stage.setMinWidth(1024);
         stage.setMinHeight(768);
-        stage.setMaximized(false);
         
         // Show login screen
         showLoginScreen();
         
-        // Show the stage
+        // Show the stage first
         stage.show();
+        
+        // Then immediately maximize (more reliable when done after show)
+        stage.setMaximized(true);
     }
     
     /**
@@ -48,7 +50,7 @@ public class MainApp extends Application {
      */
     private void showLoginScreen() {
         LoginView loginView = new LoginView();
-        Scene scene = new Scene(loginView.getView(), 1024, 768);
+        Scene scene = new Scene(loginView.getView(), 1920, 1080);
         SceneManager.setScene(scene);
     }
     

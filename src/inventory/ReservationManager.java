@@ -71,6 +71,10 @@ public class ReservationManager {
             // Don't deduct stock yet - only mark as approved for payment
             // Stock will be deducted when cashier processes payment
             r.setStatus("APPROVED - WAITING FOR PAYMENT");
+            
+            // Set payment deadline to 48 hours from now
+            r.setPaymentDeadline(java.time.LocalDateTime.now().plusHours(48));
+            
             saveReservations();
             return true;
         }
@@ -145,7 +149,7 @@ public class ReservationManager {
             // Deduct stock from inventory when payment is processed
             boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
             if (deducted) {
-                r.setStatus("PAID - READY FOR PICKUP");
+                r.setStatus("PAID - AWAITING PICKUP APPROVAL");
                 saveReservations();
                 return true;
             } else {
@@ -181,13 +185,54 @@ public class ReservationManager {
     }
 
     /**
+     * Student requests pickup - changes status to awaiting admin approval
+     * Changes status from "PAID - AWAITING PICKUP APPROVAL" to "PICKUP REQUESTED - AWAITING ADMIN APPROVAL"
+     */
+    public boolean requestPickup(int reservationId) {
+        Reservation r = findReservationById(reservationId);
+        if (r != null && "PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus())) {
+            r.setStatus("PICKUP REQUESTED - AWAITING ADMIN APPROVAL");
+            saveReservations();
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Admin approves pickup request
+     * Changes status from "PICKUP REQUESTED - AWAITING ADMIN APPROVAL" to "APPROVED FOR PICKUP"
+     */
+    public boolean approvePickupRequest(int reservationId) {
+        Reservation r = findReservationById(reservationId);
+        if (r != null && "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
+            r.setStatus("APPROVED FOR PICKUP");
+            saveReservations();
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Get all pickup requests awaiting admin approval
+     */
+    public List<Reservation> getPickupRequestsAwaitingApproval() {
+        List<Reservation> pickupRequests = new ArrayList<>();
+        for (Reservation r : reservations) {
+            if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
+                pickupRequests.add(r);
+            }
+        }
+        return pickupRequests;
+    }
+
+    /**
      * Mark reservation as picked up (student confirms pickup)
-     * Changes status from "PAID - READY FOR PICKUP" to "COMPLETED"
+     * Changes status from "APPROVED FOR PICKUP" to "COMPLETED"
      * Also updates receipt status and logs to stock_logs.txt
      */
     public boolean markAsPickedUp(int reservationId) {
         Reservation r = findReservationById(reservationId);
-        if (r != null && "PAID - READY FOR PICKUP".equals(r.getStatus())) {
+        if (r != null && "APPROVED FOR PICKUP".equals(r.getStatus())) {
             r.setStatus("COMPLETED");
             r.setCompletedDate(java.time.LocalDateTime.now());
             saveReservations();
@@ -236,14 +281,66 @@ public class ReservationManager {
     }
 
     /**
+     * Request partial return for a completed reservation (student returns fewer items than reserved)
+     * Can only be done within 10 days of completion
+     * @param reservationId the reservation ID
+     * @param quantityToReturn the number of items to return (must be less than total quantity)
+     * @param reason the reason for return
+     * @return true if successful, false otherwise
+     */
+    public boolean requestPartialReturn(int reservationId, int quantityToReturn, String reason) {
+        Reservation r = findReservationById(reservationId);
+        if (r == null || !r.isEligibleForReturn()) {
+            return false;
+        }
+        
+        int originalQty = r.getQuantity();
+        if (quantityToReturn <= 0 || quantityToReturn > originalQty) {
+            return false; // Invalid quantity
+        }
+        
+        // If returning all items, use regular return
+        if (quantityToReturn == originalQty) {
+            return requestReturn(reservationId, reason);
+        }
+        
+        // For partial returns, create a new "virtual" return request
+        // The original reservation keeps its full quantity, but the return request
+        // will specify how many items are being returned
+        String partialReturnReason = "Partial Return (" + quantityToReturn + " of " + originalQty + " items) - Reason: " + reason;
+        r.setStatus("RETURN REQUESTED");
+        r.setReason(partialReturnReason);
+        saveReservations();
+        
+        return true;
+    }
+
+    /**
      * Approve return request (admin/staff approves)
      * Restocks the item, marks as refunded, updates receipt, and logs to stock_logs.txt
      */
     public boolean approveReturn(int reservationId) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "RETURN REQUESTED".equals(r.getStatus())) {
+            // Check if this is a partial return
+            int quantityToReturn = r.getQuantity();
+            String reasonText = r.getReason() != null ? r.getReason() : "";
+            
+            // Parse partial return quantity if present
+            if (reasonText.startsWith("Partial Return (")) {
+                try {
+                    int start = reasonText.indexOf("(") + 1;
+                    int end = reasonText.indexOf(" of ");
+                    String qtyStr = reasonText.substring(start, end);
+                    quantityToReturn = Integer.parseInt(qtyStr);
+                } catch (Exception e) {
+                    // If parsing fails, use full quantity
+                    quantityToReturn = r.getQuantity();
+                }
+            }
+            
             // Restock the item
-            boolean restocked = inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
+            boolean restocked = inventoryManager.restockItem(r.getItemCode(), r.getSize(), quantityToReturn);
             if (restocked) {
                 r.setStatus("RETURNED - REFUNDED");
                 r.setReason(r.getReason() != null ? r.getReason() : "Item returned within 10 days");
@@ -262,14 +359,16 @@ public class ReservationManager {
                 Item item = inventoryManager.findItemByCodeAndSize(r.getItemCode(), r.getSize());
                 int remainingStock = (item != null) ? item.getQuantity() : 0;
 
-                String returnReason = r.getReason() != null ? r.getReason().replace("Return requested - Reason: ", "") : "Item returned";
+                String returnReason = r.getReason() != null ? 
+                    r.getReason().replace("Return requested - Reason: ", "").replace("Partial Return ", "Partial return ") : 
+                    "Item returned";
                 StockReturnLogger.logUserReturn(
                     r.getStudentId(),
                     r.getStudentName(),
                     r.getItemCode(),
                     r.getItemName(),
                     r.getSize(),
-                    r.getQuantity(),
+                    quantityToReturn,
                     remainingStock,
                     returnReason
                 );
@@ -305,5 +404,43 @@ public class ReservationManager {
             }
         }
         return returnRequests;
+    }
+    
+    /**
+     * Auto-expire reservations that have passed their payment deadline
+     * Returns the number of reservations that were expired
+     */
+    public int expireOverduePayments() {
+        int expiredCount = 0;
+        for (Reservation r : reservations) {
+            if (r.isPaymentOverdue()) {
+                // Restock the items
+                inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
+                
+                // Mark as expired/cancelled
+                r.setStatus("EXPIRED - PAYMENT DEADLINE PASSED");
+                r.setReason("Payment not received within 48 hours of approval");
+                expiredCount++;
+            }
+        }
+        
+        if (expiredCount > 0) {
+            saveReservations();
+        }
+        
+        return expiredCount;
+    }
+    
+    /**
+     * Get all overdue reservations (for admin/staff tracking)
+     */
+    public List<Reservation> getOverduePayments() {
+        List<Reservation> overdueList = new ArrayList<>();
+        for (Reservation r : reservations) {
+            if (r.isPaymentOverdue()) {
+                overdueList.add(r);
+            }
+        }
+        return overdueList;
     }
 }

@@ -4,8 +4,11 @@ import gui.controllers.StudentDashboardController;
 import gui.utils.ThemeManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -41,8 +44,6 @@ public class StudentDashboard {
     private Button cartBtn;
     private Button claimItemsBtn;
     private Button myReservationsBtn;
-    private Button profileBtn;
-    private Button logoutBtn;
     
     // Sidebar labels for theme updates
     private Label logoLabel;
@@ -60,6 +61,8 @@ public class StudentDashboard {
     
     private void initializeView() {
         view = new BorderPane();
+        view.setMaxWidth(Double.MAX_VALUE);
+        view.setMaxHeight(Double.MAX_VALUE);
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         
@@ -73,6 +76,8 @@ public class StudentDashboard {
         // Create content area
         contentArea = new StackPane();
         contentArea.setPadding(new Insets(20));
+        contentArea.setMaxWidth(Double.MAX_VALUE);
+        contentArea.setMaxHeight(Double.MAX_VALUE);
         String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         contentArea.setStyle("-fx-background-color: " + contentBg + ";");
         view.setCenter(contentArea);
@@ -119,11 +124,71 @@ public class StudentDashboard {
             updateSidebarTheme(); // Update sidebar colors when theme changes
         });
         
-        Label studentLabel = new Label("👤 " + student.getFullName());
+        // Profile dropdown button
+        Button profileBtn = new Button("👤 " + student.getFullName() + " ▼");
         String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
-        studentLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
+        profileBtn.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-text-fill: " + labelColor + ";" +
+            "-fx-font-size: 14px;" +
+            "-fx-cursor: hand;" +
+            "-fx-border-width: 0;" +
+            "-fx-padding: 8px 12px;"
+        );
         
-        topBar.getChildren().addAll(titleLabel, spacer, themeBtn, studentLabel);
+        // Add hover effect
+        profileBtn.setOnMouseEntered(e -> {
+            profileBtn.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.1);" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-width: 0;" +
+                "-fx-padding: 8px 12px;" +
+                "-fx-background-radius: 4px;"
+            );
+        });
+        
+        profileBtn.setOnMouseExited(e -> {
+            profileBtn.setStyle(
+                "-fx-background-color: transparent;" +
+                "-fx-text-fill: " + labelColor + ";" +
+                "-fx-font-size: 14px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-width: 0;" +
+                "-fx-padding: 8px 12px;"
+            );
+        });
+        
+        // Create context menu for profile dropdown
+        ContextMenu profileMenu = new ContextMenu();
+        
+        // Account Details menu item
+        MenuItem accountDetailsItem = new MenuItem("👤 Account Details");
+        accountDetailsItem.setStyle("-fx-font-size: 13px;");
+        accountDetailsItem.setOnAction(e -> showAccountDetails());
+        
+        // Change Password menu item
+        MenuItem changePasswordItem = new MenuItem("🔑 Change Password");
+        changePasswordItem.setStyle("-fx-font-size: 13px;");
+        changePasswordItem.setOnAction(e -> showChangePassword());
+        
+        // Separator
+        javafx.scene.control.SeparatorMenuItem separator = new javafx.scene.control.SeparatorMenuItem();
+        
+        // Logout menu item
+        MenuItem logoutItem = new MenuItem("🚪 Logout");
+        logoutItem.setStyle("-fx-font-size: 13px; -fx-text-fill: #CF222E;");
+        logoutItem.setOnAction(e -> controller.handleLogout());
+        
+        profileMenu.getItems().addAll(accountDetailsItem, changePasswordItem, separator, logoutItem);
+        
+        // Show menu when profile button is clicked
+        profileBtn.setOnAction(e -> {
+            profileMenu.show(profileBtn, Side.BOTTOM, 0, 5);
+        });
+        
+        topBar.getChildren().addAll(titleLabel, spacer, themeBtn, profileBtn);
         return topBar;
     }
     
@@ -157,46 +222,11 @@ public class StudentDashboard {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(0, 0, 20, 0));
         
-        // Student info card
-        VBox infoCard = new VBox(5);
-        infoCard.setPadding(new Insets(15));
-        infoCard.setStyle(
-            "-fx-background-color: -color-accent-subtle;" +
-            "-fx-background-radius: 8px;"
-        );
-        
-        Label nameLabel = new Label(student.getFullName());
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        nameLabel.setStyle("-fx-text-fill: -color-fg-default;");
-        
-        Label idLabel = new Label("ID: " + student.getStudentId());
-        idLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
-        
-        Label courseLabel = new Label("Course: " + student.getCourse());
-        courseLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
-        
-        infoCard.getChildren().addAll(nameLabel, idLabel, courseLabel);
-        
         // Navigation buttons
         shopBtn = createNavButton("🛍️ Shop", true);
         cartBtn = createNavButton("🛒 Cart (0)", false);
         claimItemsBtn = createNavButton("📦 Claim Items", false);
         myReservationsBtn = createNavButton("📋 My Reservations", false);
-        profileBtn = createNavButton("👤 Profile", false);
-        
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
-        
-        logoutBtn = createNavButton("🚪 Logout", false);
-        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
-        logoutBtn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + logoutColor + ";" +
-            "-fx-font-size: 14px;" +
-            "-fx-alignment: center-left;" +
-            "-fx-padding: 12px;" +
-            "-fx-cursor: hand;"
-        );
         
         // Button actions
         shopBtn.setOnAction(e -> {
@@ -219,28 +249,16 @@ public class StudentDashboard {
             showMyReservations();
         });
         
-        profileBtn.setOnAction(e -> {
-            setActiveButton(profileBtn);
-            showProfile();
-        });
-        
-        logoutBtn.setOnAction(e -> controller.handleLogout());
-        
         // Set up cart update callback
         controller.setCartUpdateCallback(this::updateCartBadge);
         
         sidebar.getChildren().addAll(
             header,
-            infoCard,
             new Separator(),
             shopBtn,
             cartBtn,
             claimItemsBtn,
-            myReservationsBtn,
-            profileBtn,
-            spacer,
-            new Separator(),
-            logoutBtn
+            myReservationsBtn
         );
     }
     
@@ -281,7 +299,7 @@ public class StudentDashboard {
      * Set active navigation button
      */
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {shopBtn, cartBtn, claimItemsBtn, myReservationsBtn, profileBtn};
+        Button[] buttons = {shopBtn, cartBtn, claimItemsBtn, myReservationsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -366,15 +384,6 @@ public class StudentDashboard {
     }
     
     /**
-     * Show profile
-     */
-    private void showProfile() {
-        titleLabel.setText("Profile");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createProfileView());
-    }
-    
-    /**
      * Update sidebar theme colors when theme changes
      */
     private void updateSidebarTheme() {
@@ -434,7 +443,7 @@ public class StudentDashboard {
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         // Update navigation buttons
-        Button[] buttons = {shopBtn, myReservationsBtn, profileBtn};
+        Button[] buttons = {shopBtn, cartBtn, claimItemsBtn, myReservationsBtn};
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
         String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
@@ -461,17 +470,62 @@ public class StudentDashboard {
                 );
             }
         }
+    }
+    
+    /**
+     * Show account details dialog
+     */
+    private void showAccountDetails() {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Account Details");
+        dialog.setHeaderText("Your Account Information");
         
-        // Update logout button
-        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
-        logoutBtn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + logoutColor + ";" +
-            "-fx-font-size: 14px;" +
-            "-fx-alignment: center-left;" +
-            "-fx-padding: 12px;" +
-            "-fx-cursor: hand;"
+        dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-min-width: 400px;");
+        
+        // Account info
+        VBox infoBox = new VBox(10);
+        infoBox.setPadding(new Insets(15));
+        infoBox.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 6px;" +
+            "-fx-background-radius: 6px;"
         );
+        
+        Label nameLabel = new Label("Full Name: " + student.getFullName());
+        nameLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: -color-fg-default;");
+        
+        Label idLabel = new Label("Student ID: " + student.getStudentId());
+        idLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: -color-fg-default;");
+        
+        Label courseLabel = new Label("Course: " + student.getCourse());
+        courseLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: -color-fg-default;");
+        
+        Label genderLabel = new Label("Gender: " + student.getGender());
+        genderLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: -color-fg-default;");
+        
+        Label statusLabel = new Label("Status: " + student.getAccountStatus());
+        statusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: -color-fg-default;");
+        
+        infoBox.getChildren().addAll(nameLabel, idLabel, courseLabel, genderLabel, statusLabel);
+        
+        content.getChildren().addAll(infoBox);
+        dialog.getDialogPane().setContent(content);
+        dialog.showAndWait();
+    }
+    
+    /**
+     * Show change password dialog
+     */
+    private void showChangePassword() {
+        titleLabel.setText("Settings");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createProfileView());
     }
     
     /**

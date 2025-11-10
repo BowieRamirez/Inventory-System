@@ -35,6 +35,9 @@ public class SceneManager {
         
         currentScene = scene;
         primaryStage.setScene(scene);
+        
+        // Always ensure maximized state after scene change
+        primaryStage.setMaximized(true);
     }
     
     /**

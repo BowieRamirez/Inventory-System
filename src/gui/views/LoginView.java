@@ -32,10 +32,12 @@ public class LoginView {
     }
     
     private void initializeView() {
-        // Main container
+        // Main container - fills entire screen
         view = new VBox(20);
         view.setAlignment(Pos.CENTER);
         view.setPadding(new Insets(50));
+        view.setMaxWidth(Double.MAX_VALUE);
+        view.setMaxHeight(Double.MAX_VALUE);
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         

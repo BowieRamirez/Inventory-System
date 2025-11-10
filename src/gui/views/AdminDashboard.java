@@ -51,6 +51,8 @@ public class AdminDashboard {
     
     private void initializeView() {
         view = new BorderPane();
+        view.setMaxWidth(Double.MAX_VALUE);
+        view.setMaxHeight(Double.MAX_VALUE);
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         
@@ -62,9 +64,11 @@ public class AdminDashboard {
         createTopBar();
         view.setTop(createTopBar());
         
-        // Create content area
+        // Create content area - fills remaining space
         contentArea = new StackPane();
         contentArea.setPadding(new Insets(20));
+        contentArea.setMaxWidth(Double.MAX_VALUE);
+        contentArea.setMaxHeight(Double.MAX_VALUE);
         String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         contentArea.setStyle("-fx-background-color: " + contentBg + ";");
         view.setCenter(contentArea);

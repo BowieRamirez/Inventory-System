@@ -427,7 +427,25 @@ public class AdminDashboardController {
         itemCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
-        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.isPartOfBundle()) {
+                // Check if bundle has multiple different sizes
+                String bundleId = r.getBundleId();
+                long distinctSizes = reservationManager.getAllReservations().stream()
+                    .filter(res -> bundleId.equals(res.getBundleId()))
+                    .map(Reservation::getSize)
+                    .distinct()
+                    .count();
+                
+                if (distinctSizes > 1) {
+                    return new javafx.beans.property.SimpleStringProperty("Bundle - Click to see");
+                }
+                // If all items have the same size, show that size
+                return new javafx.beans.property.SimpleStringProperty(r.getSize());
+            }
+            return new javafx.beans.property.SimpleStringProperty(r.getSize());
+        });
         sizeCol.setPrefWidth(60);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
@@ -2304,7 +2322,7 @@ public class AdminDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1024, 768);
+            Scene scene = new Scene(loginView.getView(), 1920, 1080);
             SceneManager.setScene(scene);
         }
     }
