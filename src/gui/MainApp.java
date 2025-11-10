@@ -50,7 +50,7 @@ public class MainApp extends Application {
      */
     private void showLoginScreen() {
         LoginView loginView = new LoginView();
-        Scene scene = new Scene(loginView.getView(), 1920, 1080);
+        Scene scene = new Scene(loginView.getView(), 1920, 1025);
         SceneManager.setScene(scene);
     }
     

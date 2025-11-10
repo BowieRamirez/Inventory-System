@@ -2268,7 +2268,7 @@ public class StudentDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1920, 1080);
+            Scene scene = new Scene(loginView.getView(), 1920, 1025);
             SceneManager.setScene(scene);
         }
     }

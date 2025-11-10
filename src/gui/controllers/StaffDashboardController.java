@@ -39,6 +39,9 @@ public class StaffDashboardController {
     private ReservationManager reservationManager;
     private ReceiptManager receiptManager;
     private StockAuditManager auditManager;
+    
+    // Refresh callback for when reservations are modified
+    private Runnable refreshCallback;
 
     public StaffDashboardController() {
         inventoryManager = new InventoryManager();
@@ -51,6 +54,13 @@ public class StaffDashboardController {
 
         // Load data
         inventoryManager.getAllItems().forEach(item -> {});
+    }
+    
+    /**
+     * Set the refresh callback - called when reservations are updated
+     */
+    public void setRefreshCallback(Runnable callback) {
+        this.refreshCallback = callback;
     }
 
     public Node createReservationsView() {
@@ -434,55 +444,13 @@ public class StaffDashboardController {
             filteredReservations.setAll(allReservations);
         });
         refreshBtn.setOnAction(e -> {
-            // Refresh based on current filter
-            List<Reservation> refreshed;
-            switch (currentFilter[0]) {
-                case "PENDING":
-                    refreshed = reservationManager.getAllReservations().stream()
-                        .filter(r -> "PENDING".equals(r.getStatus()))
-                        .collect(java.util.stream.Collectors.toList());
-                    break;
-                case "APPROVED":
-                    refreshed = reservationManager.getAllReservations().stream()
-                        .filter(r -> r.getStatus().contains("APPROVED"))
-                        .collect(java.util.stream.Collectors.toList());
-                    break;
-                case "PICKUP_APPROVALS":
-                    refreshed = reservationManager.getPickupRequestsAwaitingApproval();
-                    break;
-                case "RETURN_REQUESTS":
-                    refreshed = reservationManager.getReturnRequests();
-                    break;
-                default: // ALL
-                    refreshed = reservationManager.getAllReservations().stream()
-                        .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
-                        .collect(java.util.stream.Collectors.toList());
-            }
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(refreshed));
-            searchField.clear();
-            filteredReservations.setAll(allReservations);
-            
-            // Update stats cards (order: Pending, Pickup Approvals, Completed) - deduplicated for bundles
-            int updatedPending = (int) ControllerUtils.getDeduplicatedReservations(
-                reservationManager.getPendingReservations()
-            ).size();
-            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
-                .setText(String.valueOf(updatedPending));
-            
-            int updatedPickupApprovals = (int) ControllerUtils.getDeduplicatedReservations(
-                reservationManager.getPickupRequestsAwaitingApproval()
-            ).size();
-            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(1)).getChildren().get(1))
-                .setText(String.valueOf(updatedPickupApprovals));
-            
-            int updatedCompleted = (int) ControllerUtils.getDeduplicatedReservations(
-                reservationManager.getAllReservations()
-            ).stream()
-                .filter(r -> "COMPLETED".equals(r.getStatus()))
-                .count();
-            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(2)).getChildren().get(1))
-                .setText(String.valueOf(updatedCompleted));
+            performTableRefresh(allReservations, filteredReservations, searchField, table, statsBox, currentFilter);
         });
+        
+        // Set the refresh callback for when items are approved/rejected
+        this.refreshCallback = () -> {
+            performTableRefresh(allReservations, filteredReservations, searchField, table, statsBox, currentFilter);
+        };
 
         VBox.setVgrow(table, Priority.ALWAYS);
         container.getChildren().addAll(searchBar, statsBox, filterBar, table);
@@ -831,7 +799,10 @@ public class StaffDashboardController {
             }
             
             if (allSuccess) {
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
+                // Call refresh callback to update the display with current filter applied
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
                 AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle approved!" : "Reservation approved!");
             } else {
                 AlertHelper.showError("Error", "Failed to approve reservation");
@@ -881,7 +852,10 @@ public class StaffDashboardController {
                 }
                 
                 if (allSuccess) {
-                    table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
+                    // Call refresh callback to update the display with current filter applied
+                    if (refreshCallback != null) {
+                        refreshCallback.run();
+                    }
                     AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
                 } else {
                     AlertHelper.showError("Error", "Failed to reject reservation");
@@ -958,7 +932,10 @@ public class StaffDashboardController {
             }
             
             if (allSuccess) {
-                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                // Call refresh callback to update the display with current filter applied
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
                 String successMsg = reservation.isPartOfBundle() ?
                     "Return approved for all " + successCount + " items!\n\n" :
                     "Return approved!\n\n";
@@ -966,7 +943,10 @@ public class StaffDashboardController {
                 AlertHelper.showSuccess("Success",
                     successMsg + "Items have been restocked and marked as refunded.");
             } else if (successCount > 0) {
-                table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                // Call refresh callback to update the display with current filter applied
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
                 AlertHelper.showWarning("Partial Success",
                     "Return approved for " + successCount + " out of " + itemsToReturn.size() + " items.\n" +
                     "Some items may not be restockable.");
@@ -989,7 +969,10 @@ public class StaffDashboardController {
             if (!reason.isEmpty()) {
                 boolean success = reservationManager.rejectReturn(reservation.getReservationId(), reason);
                 if (success) {
-                    table.setItems(FXCollections.observableArrayList(reservationManager.getAllReservations()));
+                    // Call refresh callback to update the display with current filter applied
+                    if (refreshCallback != null) {
+                        refreshCallback.run();
+                    }
                     AlertHelper.showSuccess("Success", "Return request rejected");
                 } else {
                     AlertHelper.showError("Error", "Failed to reject return request");
@@ -1046,9 +1029,10 @@ public class StaffDashboardController {
                 }
                 
                 if (allSuccess) {
-                    // Refresh the table to show updated data
-                    List<Reservation> pickupRequests = reservationManager.getPickupRequestsAwaitingApproval();
-                    table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(pickupRequests)));
+                    // Call refresh callback to update the display with current filter applied
+                    if (refreshCallback != null) {
+                        refreshCallback.run();
+                    }
                     AlertHelper.showSuccess("Success", 
                         reservation.isPartOfBundle() ? "Bundle pickup approved! Student can now claim items." : "Pickup approved! Student can now claim item.");
                 } else {
@@ -1105,9 +1089,10 @@ public class StaffDashboardController {
                         }
                         
                         if (allSuccess) {
-                            // Refresh the table
-                            List<Reservation> pickupRequests = reservationManager.getPickupRequestsAwaitingApproval();
-                            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(pickupRequests)));
+                            // Call refresh callback to update the display with current filter applied
+                            if (refreshCallback != null) {
+                                refreshCallback.run();
+                            }
                             AlertHelper.showSuccess("Success", "Pickup request rejected. Reason: " + reason);
                         } else {
                             AlertHelper.showError("Error", "Failed to reject pickup request");
@@ -1961,8 +1946,8 @@ public class StaffDashboardController {
             }
         });
 
-        // Refresh button
-        refreshBtn.setOnAction(e -> {
+        // Set up refresh callback for action handlers
+        this.refreshCallback = () -> {
             List<Reservation> refreshed = reservationManager.getPickupRequestsAwaitingApproval();
             allReservations.setAll(ControllerUtils.getDeduplicatedReservations(refreshed));
             searchField.clear();
@@ -1974,6 +1959,11 @@ public class StaffDashboardController {
             ).size();
             ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
                 .setText(String.valueOf(updatedCount));
+        };
+
+        // Refresh button
+        refreshBtn.setOnAction(e -> {
+            refreshCallback.run();
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
@@ -2499,9 +2489,68 @@ public class StaffDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1920, 1080);
+            Scene scene = new Scene(loginView.getView(), 1920, 1025);
             SceneManager.setScene(scene);
         }
+    }
+    
+    /**
+     * Refresh the reservations table based on current filter
+     */
+    private void performTableRefresh(ObservableList<Reservation> allReservations, 
+                                     ObservableList<Reservation> filteredReservations,
+                                     TextField searchField,
+                                     TableView<Reservation> table,
+                                     HBox statsBox,
+                                     String[] currentFilter) {
+        // Refresh based on current filter
+        List<Reservation> refreshed;
+        switch (currentFilter[0]) {
+            case "PENDING":
+                refreshed = reservationManager.getAllReservations().stream()
+                    .filter(r -> "PENDING".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+                break;
+            case "APPROVED":
+                refreshed = reservationManager.getAllReservations().stream()
+                    .filter(r -> r.getStatus().contains("APPROVED"))
+                    .collect(java.util.stream.Collectors.toList());
+                break;
+            case "PICKUP_APPROVALS":
+                refreshed = reservationManager.getPickupRequestsAwaitingApproval();
+                break;
+            case "RETURN_REQUESTS":
+                refreshed = reservationManager.getReturnRequests();
+                break;
+            default: // ALL
+                refreshed = reservationManager.getAllReservations().stream()
+                    .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        allReservations.setAll(ControllerUtils.getDeduplicatedReservations(refreshed));
+        searchField.clear();
+        filteredReservations.setAll(allReservations);
+        
+        // Update stats cards (order: Pending, Pickup Approvals, Completed) - deduplicated for bundles
+        int updatedPending = (int) ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getPendingReservations()
+        ).size();
+        ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
+            .setText(String.valueOf(updatedPending));
+        
+        int updatedPickupApprovals = (int) ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getPickupRequestsAwaitingApproval()
+        ).size();
+        ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(1)).getChildren().get(1))
+            .setText(String.valueOf(updatedPickupApprovals));
+        
+        int updatedCompleted = (int) ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getAllReservations()
+        ).stream()
+            .filter(r -> "COMPLETED".equals(r.getStatus()))
+            .count();
+        ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(2)).getChildren().get(1))
+            .setText(String.valueOf(updatedCompleted));
     }
 }
 

@@ -1,5 +1,5 @@
 ItemCode,ItemName,Course,Size,Quantity,Price
-1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,S,98,450.00
+1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,S,96,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,M,68,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,L,48,450.00
 1003,IT/Eng Gray 3/4 Blouse (Female),BSIT,XL,40,450.00
