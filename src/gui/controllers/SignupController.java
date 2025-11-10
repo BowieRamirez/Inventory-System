@@ -1,18 +1,24 @@
 package gui.controllers;
 
-import student.Student;
+import java.util.List;
+import java.util.Optional;
+
 import gui.utils.AlertHelper;
 import gui.utils.GUIValidator;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
-import utils.FileStorage;
-import utils.TermsAndConditions;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.VBox;
 import javafx.geometry.Insets;
-import java.util.List;
-import java.util.Optional;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.VBox;
+import student.Student;
+import utils.FileStorage;
+import utils.SystemConfigManager;
+import utils.TermsAndConditions;
 
 /**
  * SignupController - Handles student registration logic
@@ -53,6 +59,15 @@ public class SignupController {
      */
     public void handleSignup(String studentId, String firstName, String lastName, 
                             String course, String gender, String password, String confirmPassword) {
+        
+        // Check if system is under maintenance
+        SystemConfigManager configManager = SystemConfigManager.getInstance();
+        if (configManager.isMaintenanceModeActive()) {
+            AlertHelper.showWarning("System Maintenance", 
+                "⚠️ Account creation is temporarily unavailable.\n\n" +
+                "The system is currently under maintenance. Please try again after maintenance.");
+            return;
+        }
         
         System.out.println("Showing Terms and Conditions dialog...");
         

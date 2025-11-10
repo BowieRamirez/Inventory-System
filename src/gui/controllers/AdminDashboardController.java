@@ -477,26 +477,39 @@ public class AdminDashboardController {
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
         statusCol.setPrefWidth(180);
 
-        TableColumn<Reservation, String> bundleCol = new TableColumn<>("Bundle");
-        bundleCol.setCellValueFactory(data -> {
-            Reservation r = data.getValue();
-            String bundleInfo = r.isPartOfBundle() ? "✓ BUNDLE" : "";
-            return new javafx.beans.property.SimpleStringProperty(bundleInfo);
-        });
-        bundleCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+        TableColumn<Reservation, Void> bundleCol = new TableColumn<>("Bundle");
+        bundleCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
+            private final Button bundleBtn = new Button("BUNDLE ORDER");
+            
+            {
+                bundleBtn.setStyle(
+                    "-fx-background-color: #0969DA; " +
+                    "-fx-text-fill: white; " +
+                    "-fx-font-weight: bold; " +
+                    "-fx-font-size: 10px; " +
+                    "-fx-padding: 5 10; " +
+                    "-fx-background-radius: 6; " +
+                    "-fx-cursor: hand;"
+                );
+            }
+
             @Override
-            protected void updateItem(String item, boolean empty) {
+            protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null || item.isEmpty()) {
-                    setText(null);
-                    setStyle("");
+                if (empty) {
+                    setGraphic(null);
                 } else {
-                    setText(item);
-                    setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold;");
+                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    if (reservation.isPartOfBundle()) {
+                        bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
+                        setGraphic(bundleBtn);
+                    } else {
+                        setGraphic(null);
+                    }
                 }
             }
         });
-        bundleCol.setPrefWidth(80);
+        bundleCol.setPrefWidth(130);
 
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
@@ -715,6 +728,114 @@ public class AdminDashboardController {
         
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().setMinWidth(600);
+        dialog.showAndWait();
+    }
+
+    /**
+     * Show bundle items dialog - displays all items in a bundle order
+     */
+    private void showBundleItemsDialog(Reservation reservation) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Bundle Order Details");
+        dialog.setHeaderText("Bundle ID: " + reservation.getBundleId());
+
+        ButtonType closeButton = ButtonType.CLOSE;
+        dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+
+        // Customer Information
+        VBox customerSection = new VBox(8);
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        Label customerHeader = new Label("CUSTOMER INFORMATION");
+        customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        Label studentName = new Label("Name: " + reservation.getStudentName());
+        Label studentId = new Label("Student ID: " + reservation.getStudentId());
+        Label statusLabel = new Label("Status: " + reservation.getStatus());
+        statusLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        
+        customerSection.getChildren().addAll(customerHeader, studentName, studentId, statusLabel);
+
+        // Bundle Items Section
+        VBox itemsSection = new VBox(8);
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        Label itemsHeader = new Label("BUNDLE ITEMS");
+        itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #0969DA;");
+        itemsSection.getChildren().add(itemsHeader);
+
+        // Get all items in the bundle
+        String bundleId = reservation.getBundleId();
+        List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+            .filter(r -> bundleId.equals(r.getBundleId()))
+            .collect(java.util.stream.Collectors.toList());
+        
+        double totalPrice = 0;
+        int totalQuantity = 0;
+        
+        for (Reservation item : bundleItems) {
+            HBox itemRow = new HBox(10);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            itemRow.setStyle("-fx-padding: 5 0;");
+            
+            Label itemName = new Label("• " + item.getItemName());
+            itemName.setMinWidth(250);
+            itemName.setStyle("-fx-font-size: 12px;");
+            
+            Label itemSize = new Label("Size: " + item.getSize());
+            itemSize.setMinWidth(70);
+            itemSize.setStyle("-fx-font-size: 11px;");
+            
+            Label itemQty = new Label("Qty: " + item.getQuantity());
+            itemQty.setMinWidth(60);
+            itemQty.setStyle("-fx-font-size: 11px;");
+            
+            Label itemPrice = new Label("₱" + String.format("%.2f", item.getTotalPrice()));
+            itemPrice.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+            
+            itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
+            itemsSection.getChildren().add(itemRow);
+            
+            totalPrice += item.getTotalPrice();
+            totalQuantity += item.getQuantity();
+        }
+
+        // Separator
+        Separator separator = new Separator();
+        separator.setStyle("-fx-padding: 10 0;");
+        itemsSection.getChildren().add(separator);
+
+        // Bundle Summary
+        HBox summaryRow = new HBox(10);
+        summaryRow.setAlignment(Pos.CENTER_LEFT);
+        summaryRow.setStyle("-fx-padding: 10 0 0 0;");
+        
+        Label summaryLabel = new Label("TOTAL:");
+        summaryLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        summaryLabel.setMinWidth(250);
+        
+        Label totalItemsLabel = new Label(bundleItems.size() + " item type(s)");
+        totalItemsLabel.setMinWidth(70);
+        totalItemsLabel.setStyle("-fx-font-size: 12px;");
+        
+        Label totalQtyLabel = new Label("Qty: " + totalQuantity);
+        totalQtyLabel.setMinWidth(60);
+        totalQtyLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        Label totalPriceLabel = new Label("₱" + String.format("%.2f", totalPrice));
+        totalPriceLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #0969DA;");
+        
+        summaryRow.getChildren().addAll(summaryLabel, totalItemsLabel, totalQtyLabel, totalPriceLabel);
+        itemsSection.getChildren().add(summaryRow);
+
+        content.getChildren().addAll(customerSection, itemsSection);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinWidth(650);
         dialog.showAndWait();
     }
 

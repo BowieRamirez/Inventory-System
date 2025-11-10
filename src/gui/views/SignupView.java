@@ -5,10 +5,21 @@ import gui.utils.GUIValidator;
 import gui.utils.ThemeManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import utils.SystemConfigManager;
 
 /**
  * SignupView - Student registration screen
@@ -40,6 +51,10 @@ public class SignupView {
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
         
+        // Check if system is under maintenance
+        SystemConfigManager configManager = SystemConfigManager.getInstance();
+        boolean isMaintenanceMode = configManager.isMaintenanceModeActive();
+        
         // Signup card
         VBox signupCard = new VBox(20);
         signupCard.setAlignment(Pos.CENTER_LEFT);
@@ -57,6 +72,41 @@ public class SignupView {
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
         String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#0969DA";
         titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
+        
+        // Maintenance warning banner (if active)
+        VBox maintenanceBanner = null;
+        if (isMaintenanceMode) {
+            maintenanceBanner = new VBox(10);
+            maintenanceBanner.setAlignment(Pos.CENTER);
+            maintenanceBanner.setPadding(new Insets(15));
+            maintenanceBanner.setMaxWidth(Double.MAX_VALUE);
+            maintenanceBanner.setStyle(
+                "-fx-background-color: #FFF3CD;" +
+                "-fx-border-color: #FFC107;" +
+                "-fx-border-width: 2px;" +
+                "-fx-border-radius: 6px;" +
+                "-fx-background-radius: 6px;"
+            );
+            
+            Label warningIcon = new Label("⚠️");
+            warningIcon.setFont(Font.font(24));
+            warningIcon.setAlignment(Pos.CENTER);
+            
+            Label warningTitle = new Label("System Under Maintenance");
+            warningTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
+            warningTitle.setStyle("-fx-text-fill: #664d03;");
+            warningTitle.setWrapText(true);
+            warningTitle.setMaxWidth(450);
+            warningTitle.setAlignment(Pos.CENTER);
+            
+            Label warningMessage = new Label("Account creation is temporarily unavailable.\nPlease try again after maintenance.");
+            warningMessage.setWrapText(true);
+            warningMessage.setMaxWidth(450);
+            warningMessage.setAlignment(Pos.CENTER);
+            warningMessage.setStyle("-fx-text-fill: #664d03; -fx-font-size: 13px; -fx-text-alignment: center;");
+            
+            maintenanceBanner.getChildren().addAll(warningIcon, warningTitle, warningMessage);
+        }
         
         // Student ID field
         VBox studentIdBox = createFieldBox("Student ID (10-12 digits)", 
@@ -107,14 +157,28 @@ public class SignupView {
         signupButton = new Button("Create Account");
         signupButton.setPrefWidth(180);
         signupButton.setPrefHeight(40);
-        signupButton.setStyle(
-            "-fx-background-color: #0969DA;" +
-            "-fx-text-fill: white;" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-cursor: hand;"
-        );
+        
+        // Disable signup button if maintenance mode is active
+        if (isMaintenanceMode) {
+            signupButton.setDisable(true);
+            signupButton.setStyle(
+                "-fx-background-color: #6E7781;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-opacity: 0.6;"
+            );
+        } else {
+            signupButton.setStyle(
+                "-fx-background-color: #0969DA;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;"
+            );
+        }
         signupButton.setOnAction(e -> handleSignup());
         
         backButton = new Button("Back to Login");
@@ -136,8 +200,14 @@ public class SignupView {
         buttonBox.getChildren().addAll(signupButton, backButton);
         
         // Add all to signup card
+        signupCard.getChildren().add(titleLabel);
+        
+        // Add maintenance banner if system is under maintenance
+        if (isMaintenanceMode && maintenanceBanner != null) {
+            signupCard.getChildren().add(maintenanceBanner);
+        }
+        
         signupCard.getChildren().addAll(
-            titleLabel,
             new Separator(),
             studentIdBox,
             firstNameBox,

@@ -1,2 +1,3 @@
 staff|staff123|John|Doe|Staff|true
 cashier|cashier123|Jane|Smith|Cashier|true
+istapa|scammer1|Karl|Luis|Staff|true

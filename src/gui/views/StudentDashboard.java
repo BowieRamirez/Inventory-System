@@ -2,13 +2,20 @@ package gui.views;
 
 import gui.controllers.StudentDashboardController;
 import gui.utils.ThemeManager;
-import student.Student;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import student.Student;
 
 /**
  * StudentDashboard - Main dashboard for student users
@@ -41,10 +48,13 @@ public class StudentDashboard {
     private Label logoLabel;
     private Label subtitleLabel;
     
+    // Track current view
+    private Runnable currentViewRefresher;
+    
     public StudentDashboard(Student student) {
         this.student = student;
         controller = new StudentDashboardController(student);
-        controller.setRefreshCallback(() -> showMyReservations());
+        controller.setRefreshCallback(() -> refreshCurrentView());
         initializeView();
     }
     
@@ -305,6 +315,7 @@ public class StudentDashboard {
         titleLabel.setText("Shop");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createShopView());
+        currentViewRefresher = this::showShop;
     }
     
     /**
@@ -314,6 +325,7 @@ public class StudentDashboard {
         titleLabel.setText("Shopping Cart");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createCartView());
+        currentViewRefresher = this::showCart;
     }
     
     /**
@@ -325,12 +337,22 @@ public class StudentDashboard {
     }
     
     /**
+     * Refresh the current view
+     */
+    private void refreshCurrentView() {
+        if (currentViewRefresher != null) {
+            currentViewRefresher.run();
+        }
+    }
+    
+    /**
      * Show my reservations view
      */
     private void showMyReservations() {
         titleLabel.setText("My Reservations");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createMyReservationsView());
+        currentViewRefresher = this::showMyReservations;
     }
     
     /**
@@ -340,6 +362,7 @@ public class StudentDashboard {
         titleLabel.setText("Claim Items");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createClaimItemsView());
+        currentViewRefresher = this::showClaimItems;
     }
     
     /**

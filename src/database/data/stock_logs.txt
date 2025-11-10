@@ -9,3 +9,7 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-09 20:49:49|Ramirez, Bowie|1095|PE White Shirt|M|+1/120|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: wrong size
 2025-11-09 20:52:50|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|+1/43|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: wrong size
 2025-11-09 20:52:50|Ramirez, Bowie|1005|IT/Eng RTW Pants (Female)|L|+1/35|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: wrong size
+2025-11-09 22:05:33|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|S|-3/77|USER_PICKUP|Student Lebron, Jims (02000242424) picked up item
+2025-11-09 22:05:33|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|M|-5/65|USER_PICKUP|Student Lebron, Jims (02000242424) picked up item
+2025-11-09 22:05:33|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-5/50|USER_PICKUP|Student Lebron, Jims (02000242424) picked up item
+2025-11-10 14:24:42|Lebron, Jims|1003|IT/Eng Gray 3/4 Blouse (Female)|M|+5/70|USER_RETURN|Student Lebron, Jims (02000242424) returned - Reason: gusto ko lang ireturn

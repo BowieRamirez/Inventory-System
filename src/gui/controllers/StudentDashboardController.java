@@ -62,16 +62,20 @@ public class StudentDashboardController {
     private static class CartItem {
         private Item item;
         private int quantity;
+        private boolean selected;
         
         public CartItem(Item item, int quantity) {
             this.item = item;
             this.quantity = quantity;
+            this.selected = true; // Default to selected
         }
         
         public Item getItem() { return item; }
         public int getQuantity() { return quantity; }
+        public boolean isSelected() { return selected; }
         @SuppressWarnings("unused")
         public void setQuantity(int quantity) { this.quantity = quantity; }
+        public void setSelected(boolean selected) { this.selected = selected; }
         
         public double getTotalPrice() {
             return item.getPrice() * quantity;
@@ -385,20 +389,22 @@ public class StudentDashboardController {
         }
         
         // Check if item already in cart
-        boolean alreadyInCart = cart.stream()
-            .anyMatch(cartItem -> cartItem.getItem().getCode() == item.getCode() && 
-                                 cartItem.getItem().getSize().equals(item.getSize()));
-        
-        if (alreadyInCart) {
-            AlertHelper.showWarning("Already in Cart", 
-                "This item is already in your cart!");
-            return;
-        }
+        CartItem existingCartItem = cart.stream()
+            .filter(cartItem -> cartItem.getItem().getCode() == item.getCode() && 
+                               cartItem.getItem().getSize().equals(item.getSize()))
+            .findFirst()
+            .orElse(null);
         
         // Show quantity selection dialog
         Dialog<Integer> dialog = new Dialog<>();
         dialog.setTitle("Add to Cart");
-        dialog.setHeaderText("Add to Cart: " + item.getName() + " (" + item.getSize() + ")");
+        
+        if (existingCartItem != null) {
+            dialog.setHeaderText("Add More: " + item.getName() + " (" + item.getSize() + ")\n" +
+                                "Currently in cart: " + existingCartItem.getQuantity());
+        } else {
+            dialog.setHeaderText("Add to Cart: " + item.getName() + " (" + item.getSize() + ")");
+        }
 
         ButtonType addButtonType = new ButtonType("Add to Cart", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
@@ -445,15 +451,30 @@ public class StudentDashboardController {
         });
 
         dialog.showAndWait().ifPresent(quantity -> {
-            CartItem cartItem = new CartItem(item, quantity);
-            cart.add(cartItem);
-            AlertHelper.showSuccess("Added to Cart", 
-                quantity + "x " + item.getName() + " (" + item.getSize() + ") added to cart!\n" +
-                "Cart items: " + cart.size());
+            if (existingCartItem != null) {
+                // Item already in cart - increment quantity
+                int newQuantity = existingCartItem.getQuantity() + quantity;
+                existingCartItem.setQuantity(newQuantity);
+                AlertHelper.showSuccess("Cart Updated", 
+                    "Added " + quantity + " more " + item.getName() + " (" + item.getSize() + ")\n" +
+                    "New quantity in cart: " + newQuantity);
+            } else {
+                // New item - add to cart
+                CartItem cartItem = new CartItem(item, quantity);
+                cart.add(cartItem);
+                AlertHelper.showSuccess("Added to Cart", 
+                    quantity + "x " + item.getName() + " (" + item.getSize() + ") added to cart!\n" +
+                    "Cart items: " + cart.size());
+            }
             
             // Update cart badge if callback is set
             if (cartUpdateCallback != null) {
                 cartUpdateCallback.run();
+            }
+            
+            // Refresh cart view to show updated quantities
+            if (refreshCallback != null) {
+                refreshCallback.run();
             }
         });
     }
@@ -594,17 +615,51 @@ public class StudentDashboardController {
             emptyBox.getChildren().addAll(emptyLabel, hintLabel);
             container.getChildren().addAll(titleLabel, emptyBox);
         } else {
+            // Select All checkbox
+            HBox selectAllBox = new HBox(10);
+            selectAllBox.setAlignment(Pos.CENTER_LEFT);
+            CheckBox selectAllCheckbox = new CheckBox("Select All");
+            selectAllCheckbox.setSelected(true); // Default all selected
+            selectAllCheckbox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold; -fx-font-size: 13px;");
+            selectAllBox.getChildren().add(selectAllCheckbox);
+            
             // Cart items list
             VBox cartItemsList = new VBox(15);
-            double totalPrice = 0;
-            int totalQuantity = 0;
+            
+            // Calculate selected items totals
+            double selectedTotalPrice = 0;
+            int selectedTotalQuantity = 0;
+            int selectedItemCount = 0;
             
             for (CartItem cartItem : cart) {
-                HBox itemRow = createCartItemRow(cartItem);
-                cartItemsList.getChildren().add(itemRow);
-                totalPrice += cartItem.getTotalPrice();
-                totalQuantity += cartItem.getQuantity();
+                if (cartItem.isSelected()) {
+                    selectedTotalPrice += cartItem.getTotalPrice();
+                    selectedTotalQuantity += cartItem.getQuantity();
+                    selectedItemCount++;
+                }
             }
+            
+            for (CartItem cartItem : cart) {
+                HBox itemRow = createCartItemRow(cartItem, () -> {
+                    // Refresh callback when item selection changes
+                    if (refreshCallback != null) {
+                        refreshCallback.run();
+                    }
+                });
+                cartItemsList.getChildren().add(itemRow);
+            }
+            
+            // Select All checkbox action
+            selectAllCheckbox.setOnAction(e -> {
+                boolean selectAll = selectAllCheckbox.isSelected();
+                for (CartItem cartItem : cart) {
+                    cartItem.setSelected(selectAll);
+                }
+                // Refresh cart view
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
+            });
             
             ScrollPane scrollPane = new ScrollPane(cartItemsList);
             scrollPane.setFitToWidth(true);
@@ -628,11 +683,11 @@ public class StudentDashboardController {
             
             HBox itemsCount = new HBox();
             itemsCount.setAlignment(Pos.CENTER_LEFT);
-            Label itemsLabel = new Label("Items:");
+            Label itemsLabel = new Label("Selected Items:");
             itemsLabel.setStyle("-fx-text-fill: -color-fg-default;");
             Region spacer1 = new Region();
             HBox.setHgrow(spacer1, Priority.ALWAYS);
-            Label itemsValue = new Label(cart.size() + " type(s), " + totalQuantity + " item(s) total");
+            Label itemsValue = new Label(selectedItemCount + " type(s), " + selectedTotalQuantity + " item(s) total");
             itemsValue.setStyle("-fx-text-fill: -color-fg-muted;");
             itemsCount.getChildren().addAll(itemsLabel, spacer1, itemsValue);
             
@@ -643,7 +698,7 @@ public class StudentDashboardController {
             totalLabel.setStyle("-fx-text-fill: -color-fg-default;");
             Region spacer2 = new Region();
             HBox.setHgrow(spacer2, Priority.ALWAYS);
-            Label totalValue = new Label("₱" + String.format("%.2f", totalPrice));
+            Label totalValue = new Label("₱" + String.format("%.2f", selectedTotalPrice));
             totalValue.setFont(Font.font("System", FontWeight.BOLD, 20));
             totalValue.setStyle("-fx-text-fill: #1A7F37;");
             totalRow.getChildren().addAll(totalLabel, spacer2, totalValue);
@@ -673,10 +728,10 @@ public class StudentDashboardController {
                 }
             });
             
-            Button reserveAllBtn = new Button("Reserve Bundle");
-            reserveAllBtn.setPrefWidth(200);
-            reserveAllBtn.setPrefHeight(40);
-            reserveAllBtn.setStyle(
+            Button reserveSelectedBtn = new Button("Reserve Selected");
+            reserveSelectedBtn.setPrefWidth(200);
+            reserveSelectedBtn.setPrefHeight(40);
+            reserveSelectedBtn.setStyle(
                 "-fx-background-color: #0969DA;" +
                 "-fx-text-fill: white;" +
                 "-fx-font-size: 14px;" +
@@ -684,9 +739,12 @@ public class StudentDashboardController {
                 "-fx-background-radius: 6px;" +
                 "-fx-cursor: hand;"
             );
-            reserveAllBtn.setOnAction(e -> handleReserveBundle());
+            reserveSelectedBtn.setOnAction(e -> handleReserveSelected());
             
-            buttonBox.getChildren().addAll(clearBtn, reserveAllBtn);
+            // Disable reserve button if no items selected
+            reserveSelectedBtn.setDisable(selectedItemCount == 0);
+            
+            buttonBox.getChildren().addAll(clearBtn, reserveSelectedBtn);
             
             summaryPanel.getChildren().addAll(
                 summaryTitle,
@@ -697,16 +755,16 @@ public class StudentDashboardController {
                 buttonBox
             );
             
-            container.getChildren().addAll(titleLabel, scrollPane, summaryPanel);
+            container.getChildren().addAll(titleLabel, selectAllBox, scrollPane, summaryPanel);
         }
         
         return container;
     }
     
     /**
-     * Create cart item row
+     * Create cart item row with selection checkbox
      */
-    private HBox createCartItemRow(CartItem cartItem) {
+    private HBox createCartItemRow(CartItem cartItem, Runnable selectionCallback) {
         HBox row = new HBox(15);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(15));
@@ -720,6 +778,16 @@ public class StudentDashboardController {
         
         Item item = cartItem.getItem();
         
+        // Selection checkbox
+        CheckBox selectCheckbox = new CheckBox();
+        selectCheckbox.setSelected(cartItem.isSelected());
+        selectCheckbox.setOnAction(e -> {
+            cartItem.setSelected(selectCheckbox.isSelected());
+            if (selectionCallback != null) {
+                selectionCallback.run();
+            }
+        });
+        
         VBox itemInfo = new VBox(5);
         Label nameLabel = new Label(item.getName());
         nameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
@@ -728,10 +796,43 @@ public class StudentDashboardController {
         Label detailsLabel = new Label("Code: " + item.getCode() + " | Size: " + item.getSize());
         detailsLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
         
-        Label qtyLabel = new Label("Quantity: " + cartItem.getQuantity() + "x");
-        qtyLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold;");
+        // Quantity control with +/- buttons
+        HBox qtyBox = new HBox(8);
+        qtyBox.setAlignment(Pos.CENTER_LEFT);
         
-        itemInfo.getChildren().addAll(nameLabel, detailsLabel, qtyLabel);
+        Label qtyTextLabel = new Label("Quantity:");
+        qtyTextLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 12px;");
+        
+        Button decreaseBtn = new Button("−");
+        decreaseBtn.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4px;" +
+            "-fx-min-width: 28px;" +
+            "-fx-min-height: 28px;" +
+            "-fx-cursor: hand;"
+        );
+        
+        Label qtyLabel = new Label(cartItem.getQuantity() + "x");
+        qtyLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 14px; -fx-font-weight: bold; -fx-min-width: 40px; -fx-alignment: center;");
+        
+        Button increaseBtn = new Button("+");
+        increaseBtn.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4px;" +
+            "-fx-min-width: 28px;" +
+            "-fx-min-height: 28px;" +
+            "-fx-cursor: hand;"
+        );
+        
+        qtyBox.getChildren().addAll(qtyTextLabel, decreaseBtn, qtyLabel, increaseBtn);
+        
+        itemInfo.getChildren().addAll(nameLabel, detailsLabel, qtyBox);
         HBox.setHgrow(itemInfo, Priority.ALWAYS);
         
         VBox priceBox = new VBox(3);
@@ -745,6 +846,46 @@ public class StudentDashboardController {
         totalPriceLabel.setStyle("-fx-text-fill: #1A7F37;");
         
         priceBox.getChildren().addAll(unitPriceLabel, totalPriceLabel);
+        
+        // Decrease quantity button action
+        decreaseBtn.setOnAction(e -> {
+            int currentQty = cartItem.getQuantity();
+            if (currentQty > 1) {
+                cartItem.setQuantity(currentQty - 1);
+                qtyLabel.setText(cartItem.getQuantity() + "x");
+                totalPriceLabel.setText("₱" + String.format("%.2f", cartItem.getTotalPrice()));
+                
+                // Update cart badge and summary
+                if (cartUpdateCallback != null) {
+                    cartUpdateCallback.run();
+                }
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
+            }
+        });
+        
+        // Increase quantity button action
+        increaseBtn.setOnAction(e -> {
+            int currentQty = cartItem.getQuantity();
+            // Check if item has enough stock
+            if (currentQty < item.getQuantity()) {
+                cartItem.setQuantity(currentQty + 1);
+                qtyLabel.setText(cartItem.getQuantity() + "x");
+                totalPriceLabel.setText("₱" + String.format("%.2f", cartItem.getTotalPrice()));
+                
+                // Update cart badge and summary
+                if (cartUpdateCallback != null) {
+                    cartUpdateCallback.run();
+                }
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
+            } else {
+                AlertHelper.showWarning("Stock Limit", 
+                    "Cannot add more. Available stock: " + item.getQuantity());
+            }
+        });
         
         Button removeBtn = new Button("✕");
         removeBtn.setStyle(
@@ -768,21 +909,26 @@ public class StudentDashboardController {
             }
         });
         
-        row.getChildren().addAll(itemInfo, priceBox, removeBtn);
+        row.getChildren().addAll(selectCheckbox, itemInfo, priceBox, removeBtn);
         return row;
     }
     
     /**
-     * Handle reserve bundle (all cart items)
+     * Handle reserve selected items only
      */
-    private void handleReserveBundle() {
-        if (cart.isEmpty()) {
-            AlertHelper.showWarning("Empty Cart", "Your cart is empty!");
+    private void handleReserveSelected() {
+        // Get only selected items
+        List<CartItem> selectedItems = cart.stream()
+            .filter(CartItem::isSelected)
+            .collect(java.util.stream.Collectors.toList());
+        
+        if (selectedItems.isEmpty()) {
+            AlertHelper.showWarning("No Items Selected", "Please select at least one item to reserve.");
             return;
         }
         
-        // Check if all items are still in stock with requested quantities
-        for (CartItem cartItem : cart) {
+        // Check if all selected items are still in stock with requested quantities
+        for (CartItem cartItem : selectedItems) {
             Item item = cartItem.getItem();
             int requestedQty = cartItem.getQuantity();
             
@@ -807,18 +953,18 @@ public class StudentDashboardController {
                     item.getName() + " (Size: " + item.getSize() + ")\n" +
                     "Requested: " + requestedQty + "x\n" +
                     "Available: " + availableQty + "x\n\n" +
-                    "Please adjust the quantity or remove it from your cart.");
+                    "Please adjust the quantity or deselect the item.");
                 return;
             }
         }
         
-        // Generate unique bundle ID only if there are multiple items (2+)
+        // Generate unique bundle ID only if there are multiple selected items (2+)
         String bundleId = null;
-        if (cart.size() > 1) {
+        if (selectedItems.size() > 1) {
             bundleId = "BUNDLE-" + student.getStudentId() + "-" + System.currentTimeMillis();
         }
         
-        // Create reservations for all cart items
+        // Create reservations for selected cart items
         int successCount = 0;
         int totalItems = 0;
         StringBuilder results = new StringBuilder();
@@ -829,7 +975,7 @@ public class StudentDashboardController {
             results.append("Reservation Results:\n\n");
         }
         
-        for (CartItem cartItem : cart) {
+        for (CartItem cartItem : selectedItems) {
             Item item = cartItem.getItem();
             int quantity = cartItem.getQuantity();
             double totalPrice = cartItem.getTotalPrice();
@@ -892,8 +1038,13 @@ public class StudentDashboardController {
             
             AlertHelper.showSuccess(title, message);
             
-            // Clear cart after successful reservation
-            clearCart();
+            // Remove only selected items from cart
+            cart.removeAll(selectedItems);
+            
+            // Update cart badge
+            if (cartUpdateCallback != null) {
+                cartUpdateCallback.run();
+            }
             
             // Refresh views
             if (refreshCallback != null) {
