@@ -3,3 +3,4 @@
 02000303030|stipin123|BSCS|stephen|curry|Male|true
 2000296625|Karl1234|BSIT|Karl Luis|Frias|Male|true
 020002992999|lolpogi123|HUMSS|wadawd|awdadawd|Male|true
+020002100000|123456|BSIT|Frigger|Junela|Female|true

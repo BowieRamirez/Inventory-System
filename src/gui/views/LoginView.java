@@ -3,27 +3,47 @@ package gui.views;
 import gui.controllers.LoginController;
 import gui.utils.GUIValidator;
 import gui.utils.ThemeManager;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
+import java.io.File;
 
 /**
  * LoginView - Login screen for the STI ProWear System
  * 
+
+        // We'll layer a blurred image behind the HBox so it extends behind the login card
+        StackPane layeredSplit = new StackPane();
+        layeredSplit.setMaxWidth(1600);
+        layeredSplit.setMaxHeight(850);
+        layeredSplit.setAlignment(Pos.CENTER_LEFT);
  * Provides a modern login interface with username/student ID input,
  * password field, role selection, and theme toggle.
  */
 public class LoginView {
     
     private VBox view;
+    private VBox rightContainer; // card container on the right
+    private VBox loginCard;      // inner form stack
+    private Label titleLabel;
     private TextField usernameField;
     private PasswordField passwordField;
     private Button loginButton;
     private Button signupButton;
-    private Button themeToggleButton;
+    private StackPane toggleSwitch;
+    private StackPane toggleCircle;
+    private Label toggleIcon;
     private LoginController controller;
     
     public LoginView() {
@@ -32,145 +52,274 @@ public class LoginView {
     }
     
     private void initializeView() {
-        // Main container - fills entire screen
-        view = new VBox(20);
+        // Root container (keeps entire scene centered)
+        view = new VBox(0);
         view.setAlignment(Pos.CENTER);
-        view.setPadding(new Insets(50));
+        view.setPadding(new Insets(30));
         view.setMaxWidth(Double.MAX_VALUE);
         view.setMaxHeight(Double.MAX_VALUE);
-        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
-        view.setStyle("-fx-background-color: " + bgColor + ";");
-        
-        // Login card container
-        VBox loginCard = new VBox(20);
-        loginCard.setAlignment(Pos.CENTER);
-        loginCard.setPadding(new Insets(40));
-        loginCard.setMaxWidth(450);
-        String cardBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "white";
-        loginCard.setStyle(
+
+        // Subtle app background (not the shirt image)
+        String bgGradient = ThemeManager.isDarkMode()
+            ? "linear-gradient(from 0% 0% to 100% 100%, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
+        view.setStyle("-fx-background-color: " + bgGradient + ";");
+
+        // Main horizontal split (two containers)
+    HBox split = new HBox();
+        split.setAlignment(Pos.CENTER);
+        split.setSpacing(0);
+        split.setMaxWidth(1400);
+        split.setMaxHeight(850);
+    // Unified shadow and rounded outer corners
+    split.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 40, 0, 0, 10);");
+    Rectangle outerClip = new Rectangle();
+    outerClip.setArcWidth(20);
+    outerClip.setArcHeight(20);
+    outerClip.widthProperty().bind(split.widthProperty());
+    outerClip.heightProperty().bind(split.heightProperty());
+    split.setClip(outerClip);
+
+        // LEFT: shirt image inside its own container (with blue gradient background)
+    StackPane leftPane = new StackPane();
+        leftPane.setPrefWidth(700);
+        leftPane.setMinHeight(720);
+        leftPane.setMaxHeight(850);
+    String leftBg = "linear-gradient(from 0% 0% to 100% 100%, #163764 0%, #1f4c86 100%)";
+    leftPane.setStyle("-fx-background-color: " + leftBg + "; -fx-background-radius: 20 0 0 20;");
+
+        try {
+            File sideImageFile = new File("src/database/data/images/NewSides2.png");
+            if (sideImageFile.exists()) {
+                Image sideImage = new Image(sideImageFile.toURI().toString(), true);
+                ImageView shirt = new ImageView(sideImage);
+                shirt.setPreserveRatio(false); // fill the entire left container
+                shirt.setSmooth(true);
+                shirt.fitWidthProperty().bind(leftPane.widthProperty());
+                shirt.fitHeightProperty().bind(leftPane.heightProperty());
+                leftPane.getChildren().add(shirt);
+                StackPane.setAlignment(shirt, Pos.CENTER);
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading side image: " + e.getMessage());
+        }
+
+        // RIGHT: form card container (white background, rounded corners, soft shadow)
+        rightContainer = new VBox();
+        rightContainer.setAlignment(Pos.TOP_CENTER);
+        rightContainer.setSpacing(20);
+        rightContainer.setPadding(new Insets(24, 24, 36, 24));
+        rightContainer.setPrefWidth(700);
+        rightContainer.setMinHeight(720);
+        rightContainer.setMaxHeight(850);
+        String cardBg = ThemeManager.isDarkMode() ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
+        rightContainer.setStyle(
             "-fx-background-color: " + cardBg + ";" +
-            "-fx-background-radius: 12px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 3);"
+            "-fx-background-radius: 0 20 20 0;"
         );
+
+        // Internal login form content
+        loginCard = new VBox(20);
+        loginCard.setAlignment(Pos.CENTER);
+        loginCard.setPadding(new Insets(10, 45, 10, 45));
+        loginCard.setMaxWidth(480);
+        loginCard.setMinWidth(380);
         
-        // Title
-        Label titleLabel = new Label("STI ProWear System");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
-        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#0969DA";
+        // Logo Section - Load STI ProWear Logo with rounded corners
+        StackPane logoContainer = new StackPane();
+        try {
+            File logoFile = new File("src/database/data/images/newLOGO.png");
+            if (logoFile.exists()) {
+                Image logoImage = new Image(logoFile.toURI().toString());
+                ImageView logoImageView = new ImageView(logoImage);
+                logoImageView.setFitWidth(160);
+                logoImageView.setFitHeight(160);
+                logoImageView.setPreserveRatio(true);
+                
+                // Apply rounded corners using clip
+                Rectangle clip = new Rectangle(160, 160);
+                clip.setArcWidth(20);
+                clip.setArcHeight(20);
+                logoImageView.setClip(clip);
+                
+                logoContainer.getChildren().add(logoImageView);
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading logo: " + e.getMessage());
+            // Fallback text logo
+            Label logoLabel = new Label("STI ProWear");
+            logoLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+            String logoColor = ThemeManager.isDarkMode() ? "#ffffff" : "#2a5298";
+            logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
+            logoContainer.getChildren().add(logoLabel);
+        }
+        
+        // Login Title
+    titleLabel = new Label("Login");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
+        String titleColor = ThemeManager.isDarkMode() ? "#ffffff" : "#1e3c72";
         titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
         
-        // Subtitle
-        Label subtitleLabel = new Label("Modern Inventory Management");
-        subtitleLabel.setFont(Font.font("System", 14));
-        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "#656D76";
-        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + ";");
-        
-        // Username/Student ID field
-        VBox usernameBox = new VBox(8);
-        Label usernameLabel = new Label("Username / Student ID");
-        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
-        usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
+        // Student ID field (changed from Email)
+        VBox usernameBox = new VBox(10);
+        Label usernameLabel = new Label("Student ID");
+        String labelColor = ThemeManager.isDarkMode() ? "#e0e0e0" : "#555555";
+        usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
         usernameField = new TextField();
-        usernameField.setPromptText("Enter username or student ID");
-        usernameField.setPrefHeight(40);
-        String fieldBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "white";
-        String fieldText = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
-        String fieldBorder = ThemeManager.isDarkMode() ? "-color-border-default" : "#D0D7DE";
+        usernameField.setPromptText("username@gmail.com");
+        usernameField.setPrefHeight(45);
+        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.9)";
+        String fieldText = ThemeManager.isDarkMode() ? "#ffffff" : "#333333";
+        String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.4)" : "rgba(46, 92, 152, 0.3)";
         usernameField.setStyle(
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
             "-fx-border-color: " + fieldBorder + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-padding: 8px;"
+            "-fx-border-width: 1.5px;" +
+            "-fx-border-radius: 10px;" +
+            "-fx-background-radius: 10px;" +
+            "-fx-padding: 12px;" +
+            "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
         );
         usernameBox.getChildren().addAll(usernameLabel, usernameField);
         
         // Password field
-        VBox passwordBox = new VBox(8);
+        VBox passwordBox = new VBox(10);
         Label passwordLabel = new Label("Password");
-        passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
+        passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
         passwordField = new PasswordField();
-        passwordField.setPromptText("Enter password");
-        passwordField.setPrefHeight(40);
+        passwordField.setPromptText("Password");
+        passwordField.setPrefHeight(45);
         passwordField.setStyle(
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
             "-fx-border-color: " + fieldBorder + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-padding: 8px;"
+            "-fx-border-width: 1.5px;" +
+            "-fx-border-radius: 10px;" +
+            "-fx-background-radius: 10px;" +
+            "-fx-padding: 12px;" +
+            "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
         );
         passwordBox.getChildren().addAll(passwordLabel, passwordField);
 
-        // Buttons container
-        HBox buttonBox = new HBox(15);
-        buttonBox.setAlignment(Pos.CENTER);
-        
-        // Login button
-        loginButton = new Button("Login");
-        loginButton.setPrefWidth(150);
-        loginButton.setPrefHeight(40);
+        // Sign in button (full width, yellow theme with glass effect)
+        loginButton = new Button("Sign in");
+        loginButton.setPrefWidth(330);
+        loginButton.setPrefHeight(50);
         loginButton.setStyle(
-            "-fx-background-color: #0969DA;" +
-            "-fx-text-fill: white;" +
-            "-fx-font-size: 14px;" +
+            "-fx-background-color: linear-gradient(to bottom, #f5c542 0%, #d4a229 100%);" +
+            "-fx-text-fill: #1e3c72;" +
+            "-fx-font-size: 15px;" +
             "-fx-font-weight: bold;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-cursor: hand;"
+            "-fx-background-radius: 12px;" +
+            "-fx-cursor: hand;" +
+            "-fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.4), 15, 0, 0, 4);"
         );
         loginButton.setOnAction(e -> handleLogin());
         
-        // Signup button
-        signupButton = new Button("Sign Up");
-        signupButton.setPrefWidth(150);
-        signupButton.setPrefHeight(40);
+        // Sign up prompt
+        HBox signupPrompt = new HBox(5);
+        signupPrompt.setAlignment(Pos.CENTER);
+        Label promptLabel = new Label("Don't have an account yet?");
+        promptLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0b0b0" : "#666666") + "; -fx-font-size: 12px;");
+        
+        signupButton = new Button("Register for free");
         signupButton.setStyle(
             "-fx-background-color: transparent;" +
-            "-fx-border-color: #0969DA;" +
-            "-fx-border-width: 2px;" +
-            "-fx-text-fill: #0969DA;" +
-            "-fx-font-size: 14px;" +
+            "-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#6fb1fc" : "#2a5298") + ";" +
+            "-fx-font-size: 12px;" +
             "-fx-font-weight: bold;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-cursor: hand;"
+            "-fx-cursor: hand;" +
+            "-fx-underline: true;" +
+            "-fx-padding: 0;"
         );
         signupButton.setOnAction(e -> handleSignup());
         
-        buttonBox.getChildren().addAll(loginButton, signupButton);
+        signupPrompt.getChildren().addAll(promptLabel, signupButton);
         
-        // Theme toggle button
-        themeToggleButton = new Button(ThemeManager.isDarkMode() ? "☀ Light Mode" : "🌙 Dark Mode");
-        themeToggleButton.setPrefHeight(35);
-        themeToggleButton.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: -color-fg-muted;" +
-            "-fx-font-size: 12px;" +
-            "-fx-cursor: hand;"
+    // Theme toggle switch (placed at top-right inside the right container)
+    // Toggle switch button (pill shape with sliding circle) - smaller
+        toggleSwitch = new StackPane();
+        toggleSwitch.setPrefWidth(90);
+        toggleSwitch.setPrefHeight(40);
+        toggleSwitch.setMaxWidth(90);
+        toggleSwitch.setMaxHeight(40);
+        
+        // Background pill - smaller
+        Region toggleBg = new Region();
+        toggleBg.setPrefWidth(90);
+        toggleBg.setPrefHeight(40);
+        String toggleBgColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to right, #2c4f7c 0%, #1a3a5c 100%)"
+            : "linear-gradient(to right, #f5e6b3 0%, #f5d76e 100%)";
+        toggleBg.setStyle(
+            "-fx-background-color: " + toggleBgColor + ";" +
+            "-fx-background-radius: 20px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 1);"
         );
-        themeToggleButton.setOnAction(e -> toggleTheme());
+        
+        // Sliding circle with icon - smaller
+        toggleCircle = new StackPane();
+        toggleCircle.setPrefWidth(34);
+        toggleCircle.setPrefHeight(34);
+        toggleCircle.setMaxWidth(34);
+        toggleCircle.setMaxHeight(34);
+        
+        String circleColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to bottom, #4da3ff 0%, #2a7fd9 100%)"
+            : "linear-gradient(to bottom, #ffcc00 0%, #f5b542 100%)";
+        toggleCircle.setStyle(
+            "-fx-background-color: " + circleColor + ";" +
+            "-fx-background-radius: 17px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0, 0, 2);"
+        );
+        
+        // Icon inside circle - smaller
+        toggleIcon = new Label(ThemeManager.isDarkMode() ? "🌙" : "☀");
+        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 14));
+        toggleIcon.setStyle("-fx-text-fill: #ffffff;");
+        toggleCircle.getChildren().add(toggleIcon);
+        
+        // Position circle based on theme
+        StackPane.setAlignment(toggleCircle, ThemeManager.isDarkMode() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        StackPane.setMargin(toggleCircle, new Insets(0, 3, 0, 3));
+        
+        toggleSwitch.getChildren().addAll(toggleBg, toggleCircle);
+        toggleSwitch.setOnMouseClicked(e -> toggleTheme());
+        toggleSwitch.setStyle("-fx-cursor: hand;");
+        
+    // Place toggle inside a header row to keep VBox structure
+    HBox toggleRow = new HBox();
+    toggleRow.setAlignment(Pos.TOP_RIGHT);
+    toggleRow.getChildren().add(toggleSwitch);
+    toggleRow.setPadding(new Insets(4, 6, 0, 6));
         
         // Add Enter key support for login
         passwordField.setOnAction(e -> handleLogin());
         
-        // Add all components to login card
+        // Assemble form
         loginCard.getChildren().addAll(
+            logoContainer,
             titleLabel,
-            subtitleLabel,
-            new Separator(),
             usernameBox,
             passwordBox,
-            buttonBox,
-            themeToggleButton
+            loginButton,
+            signupPrompt
         );
-        
-        // Add login card to main view
-        view.getChildren().add(loginCard);
+
+        rightContainer.getChildren().addAll(toggleRow, loginCard);
+
+        // Add both containers to the HBox
+        split.getChildren().addAll(leftPane, rightContainer);
+        HBox.setHgrow(leftPane, Priority.ALWAYS);
+        HBox.setHgrow(rightContainer, Priority.ALWAYS);
+
+        // Add split to root view (kept centered by view alignment)
+        view.getChildren().add(split);
     }
     
     /**
@@ -212,7 +361,40 @@ public class LoginView {
      */
     private void toggleTheme() {
         ThemeManager.toggleLightDark();
-        themeToggleButton.setText(ThemeManager.isDarkMode() ? "☀ Light Mode" : "🌙 Dark Mode");
+        
+        // Update toggle switch appearance with smooth animation
+        toggleIcon.setText(ThemeManager.isDarkMode() ? "🌙" : "☀");
+        
+        // Animate circle position smoothly
+        double targetX = ThemeManager.isDarkMode() ? 53 : 3; // Right: 53, Left: 3
+        Timeline slideAnimation = new Timeline(
+            new KeyFrame(Duration.millis(300), 
+                new KeyValue(toggleCircle.translateXProperty(), targetX - toggleCircle.getLayoutX())
+            )
+        );
+        slideAnimation.play();
+        
+        // Update circle color with fade
+        String circleColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to bottom, #4da3ff 0%, #2a7fd9 100%)"
+            : "linear-gradient(to bottom, #ffcc00 0%, #f5b542 100%)";
+        toggleCircle.setStyle(
+            "-fx-background-color: " + circleColor + ";" +
+            "-fx-background-radius: 17px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0, 0, 2);"
+        );
+        
+        // Update background color
+        Region toggleBg = (Region) toggleSwitch.getChildren().get(0);
+        String toggleBgColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to right, #2c4f7c 0%, #1a3a5c 100%)"
+            : "linear-gradient(to right, #f5e6b3 0%, #f5d76e 100%)";
+        toggleBg.setStyle(
+            "-fx-background-color: " + toggleBgColor + ";" +
+            "-fx-background-radius: 20px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 1);"
+        );
+        
         updateTheme();
     }
     
@@ -220,77 +402,78 @@ public class LoginView {
      * Update all theme-dependent colors
      */
     private void updateTheme() {
-        // Update main background
-        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#0969DA";
-        view.setStyle("-fx-background-color: " + bgColor + ";");
+        // Update main background gradient - JavaFX style
+        String bgGradient = ThemeManager.isDarkMode() 
+            ? "linear-gradient(from 0% 0% to 100% 100%, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
+        view.setStyle("-fx-background-color: " + bgGradient + ";");
         
-        // Update login card
-        VBox loginCard = (VBox) view.getChildren().get(0);
-        String cardBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "white";
-        loginCard.setStyle(
-            "-fx-background-color: " + cardBg + ";" +
-            "-fx-background-radius: 12px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 3);"
-        );
+        // Update right container background and card look
+        String cardBg = ThemeManager.isDarkMode() ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
+        if (rightContainer != null) {
+            rightContainer.setStyle(
+                "-fx-background-color: " + cardBg + ";" +
+                "-fx-background-radius: 20px;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.30), 28, 0, 0, 10);"
+            );
+        }
         
         // Update title
-        Label titleLabel = (Label) loginCard.getChildren().get(0);
-        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#0969DA";
-        titleLabel.setStyle("-fx-text-fill: " + titleColor + "; -fx-font-size: 28px; -fx-font-weight: bold;");
-        
-        // Update subtitle
-        Label subtitleLabel = (Label) loginCard.getChildren().get(1);
-        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "#656D76";
-        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 14px;");
+        String titleColor = ThemeManager.isDarkMode() ? "#ffffff" : "#1e3c72";
+        titleLabel.setStyle("-fx-text-fill: " + titleColor + "; -fx-font-size: 32px; -fx-font-weight: bold;");
         
         // Update labels
-        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
-        VBox usernameBox = (VBox) loginCard.getChildren().get(3);
+        String labelColor = ThemeManager.isDarkMode() ? "#e0e0e0" : "#555555";
+        VBox usernameBox = (VBox) loginCard.getChildren().get(2);
         Label usernameLabel = (Label) usernameBox.getChildren().get(0);
-        usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
+        usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
         
-        VBox passwordBox = (VBox) loginCard.getChildren().get(4);
+        VBox passwordBox = (VBox) loginCard.getChildren().get(3);
         Label passwordLabel = (Label) passwordBox.getChildren().get(0);
-        passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-weight: bold;");
+        passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
         
-        // Update text fields
-        String fieldBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "white";
-        String fieldText = ThemeManager.isDarkMode() ? "-color-fg-default" : "#1F2328";
-        String fieldBorder = ThemeManager.isDarkMode() ? "-color-border-default" : "#D0D7DE";
+        // Update text fields with glass effect
+        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.9)";
+        String fieldText = ThemeManager.isDarkMode() ? "#ffffff" : "#333333";
+        String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.4)" : "rgba(46, 92, 152, 0.3)";
         usernameField.setStyle(
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
             "-fx-border-color: " + fieldBorder + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-padding: 8px;"
+            "-fx-border-width: 1.5px;" +
+            "-fx-border-radius: 10px;" +
+            "-fx-background-radius: 10px;" +
+            "-fx-padding: 12px;" +
+            "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
         );
         passwordField.setStyle(
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
             "-fx-border-color: " + fieldBorder + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-padding: 8px;"
+            "-fx-border-width: 1.5px;" +
+            "-fx-border-radius: 10px;" +
+            "-fx-background-radius: 10px;" +
+            "-fx-padding: 12px;" +
+            "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
         );
         
-        // Update signup button
-        String signupBorder = ThemeManager.isDarkMode() ? "-color-accent-fg" : "#0969DA";
-        String signupText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "#0969DA";
+        // Update signup prompt (index 5 - after login button)
+        HBox signupPrompt = (HBox) loginCard.getChildren().get(5);
+        Label promptLabel = (Label) signupPrompt.getChildren().get(0);
+        promptLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0b0b0" : "#666666") + "; -fx-font-size: 12px;");
+        
         signupButton.setStyle(
             "-fx-background-color: transparent;" +
-            "-fx-border-color: " + signupBorder + ";" +
-            "-fx-border-width: 2px;" +
-            "-fx-text-fill: " + signupText + ";" +
-            "-fx-font-size: 14px;" +
+            "-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#6fb1fc" : "#2a5298") + ";" +
+            "-fx-font-size: 12px;" +
             "-fx-font-weight: bold;" +
-            "-fx-background-radius: 6px;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-cursor: hand;"
+            "-fx-cursor: hand;" +
+            "-fx-underline: true;" +
+            "-fx-padding: 0;"
         );
     }
     
