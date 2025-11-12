@@ -89,12 +89,17 @@ public class LoginController {
         }
 
         // Try to authenticate as Staff or Cashier
-        Staff staff = authenticateStaff(username, password);
-        if (staff != null) {
-            SystemLogger.logLogin(username, staff.getRole());
+        AuthResult staffResult = authenticateStaff(username, password);
+        if (staffResult.isDeactivated) {
+            AlertHelper.showInfo("Account Deactivated", 
+                "Your account has been deactivated. Please contact the administrator.");
+            return;
+        }
+        if (staffResult.staff != null) {
+            SystemLogger.logLogin(username, staffResult.staff.getRole());
             
             // Navigate to appropriate dashboard based on role
-            if ("Cashier".equals(staff.getRole())) {
+            if ("Cashier".equals(staffResult.staff.getRole())) {
                 navigateToCashierDashboard();
             } else {
                 navigateToStaffDashboard();
@@ -103,10 +108,15 @@ public class LoginController {
         }
 
         // Try to authenticate as Student
-        Student student = authenticateStudent(username, password);
-        if (student != null) {
+        AuthResult studentResult = authenticateStudent(username, password);
+        if (studentResult.isDeactivated) {
+            AlertHelper.showInfo("Account Deactivated", 
+                "Your account has been deactivated. Please contact the administrator.");
+            return;
+        }
+        if (studentResult.student != null) {
             SystemLogger.logLogin(username, "Student");
-            navigateToStudentDashboard(student);
+            navigateToStudentDashboard(studentResult.student);
             return;
         }
 
@@ -126,9 +136,9 @@ public class LoginController {
     /**
      * Authenticate staff user (includes both Staff and Cashier roles)
      * 
-     * @return The authenticated Staff object, or null if authentication fails
+     * @return AuthResult containing staff object and deactivation status
      */
-    private Staff authenticateStaff(String staffId, String password) {
+    private AuthResult authenticateStaff(String staffId, String password) {
         // Find staff by ID
         for (Staff staff : staffList) {
             if (staff.getStaffId().equals(staffId) && 
@@ -136,27 +146,25 @@ public class LoginController {
                 
                 // Check if account is active
                 if (!staff.isActive()) {
-                    AlertHelper.showError("Account Deactivated", 
-                        "Your account has been deactivated. Please contact the administrator.");
-                    return null;
+                    return new AuthResult(null, true, null);
                 }
                 
-                return staff;
+                return new AuthResult(staff, false, null);
             }
         }
         
-        return null;
+        return new AuthResult(null, false, null);
     }
     
     /**
      * Authenticate student user
      * 
-     * @return The authenticated Student object, or null if authentication fails
+     * @return AuthResult containing student object and deactivation status
      */
-    private Student authenticateStudent(String studentId, String password) {
+    private AuthResult authenticateStudent(String studentId, String password) {
         // Validate student ID format
         if (!GUIValidator.isValidStudentId(studentId)) {
-            return null;
+            return new AuthResult(null, false, null);
         }
         
         // Find student by ID
@@ -166,16 +174,14 @@ public class LoginController {
                 
                 // Check if account is active
                 if (!student.isActive()) {
-                    AlertHelper.showError("Account Deactivated", 
-                        "Your account has been deactivated. Please contact the administrator.");
-                    return null;
+                    return new AuthResult(null, true, null);
                 }
                 
-                return student;
+                return new AuthResult(null, false, student);
             }
         }
         
-        return null;
+        return new AuthResult(null, false, null);
     }
     
     /**
@@ -228,6 +234,21 @@ public class LoginController {
         SignupView signupView = new SignupView();
         Scene scene = new Scene(signupView.getView(), 1920, 1025);
         SceneManager.setScene(scene);
+    }
+    
+    /**
+     * Helper class to hold authentication results
+     */
+    private static class AuthResult {
+        Staff staff;
+        Student student;
+        boolean isDeactivated;
+        
+        AuthResult(Staff staff, boolean isDeactivated, Student student) {
+            this.staff = staff;
+            this.isDeactivated = isDeactivated;
+            this.student = student;
+        }
     }
 }
 
