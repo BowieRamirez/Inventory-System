@@ -7,6 +7,8 @@ import gui.utils.ThemeManager;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -264,22 +266,40 @@ public class SignupView {
         );
         lastNameBox.getChildren().addAll(lastNameLabel, lastNameField);
         
-        // Course ComboBox
+        // Course ComboBox - With separate search bar (NO FilteredList)
         VBox courseBox = new VBox(5);
         Label courseLabel = new Label("Course");
         courseLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
-        courseComboBox = new ComboBox<>();
-        courseComboBox.setPromptText("Select Course");
-        // Add SHS and Tertiary courses from InputValidator
-        courseComboBox.getItems().addAll(
+        
+        // Create observable list
+        ObservableList<String> courseItems = FXCollections.observableArrayList(
             // Senior High School (SHS)
-            "ABM", "STEM", "HUMSS", "TVL-ICT", "TVL-TO", "TVL-CA",
+            "Accountancy, Business, and Management",
+            "Science, Technology, Engineering, and Mathematics",
+            "Humanities and Social Sciences",
+            "IT in Mobile App and Web Development",
+            "Tourism Operations",
+            "Culinary Arts",
             // Tertiary Courses
-            "BSCS", "BSIT", "BSCpE", "BSBA", "BSA", "BSHM", "BMMA", "BSTM"
+            "Bachelor of Science in Computer Science (BSCS)",
+            "Bachelor of Science in Information Technology (BSIT)",
+            "Bachelor of Science in Computer Engineering (BSCpE)",
+            "Bachelor of Science in Business Administration (BSBA)",
+            "Bachelor of Science in Accountancy (BSA)",
+            "Bachelor of Science in Hospitality Management (BSHM)",
+            "Bachelor of Multimedia Arts (BMMA)",
+            "Bachelor of Science in Tourism Management (BSTM)"
         );
+        
+        // Editable ComboBox
+        courseComboBox = new ComboBox<>(courseItems);
+        courseComboBox.setPromptText("Search courses...");
+        courseComboBox.setEditable(true);
         courseComboBox.setMaxWidth(Double.MAX_VALUE);
         courseComboBox.setPrefHeight(45);
-        courseComboBox.setStyle(
+        
+        // Enhanced styling for course ComboBox
+        String comboBoxStyle = 
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
@@ -287,22 +307,70 @@ public class SignupView {
             "-fx-border-width: 1.5px;" +
             "-fx-border-radius: 10px;" +
             "-fx-background-radius: 10px;" +
-            "-fx-padding: 12px;" +
+            "-fx-padding: 0px;" +
             "-fx-prompt-text-fill: " + promptTextColor + ";" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);" +
+            "-fx-popup-hide-animation-duration: 0ms;" +
+            "-fx-control-inner-background: " + fieldBg + ";" +
+            "-fx-cell-padding: 4;" +
+            "-fx-focus-color: " + (ThemeManager.isDarkMode() ? "rgba(107, 182, 255, 0.3)" : "rgba(42, 82, 152, 0.2)") + ";" +
+            "-fx-faint-focus-color: " + (ThemeManager.isDarkMode() ? "rgba(107, 182, 255, 0.15)" : "rgba(42, 82, 152, 0.1)") + ";"
+        ;
+        courseComboBox.setStyle(comboBoxStyle);
+        
+        // Style the editor as search field with icon
+        courseComboBox.getEditor().setStyle(
+            "-fx-font-size: 14px;" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-background-color: transparent;" +
+            "-fx-padding: 12px 12px 12px 40px;" +
+            "-fx-focus-color: transparent;" +
+            "-fx-faint-focus-color: transparent;"
         );
+        
+        // Store original items for reset
+        final ObservableList<String> allCourses = FXCollections.observableArrayList(courseItems);
+        
+        // Filter as user types
+        courseComboBox.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isEmpty()) {
+                courseComboBox.setItems(allCourses);
+            } else {
+                ObservableList<String> filtered = FXCollections.observableArrayList(
+                    allCourses.stream()
+                        .filter(c -> c.toLowerCase().contains(newVal.toLowerCase()))
+                        .toList()
+                );
+                courseComboBox.setItems(filtered);
+                courseComboBox.show();
+            }
+        });
+        
+        // When dropdown shows, reset to all items and focus editor
+        courseComboBox.setOnShowing(e -> {
+            courseComboBox.setItems(allCourses);
+            courseComboBox.getEditor().requestFocus();
+        });
+        
         courseBox.getChildren().addAll(courseLabel, courseComboBox);
         
-        // Gender ComboBox
+        // Gender ComboBox - Editable with search
         VBox genderBox = new VBox(5);
         Label genderLabel = new Label("Gender");
         genderLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
-        genderComboBox = new ComboBox<>();
-        genderComboBox.setPromptText("Select Gender");
-        genderComboBox.getItems().addAll("Male", "Female", "Other");
+        
+        // Create observable list
+        ObservableList<String> genderItems = FXCollections.observableArrayList("Male", "Female", "Other");
+        
+        // Editable ComboBox
+        genderComboBox = new ComboBox<>(genderItems);
+        genderComboBox.setPromptText("Search gender...");
+        genderComboBox.setEditable(true);
         genderComboBox.setMaxWidth(Double.MAX_VALUE);
         genderComboBox.setPrefHeight(45);
-        genderComboBox.setStyle(
+        
+        // Enhanced styling for gender ComboBox
+        String genderComboBoxStyle = 
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
@@ -310,10 +378,51 @@ public class SignupView {
             "-fx-border-width: 1.5px;" +
             "-fx-border-radius: 10px;" +
             "-fx-background-radius: 10px;" +
-            "-fx-padding: 12px;" +
+            "-fx-padding: 0px;" +
             "-fx-prompt-text-fill: " + promptTextColor + ";" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);" +
+            "-fx-popup-hide-animation-duration: 0ms;" +
+            "-fx-control-inner-background: " + fieldBg + ";" +
+            "-fx-cell-padding: 4;" +
+            "-fx-focus-color: " + (ThemeManager.isDarkMode() ? "rgba(107, 182, 255, 0.3)" : "rgba(42, 82, 152, 0.2)") + ";" +
+            "-fx-faint-focus-color: " + (ThemeManager.isDarkMode() ? "rgba(107, 182, 255, 0.15)" : "rgba(42, 82, 152, 0.1)") + ";"
+        ;
+        genderComboBox.setStyle(genderComboBoxStyle);
+        
+        // Style the editor as search field
+        genderComboBox.getEditor().setStyle(
+            "-fx-font-size: 14px;" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-background-color: transparent;" +
+            "-fx-padding: 12px 12px 12px 40px;" +
+            "-fx-focus-color: transparent;" +
+            "-fx-faint-focus-color: transparent;"
         );
+        
+        // Store original items for reset
+        final ObservableList<String> allGenders = FXCollections.observableArrayList(genderItems);
+        
+        // Filter as user types
+        genderComboBox.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isEmpty()) {
+                genderComboBox.setItems(allGenders);
+            } else {
+                ObservableList<String> filtered = FXCollections.observableArrayList(
+                    allGenders.stream()
+                        .filter(g -> g.toLowerCase().contains(newVal.toLowerCase()))
+                        .toList()
+                );
+                genderComboBox.setItems(filtered);
+                genderComboBox.show();
+            }
+        });
+        
+        // When dropdown shows, reset to all items and focus editor
+        genderComboBox.setOnShowing(e -> {
+            genderComboBox.setItems(allGenders);
+            genderComboBox.getEditor().requestFocus();
+        });
+        
         genderBox.getChildren().addAll(genderLabel, genderComboBox);
         
         // Password field
@@ -417,49 +526,52 @@ public class SignupView {
         
         // Theme Toggle Switch (Icon Only, Top Right) - MATCHES LOGIN
         toggleSwitch = new StackPane();
-        toggleSwitch.setPrefWidth(90);
-        toggleSwitch.setPrefHeight(90);
-        toggleSwitch.setMaxWidth(90);
-        toggleSwitch.setMaxHeight(90);
+        toggleSwitch.setPrefWidth(70);
+        toggleSwitch.setPrefHeight(32);
+        toggleSwitch.setMaxWidth(70);
+        toggleSwitch.setMaxHeight(32);
         
         // Background pill
         Region toggleBg = new Region();
-        toggleBg.setPrefWidth(90);
-        toggleBg.setPrefHeight(90);
+        toggleBg.setPrefWidth(70);
+        toggleBg.setPrefHeight(32);
         String toggleBgColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to right, #2c4f7c 0%, #1a3a5c 100%)"
-            : "linear-gradient(to right, #f5e6b3 0%, #f5d76e 100%)";
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
         toggleBg.setStyle(
             "-fx-background-color: " + toggleBgColor + ";" +
-            "-fx-background-radius: 20px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 1);"
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
         );
         
         // Sliding circle with icon
         toggleCircle = new StackPane();
-        toggleCircle.setPrefWidth(34);
-        toggleCircle.setPrefHeight(34);
-        toggleCircle.setMaxWidth(34);
-        toggleCircle.setMaxHeight(34);
+        toggleCircle.setPrefWidth(26);
+        toggleCircle.setPrefHeight(26);
+        toggleCircle.setMaxWidth(26);
+        toggleCircle.setMaxHeight(26);
         
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to bottom, #4da3ff 0%, #2a7fd9 100%)"
-            : "linear-gradient(to bottom, #ffcc00 0%, #f5b542 100%)";
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
-            "-fx-background-radius: 17px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0, 0, 2);"
+            "-fx-background-radius: 13px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
         );
         
         // Icon inside circle
         toggleIcon = new Label(ThemeManager.isDarkMode() ? "🌙" : "☀");
-        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 14));
-        toggleIcon.setStyle("-fx-text-fill: #ffffff;");
+        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 12));
+        toggleIcon.setStyle("-fx-text-fill: #000000;");
         toggleCircle.getChildren().add(toggleIcon);
         
         // Position circle based on theme (MATCHES LOGIN)
         StackPane.setAlignment(toggleCircle, ThemeManager.isDarkMode() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-        StackPane.setMargin(toggleCircle, new Insets(0, 3, 0, 3));
+        StackPane.setMargin(toggleCircle, new Insets(0, 2, 0, 2));
         
     toggleSwitch.getChildren().addAll(toggleBg, toggleCircle);
     toggleSwitch.setOnMouseClicked(e -> toggleTheme());
@@ -505,34 +617,38 @@ public class SignupView {
         // Update toggle switch appearance with smooth animation
         toggleIcon.setText(ThemeManager.isDarkMode() ? "🌙" : "☀");
         
-        // Animate circle position smoothly
-        double targetX = ThemeManager.isDarkMode() ? 53 : 3; // Right: 53, Left: 3
+        // Animate circle position smoothly with ease-out effect
+        double targetX = ThemeManager.isDarkMode() ? 44 : 2; // Right: 44, Left: 2
         Timeline slideAnimation = new Timeline(
-            new KeyFrame(Duration.millis(300), 
+            new KeyFrame(Duration.millis(400), 
                 new KeyValue(toggleCircle.translateXProperty(), targetX - toggleCircle.getLayoutX())
             )
         );
+        slideAnimation.setCycleCount(1);
         slideAnimation.play();
         
-        // Update circle color with fade
+        // Update circle color with improved gradient
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to bottom, #4da3ff 0%, #2a7fd9 100%)"
-            : "linear-gradient(to bottom, #ffcc00 0%, #f5b542 100%)";
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
-            "-fx-background-radius: 17px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0, 0, 2);"
+            "-fx-background-radius: 13px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
         );
         
-        // Update background color
+        // Update background color with better styling
         Region toggleBg = (Region) toggleSwitch.getChildren().get(0);
         String toggleBgColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to right, #2c4f7c 0%, #1a3a5c 100%)"
-            : "linear-gradient(to right, #f5e6b3 0%, #f5d76e 100%)";
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
         toggleBg.setStyle(
             "-fx-background-color: " + toggleBgColor + ";" +
-            "-fx-background-radius: 20px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 1);"
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
         );
         
         updateTheme();

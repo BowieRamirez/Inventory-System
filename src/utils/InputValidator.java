@@ -6,11 +6,23 @@ import java.util.List;
 public class InputValidator {
 
     private static final String[] SHS_COURSES = {
-        "ABM", "STEM", "HUMSS", "TVL-ICT", "TVL-TO", "TVL-CA"
+        "Accountancy, Business, and Management",
+        "Science, Technology, Engineering, and Mathematics",
+        "Humanities and Social Sciences",
+        "IT in Mobile App and Web Development",
+        "Tourism Operations",
+        "Culinary Arts"
     };
 
     private static final String[] TERTIARY_COURSES = {
-        "BSCS", "BSIT", "BSCpE", "BSBA", "BSA", "BSHM", "BMMA", "BSTM"
+        "Bachelor of Science in Computer Science (BSCS)",
+        "Bachelor of Science in Information Technology (BSIT)",
+        "Bachelor of Science in Computer Engineering (BSCpE)",
+        "Bachelor of Science in Business Administration (BSBA)",
+        "Bachelor of Science in Accountancy (BSA)",
+        "Bachelor of Science in Hospitality Management (BSHM)",
+        "Bachelor of Multimedia Arts (BMMA)",
+        "Bachelor of Science in Tourism Management (BSTM)"
     };
 
     private static final String[] VALID_SIZES = {

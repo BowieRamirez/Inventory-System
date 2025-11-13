@@ -234,7 +234,7 @@ public class LoginView {
         Label promptLabel = new Label("Don't have an account yet?");
         promptLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0b0b0" : "#666666") + "; -fx-font-size: 12px;");
         
-        signupButton = new Button("Register for free");
+        signupButton = new Button("Sign up");
         signupButton.setStyle(
             "-fx-background-color: transparent;" +
             "-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#6fb1fc" : "#2a5298") + ";" +
@@ -251,49 +251,52 @@ public class LoginView {
     // Theme toggle switch (placed at top-right inside the right container)
     // Toggle switch button (pill shape with sliding circle) - smaller
         toggleSwitch = new StackPane();
-        toggleSwitch.setPrefWidth(90);
-        toggleSwitch.setPrefHeight(40);
-        toggleSwitch.setMaxWidth(90);
-        toggleSwitch.setMaxHeight(40);
+        toggleSwitch.setPrefWidth(70);
+        toggleSwitch.setPrefHeight(32);
+        toggleSwitch.setMaxWidth(70);
+        toggleSwitch.setMaxHeight(32);
         
         // Background pill - smaller
         Region toggleBg = new Region();
-        toggleBg.setPrefWidth(90);
-        toggleBg.setPrefHeight(40);
+        toggleBg.setPrefWidth(70);
+        toggleBg.setPrefHeight(32);
         String toggleBgColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to right, #2c4f7c 0%, #1a3a5c 100%)"
-            : "linear-gradient(to right, #f5e6b3 0%, #f5d76e 100%)";
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
         toggleBg.setStyle(
             "-fx-background-color: " + toggleBgColor + ";" +
-            "-fx-background-radius: 20px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 1);"
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
         );
         
         // Sliding circle with icon - smaller
         toggleCircle = new StackPane();
-        toggleCircle.setPrefWidth(34);
-        toggleCircle.setPrefHeight(34);
-        toggleCircle.setMaxWidth(34);
-        toggleCircle.setMaxHeight(34);
+        toggleCircle.setPrefWidth(26);
+        toggleCircle.setPrefHeight(26);
+        toggleCircle.setMaxWidth(26);
+        toggleCircle.setMaxHeight(26);
         
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to bottom, #4da3ff 0%, #2a7fd9 100%)"
-            : "linear-gradient(to bottom, #ffcc00 0%, #f5b542 100%)";
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
-            "-fx-background-radius: 17px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0, 0, 2);"
+            "-fx-background-radius: 13px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
         );
         
         // Icon inside circle - smaller
         toggleIcon = new Label(ThemeManager.isDarkMode() ? "🌙" : "☀");
-        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 14));
-        toggleIcon.setStyle("-fx-text-fill: #ffffff;");
+        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 12));
+        toggleIcon.setStyle("-fx-text-fill: #000000;");
         toggleCircle.getChildren().add(toggleIcon);
         
         // Position circle based on theme
         StackPane.setAlignment(toggleCircle, ThemeManager.isDarkMode() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-        StackPane.setMargin(toggleCircle, new Insets(0, 3, 0, 3));
+        StackPane.setMargin(toggleCircle, new Insets(0, 2, 0, 2));
         
         toggleSwitch.getChildren().addAll(toggleBg, toggleCircle);
         toggleSwitch.setOnMouseClicked(e -> toggleTheme());
@@ -372,34 +375,38 @@ public class LoginView {
         // Update toggle switch appearance with smooth animation
         toggleIcon.setText(ThemeManager.isDarkMode() ? "🌙" : "☀");
         
-        // Animate circle position smoothly
-        double targetX = ThemeManager.isDarkMode() ? 53 : 3; // Right: 53, Left: 3
+        // Animate circle position smoothly with ease-out effect
+        double targetX = ThemeManager.isDarkMode() ? 44 : 2; // Right: 44, Left: 2
         Timeline slideAnimation = new Timeline(
-            new KeyFrame(Duration.millis(300), 
+            new KeyFrame(Duration.millis(400), 
                 new KeyValue(toggleCircle.translateXProperty(), targetX - toggleCircle.getLayoutX())
             )
         );
+        slideAnimation.setCycleCount(1);
         slideAnimation.play();
         
-        // Update circle color with fade
+        // Update circle color with improved gradient
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to bottom, #4da3ff 0%, #2a7fd9 100%)"
-            : "linear-gradient(to bottom, #ffcc00 0%, #f5b542 100%)";
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 17px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0, 0, 2);"
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
         );
         
-        // Update background color
+        // Update background color with better styling
         Region toggleBg = (Region) toggleSwitch.getChildren().get(0);
         String toggleBgColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(to right, #2c4f7c 0%, #1a3a5c 100%)"
-            : "linear-gradient(to right, #f5e6b3 0%, #f5d76e 100%)";
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
         toggleBg.setStyle(
             "-fx-background-color: " + toggleBgColor + ";" +
-            "-fx-background-radius: 20px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 1);"
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
         );
         
         updateTheme();
