@@ -348,10 +348,10 @@ public class SignupView {
         // Create observable list
         ObservableList<String> genderItems = FXCollections.observableArrayList("Male", "Female", "Other");
         
-        // Editable ComboBox
+        // Non-editable ComboBox (no search)
         genderComboBox = new ComboBox<>(genderItems);
-        genderComboBox.setPromptText("Search gender...");
-        genderComboBox.setEditable(true);
+        genderComboBox.setPromptText("Select gender...");
+        genderComboBox.setEditable(false);
         genderComboBox.setMaxWidth(Double.MAX_VALUE);
         genderComboBox.setPrefHeight(45);
         
@@ -375,24 +375,9 @@ public class SignupView {
         ;
         genderComboBox.setStyle(genderComboBoxStyle);
         
-        // Style the editor as search field
-        genderComboBox.getEditor().setStyle(
-            "-fx-font-size: 14px;" +
-            "-fx-text-fill: " + fieldText + ";" +
-            "-fx-background-color: transparent;" +
-            "-fx-padding: 12px 12px 12px 40px;" +
-            "-fx-focus-color: transparent;" +
-            "-fx-faint-focus-color: transparent;"
-        );
-
-        // Attach searchable behavior with autocomplete
-        final ObservableList<String> allGenders = FXCollections.observableArrayList(genderItems);
-        attachSearchableComboBox(genderComboBox, allGenders);
-
-        // Wrap with left search icon overlay so it renders inside the field
-        StackPane genderField = wrapWithSearchIcon(genderComboBox, fieldText);
+        // No editor styling or search behavior for gender
         
-        genderBox.getChildren().addAll(genderLabel, genderField);
+        genderBox.getChildren().addAll(genderLabel, genderComboBox);
         
         // Password field
         VBox passwordBox = new VBox(5);
