@@ -328,21 +328,17 @@ public class SignupView {
             "-fx-faint-focus-color: transparent;"
         );
         
-        // Add search icon using a Label overlay
-        Label courseSearchIcon = new Label("🔍");
-        courseSearchIcon.setStyle(
-            "-fx-font-size: 16px;" +
-            "-fx-padding: 0 10px;" +
-            "-fx-text-fill: " + fieldText + ";"
-        );
+        // The editor has left padding to make space for the icon overlay
         
         // Store original items for reset
         final ObservableList<String> allCourses = FXCollections.observableArrayList(courseItems);
         
         // Attach searchable behavior with autocomplete
         attachSearchableComboBox(courseComboBox, allCourses);
-        
-        courseBox.getChildren().addAll(courseLabel, courseComboBox);
+
+        // Wrap with left search icon overlay so it renders inside the field
+        StackPane courseField = wrapWithSearchIcon(courseComboBox, fieldText);
+        courseBox.getChildren().addAll(courseLabel, courseField);
         
         // Gender ComboBox - Editable with search
         VBox genderBox = new VBox(5);
@@ -393,17 +389,10 @@ public class SignupView {
         final ObservableList<String> allGenders = FXCollections.observableArrayList(genderItems);
         attachSearchableComboBox(genderComboBox, allGenders);
 
-        // Add search icon using a Label overlay (icon is created here to keep parity with course)
-        Label genderSearchIcon = new Label("🔍");
-        genderSearchIcon.setStyle(
-            "-fx-font-size: 16px;" +
-            "-fx-padding: 0 10px;" +
-            "-fx-text-fill: " + fieldText + ";"
-        );
-
-        // Note: The icon label is styled for consistency; actual overlay is managed by control skin.
+        // Wrap with left search icon overlay so it renders inside the field
+        StackPane genderField = wrapWithSearchIcon(genderComboBox, fieldText);
         
-        genderBox.getChildren().addAll(genderLabel, genderComboBox);
+        genderBox.getChildren().addAll(genderLabel, genderField);
         
         // Password field
         VBox passwordBox = new VBox(5);
@@ -824,6 +813,24 @@ public class SignupView {
                 combo.getEditor().setText(nv);
             }
         });
+    }
+
+    // Wrap ComboBox with a left-aligned search icon overlay
+    private StackPane wrapWithSearchIcon(ComboBox<String> combo, String textColor) {
+        StackPane container = new StackPane();
+        container.getChildren().add(combo);
+
+        Label icon = new Label("🔍");
+        icon.setStyle(
+            "-fx-font-size: 16px;" +
+            "-fx-text-fill: " + textColor + ";"
+        );
+        icon.setMouseTransparent(true);
+        StackPane.setAlignment(icon, javafx.geometry.Pos.CENTER_LEFT);
+        StackPane.setMargin(icon, new javafx.geometry.Insets(0, 0, 0, 12));
+        container.getChildren().add(icon);
+
+        return container;
     }
 }
 
