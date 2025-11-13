@@ -294,13 +294,18 @@ public class StudentDashboard {
         MenuItem accountInfoItem = new MenuItem("Account Info");
         accountInfoItem.setStyle("-fx-font-size: 13px;");
         accountInfoItem.setOnAction(e -> showAccountDetails());
-        
+
+        // Change Password menu item
+        MenuItem changePasswordItem = new MenuItem("Change Password");
+        changePasswordItem.setStyle("-fx-font-size: 13px;");
+        changePasswordItem.setOnAction(e -> controller.openChangePasswordDialog());
+
         // Logout menu item
         MenuItem logoutItem = new MenuItem("Logout");
         logoutItem.setStyle("-fx-font-size: 13px; -fx-text-fill: #CF222E;");
         logoutItem.setOnAction(e -> controller.handleLogout());
         
-        accountMenu.getItems().addAll(accountInfoItem, logoutItem);
+        accountMenu.getItems().addAll(accountInfoItem, changePasswordItem, logoutItem);
         
         // Show menu when account button is clicked
         accountBtn.setOnAction(e -> {

@@ -2673,7 +2673,7 @@ public class StudentDashboardController {
             "-fx-cursor: hand;" +
             "-fx-padding: 10 20;"
         );
-        changePasswordBtn.setOnAction(e -> handleChangePassword());
+        changePasswordBtn.setOnAction(e -> openChangePasswordDialog());
 
         HBox buttonBox = new HBox(changePasswordBtn);
         buttonBox.setPadding(new Insets(20, 0, 0, 0));
@@ -2685,9 +2685,10 @@ public class StudentDashboardController {
     }
 
     /**
-     * Handle change password
+     * Expose change password dialog for Account menu
+     * (also used by the Profile view button)
      */
-    private void handleChangePassword() {
+    public void openChangePasswordDialog() {
         Dialog<String> dialog = new Dialog<>();
         dialog.setTitle("Change Password");
         dialog.setHeaderText("Enter your new password");
