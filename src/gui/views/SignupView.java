@@ -328,6 +328,14 @@ public class SignupView {
             "-fx-faint-focus-color: transparent;"
         );
         
+        // Add search icon using a Label overlay
+        Label courseSearchIcon = new Label("🔍");
+        courseSearchIcon.setStyle(
+            "-fx-font-size: 16px;" +
+            "-fx-padding: 0 10px;" +
+            "-fx-text-fill: " + fieldText + ";"
+        );
+        
         // Store original items for reset
         final ObservableList<String> allCourses = FXCollections.observableArrayList(courseItems);
         
@@ -397,6 +405,14 @@ public class SignupView {
             "-fx-padding: 12px 12px 12px 40px;" +
             "-fx-focus-color: transparent;" +
             "-fx-faint-focus-color: transparent;"
+        );
+        
+        // Add search icon using a Label overlay
+        Label genderSearchIcon = new Label("🔍");
+        genderSearchIcon.setStyle(
+            "-fx-font-size: 16px;" +
+            "-fx-padding: 0 10px;" +
+            "-fx-text-fill: " + fieldText + ";"
         );
         
         // Store original items for reset
