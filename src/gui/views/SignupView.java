@@ -333,8 +333,25 @@ public class SignupView {
         // Store original items for reset
         final ObservableList<String> allCourses = FXCollections.observableArrayList(courseItems);
         
-        // Attach searchable behavior with autocomplete
-        attachSearchableComboBox(courseComboBox, allCourses);
+        // Attach searchable behavior with autocomplete (supports acronyms like "bscs")
+        attachSearchableComboBoxWithKeys(
+            courseComboBox,
+            allCourses,
+            item -> {
+                java.util.List<String> keys = new java.util.ArrayList<>();
+                String lower = item.toLowerCase();
+                keys.add(lower);
+                keys.add(lower.replaceAll("[^a-z0-9]", ""));
+                String[] words = lower.split("[^a-z0-9]+");
+                java.util.Set<String> stop = java.util.Set.of("of","and","in","the","for","to","a","an","with");
+                StringBuilder ac = new StringBuilder();
+                for (String w : words) {
+                    if (!w.isEmpty() && !stop.contains(w)) ac.append(w.charAt(0));
+                }
+                if (ac.length() > 0) keys.add(ac.toString());
+                return keys;
+            }
+        );
 
         // Wrap with left search icon overlay so it renders inside the field
         StackPane courseField = wrapWithSearchIcon(courseComboBox, fieldText);
@@ -759,9 +776,12 @@ public class SignupView {
 
                 if (added && atEnd && !typed.isEmpty() && !starts.isEmpty()) {
                     String suggestion = starts.get(0);
-                    combo.getEditor().setText(suggestion);
-                    combo.getEditor().positionCaret(typed.length());
-                    combo.getEditor().selectRange(typed.length(), suggestion.length());
+                    String suggestionLower = suggestion.toLowerCase();
+                    if (suggestionLower.startsWith(lower) && suggestion.length() >= typed.length()) {
+                        combo.getEditor().setText(suggestion);
+                        combo.getEditor().positionCaret(typed.length());
+                        combo.getEditor().selectRange(typed.length(), suggestion.length());
+                    }
                 }
             } finally {
                 updating.set(false);
@@ -793,6 +813,95 @@ public class SignupView {
         });
 
         // Keep editor text in sync when value changes
+        combo.valueProperty().addListener((o, ov, nv) -> {
+            if (nv != null) {
+                combo.getEditor().setText(nv);
+            }
+        });
+    }
+
+    // Helper with custom key provider for matching (e.g., acronyms)
+    private void attachSearchableComboBoxWithKeys(
+        ComboBox<String> combo,
+        ObservableList<String> allItems,
+        java.util.function.Function<String, java.util.List<String>> keysProvider
+    ) {
+        final javafx.beans.property.SimpleBooleanProperty updating = new javafx.beans.property.SimpleBooleanProperty(false);
+
+        combo.setItems(FXCollections.observableArrayList(allItems));
+
+        combo.setOnShowing(e -> {
+            combo.setItems(FXCollections.observableArrayList(allItems));
+            combo.getEditor().requestFocus();
+        });
+
+        combo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+            if (updating.get()) return;
+            updating.set(true);
+            try {
+                String typed = newVal == null ? "" : newVal;
+                String lower = typed.toLowerCase();
+
+                java.util.List<String> starts = allItems.stream()
+                    .filter(s -> keysProvider.apply(s).stream().anyMatch(k -> k.startsWith(lower)))
+                    .toList();
+                java.util.List<String> contains = allItems.stream()
+                    .filter(s -> !starts.contains(s) && keysProvider.apply(s).stream().anyMatch(k -> k.contains(lower)))
+                    .toList();
+
+                ObservableList<String> filtered;
+                if (typed.isEmpty()) {
+                    filtered = FXCollections.observableArrayList(allItems);
+                } else {
+                    filtered = FXCollections.observableArrayList();
+                    filtered.addAll(starts);
+                    filtered.addAll(contains);
+                }
+
+                combo.getSelectionModel().clearSelection();
+                combo.setItems(filtered);
+                if (!combo.isShowing()) combo.show();
+
+                boolean added = oldVal != null && newVal != null && newVal.length() > oldVal.length();
+                int caret = combo.getEditor().getCaretPosition();
+                boolean atEnd = caret == typed.length();
+
+                if (added && atEnd && !typed.isEmpty() && !starts.isEmpty()) {
+                    String suggestion = starts.get(0);
+                    String suggestionLower = suggestion.toLowerCase();
+                    if (suggestionLower.startsWith(lower) && suggestion.length() >= typed.length()) {
+                        combo.getEditor().setText(suggestion);
+                        combo.getEditor().positionCaret(typed.length());
+                        combo.getEditor().selectRange(typed.length(), suggestion.length());
+                    }
+                }
+            } finally {
+                updating.set(false);
+            }
+        });
+
+        combo.getEditor().setOnKeyPressed(e -> {
+            var code = e.getCode();
+            if (code == javafx.scene.input.KeyCode.ENTER || code == javafx.scene.input.KeyCode.TAB) {
+                String text = combo.getEditor().getText();
+                if (text != null && !text.isBlank()) {
+                    combo.setValue(text);
+                } else {
+                    combo.setValue(null);
+                }
+                combo.hide();
+            }
+        });
+
+        combo.focusedProperty().addListener((o, was, is) -> {
+            if (!is) {
+                String text = combo.getEditor().getText();
+                if (text != null && !text.isBlank()) {
+                    combo.setValue(text);
+                }
+            }
+        });
+
         combo.valueProperty().addListener((o, ov, nv) -> {
             if (nv != null) {
                 combo.getEditor().setText(nv);
