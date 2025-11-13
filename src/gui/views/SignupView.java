@@ -1,5 +1,7 @@
 package gui.views;
 
+import java.io.File;
+
 import gui.controllers.SignupController;
 import gui.utils.ThemeManager;
 import javafx.animation.KeyFrame;
@@ -13,19 +15,18 @@ import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 import utils.SystemConfigManager;
-import java.io.File;
 
 /**
  * SignupView - Student registration screen
@@ -89,7 +90,7 @@ public class SignupView {
         leftPane.setMinHeight(720);
         leftPane.setMaxHeight(850);
     String leftBg = "linear-gradient(from 0% 0% to 100% 100%, #163764 0%, #1f4c86 100%)";
-    leftPane.setStyle("-fx-background-color: " + leftBg + "; -fx-background-radius: 20 0 0 20;");
+    leftPane.setStyle("-fx-background-color: " + leftBg + ";");
         try {
             File sideImageFile = new File("src/database/data/images/NewSides2.png");
             if (sideImageFile.exists()) {
@@ -114,8 +115,7 @@ public class SignupView {
         rightContainer.setMaxHeight(850);
         String cardBg = ThemeManager.isDarkMode() ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
         rightContainer.setStyle(
-            "-fx-background-color: " + cardBg + ";" +
-            "-fx-background-radius: 0 20 20 0;"
+            "-fx-background-color: " + cardBg + ";"
         );
         
         // Create signup form with scrollable content
@@ -551,8 +551,7 @@ public class SignupView {
         String cardBg = isDark ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
         if (rightContainer != null) {
             rightContainer.setStyle(
-                "-fx-background-color: " + cardBg + ";" +
-                "-fx-background-radius: 0 20 20 0;"
+                "-fx-background-color: " + cardBg + ";"
             );
         }
         
@@ -563,7 +562,6 @@ public class SignupView {
         
         // Update colors
         String titleColor = isDark ? "#ffffff" : "#1e3c72";
-        String subtitleColor = isDark ? "#e0e0e0" : "#666666";
         String labelColor = isDark ? "#e0e0e0" : "#555555";
         String fieldBg = isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.9)";
         String fieldText = isDark ? "#ffffff" : "#333333";
@@ -572,19 +570,11 @@ public class SignupView {
         
         // Update title section
         for (int i = 0; i < signupCard.getChildren().size(); i++) {
-            if (signupCard.getChildren().get(i) instanceof VBox) {
-                VBox box = (VBox) signupCard.getChildren().get(i);
-                // Check if this is the title section (has 2 labels)
-                if (box.getChildren().size() == 2 && 
-                    box.getChildren().get(0) instanceof Label && 
-                    box.getChildren().get(1) instanceof Label) {
-                    Label firstLabel = (Label) box.getChildren().get(0);
-                    Label secondLabel = (Label) box.getChildren().get(1);
-                    if (firstLabel.getText().equals("Create Account")) {
-                        firstLabel.setStyle("-fx-text-fill: " + titleColor + ";");
-                        secondLabel.setStyle("-fx-text-fill: " + subtitleColor + ";");
-                        break;
-                    }
+            if (signupCard.getChildren().get(i) instanceof Label) {
+                Label label = (Label) signupCard.getChildren().get(i);
+                if (label.getText().equals("Create Account")) {
+                    label.setStyle("-fx-text-fill: " + titleColor + ";");
+                    break;
                 }
             }
         }

@@ -1,5 +1,7 @@
 package gui.views;
 
+import java.io.File;
+
 import gui.controllers.LoginController;
 import gui.utils.GUIValidator;
 import gui.utils.ThemeManager;
@@ -8,16 +10,21 @@ import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
-import javafx.scene.effect.GaussianBlur;
-import javafx.scene.layout.*;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.util.Duration;
-import java.io.File;
 
 /**
  * LoginView - Login screen for the STI ProWear System
@@ -162,11 +169,11 @@ public class LoginView {
         
         // Student ID field (changed from Email)
         VBox usernameBox = new VBox(10);
-        Label usernameLabel = new Label("Student ID");
+        Label usernameLabel = new Label("Student ID - Username");
         String labelColor = ThemeManager.isDarkMode() ? "#e0e0e0" : "#555555";
         usernameLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
         usernameField = new TextField();
-        usernameField.setPromptText("username@gmail.com");
+        usernameField.setPromptText("Type your Student ID or Username");
         usernameField.setPrefHeight(45);
         String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.9)";
         String fieldText = ThemeManager.isDarkMode() ? "#ffffff" : "#333333";
@@ -190,7 +197,7 @@ public class LoginView {
         Label passwordLabel = new Label("Password");
         passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
         passwordField = new PasswordField();
-        passwordField.setPromptText("Password");
+        passwordField.setPromptText("Type your password");
         passwordField.setPrefHeight(45);
         passwordField.setStyle(
             "-fx-font-size: 14px;" +
@@ -412,9 +419,7 @@ public class LoginView {
         String cardBg = ThemeManager.isDarkMode() ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
         if (rightContainer != null) {
             rightContainer.setStyle(
-                "-fx-background-color: " + cardBg + ";" +
-                "-fx-background-radius: 20px;" +
-                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.30), 28, 0, 0, 10);"
+                "-fx-background-color: " + cardBg + ";"
             );
         }
         
