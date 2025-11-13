@@ -736,10 +736,11 @@ public class SignupView {
     private void attachSearchableComboBox(ComboBox<String> combo, ObservableList<String> allItems) {
         final javafx.beans.property.SimpleBooleanProperty updating = new javafx.beans.property.SimpleBooleanProperty(false);
 
-        combo.setItems(FXCollections.observableArrayList(allItems));
+        final ObservableList<String> working = FXCollections.observableArrayList(allItems);
+        combo.setItems(working);
 
         combo.setOnShowing(e -> {
-            combo.setItems(FXCollections.observableArrayList(allItems));
+            working.setAll(allItems);
             combo.getEditor().requestFocus();
         });
 
@@ -767,8 +768,12 @@ public class SignupView {
                 }
 
                 combo.getSelectionModel().clearSelection();
-                combo.setItems(filtered);
-                if (!combo.isShowing()) combo.show();
+                working.setAll(filtered);
+                if (!filtered.isEmpty()) {
+                    if (!combo.isShowing()) combo.show();
+                } else {
+                    combo.hide();
+                }
 
                 boolean added = oldVal != null && newVal != null && newVal.length() > oldVal.length();
                 int caret = combo.getEditor().getCaretPosition();
@@ -799,6 +804,7 @@ public class SignupView {
                     combo.setValue(null);
                 }
                 combo.hide();
+                javafx.application.Platform.runLater(() -> working.setAll(allItems));
             }
         });
 
@@ -809,6 +815,7 @@ public class SignupView {
                 if (text != null && !text.isBlank()) {
                     combo.setValue(text);
                 }
+                javafx.application.Platform.runLater(() -> working.setAll(allItems));
             }
         });
 
@@ -816,6 +823,24 @@ public class SignupView {
         combo.valueProperty().addListener((o, ov, nv) -> {
             if (nv != null) {
                 combo.getEditor().setText(nv);
+            }
+        });
+
+        // Commit selection from dropdown clicks and restore full list
+        combo.setOnAction(e -> {
+            String sel = combo.getSelectionModel().getSelectedItem();
+            if (sel != null) {
+                updating.set(true);
+                try {
+                    combo.setValue(sel);
+                    combo.getEditor().setText(sel);
+                    combo.getEditor().positionCaret(sel.length());
+                    combo.getEditor().deselect();
+                    combo.hide();
+                    javafx.application.Platform.runLater(() -> working.setAll(allItems));
+                } finally {
+                    updating.set(false);
+                }
             }
         });
     }
@@ -828,10 +853,11 @@ public class SignupView {
     ) {
         final javafx.beans.property.SimpleBooleanProperty updating = new javafx.beans.property.SimpleBooleanProperty(false);
 
-        combo.setItems(FXCollections.observableArrayList(allItems));
+        final ObservableList<String> working = FXCollections.observableArrayList(allItems);
+        combo.setItems(working);
 
         combo.setOnShowing(e -> {
-            combo.setItems(FXCollections.observableArrayList(allItems));
+            working.setAll(allItems);
             combo.getEditor().requestFocus();
         });
 
@@ -859,8 +885,12 @@ public class SignupView {
                 }
 
                 combo.getSelectionModel().clearSelection();
-                combo.setItems(filtered);
-                if (!combo.isShowing()) combo.show();
+                working.setAll(filtered);
+                if (!filtered.isEmpty()) {
+                    if (!combo.isShowing()) combo.show();
+                } else {
+                    combo.hide();
+                }
 
                 boolean added = oldVal != null && newVal != null && newVal.length() > oldVal.length();
                 int caret = combo.getEditor().getCaretPosition();
@@ -890,6 +920,7 @@ public class SignupView {
                     combo.setValue(null);
                 }
                 combo.hide();
+                javafx.application.Platform.runLater(() -> working.setAll(allItems));
             }
         });
 
@@ -899,12 +930,31 @@ public class SignupView {
                 if (text != null && !text.isBlank()) {
                     combo.setValue(text);
                 }
+                javafx.application.Platform.runLater(() -> working.setAll(allItems));
             }
         });
 
         combo.valueProperty().addListener((o, ov, nv) -> {
             if (nv != null) {
                 combo.getEditor().setText(nv);
+            }
+        });
+
+        // Commit selection from dropdown clicks and restore full list
+        combo.setOnAction(e -> {
+            String sel = combo.getSelectionModel().getSelectedItem();
+            if (sel != null) {
+                updating.set(true);
+                try {
+                    combo.setValue(sel);
+                    combo.getEditor().setText(sel);
+                    combo.getEditor().positionCaret(sel.length());
+                    combo.getEditor().deselect();
+                    combo.hide();
+                    javafx.application.Platform.runLater(() -> working.setAll(allItems));
+                } finally {
+                    updating.set(false);
+                }
             }
         });
     }
