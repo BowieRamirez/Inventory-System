@@ -54,6 +54,7 @@ public class StudentDashboardController {
     private Runnable refreshCallback;
     private List<CartItem> cart;  // Shopping cart for bundle purchases with quantities
     private Runnable cartUpdateCallback;  // Callback to update cart badge
+    private Runnable navigateToShopCallback;  // Callback to navigate to shop view
 
     /**
      * Inner class to represent an item in the cart with its quantity
@@ -100,46 +101,459 @@ public class StudentDashboardController {
     }
     
     /**
+     * Set callback to navigate to shop view
+     */
+    public void setNavigateToShopCallback(Runnable callback) {
+        this.navigateToShopCallback = callback;
+    }
+    
+    /**
+     * Create home view with best sellers, course items, and special items
+     */
+    public Node createHomeView() {
+        VBox homeContainer = new VBox(40);
+        homeContainer.setPadding(new Insets(60, 40, 40, 40));
+        homeContainer.setAlignment(Pos.TOP_CENTER);
+        homeContainer.setStyle("-fx-background-color: -color-bg-default;");
+        
+        ScrollPane scrollPane = new ScrollPane(homeContainer);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background-color: -color-bg-default; -fx-control-inner-background: -color-bg-default;");
+        
+        // Logo section
+          try {
+            java.io.File logoFile = new java.io.File("src/database/data/images/NewLogo.png");
+            if (logoFile.exists()) {
+                javafx.scene.image.Image logoImage = new javafx.scene.image.Image(logoFile.toURI().toString());
+                javafx.scene.image.ImageView logoView = new javafx.scene.image.ImageView(logoImage);
+                logoView.setFitHeight(300);
+                logoView.setFitWidth(300);
+                logoView.setPreserveRatio(true);
+
+                // Clip to rounded rectangle so the logo image itself has rounded corners
+                javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle(300, 300);
+                clip.setArcWidth(40);
+                clip.setArcHeight(40);
+                logoView.setClip(clip);
+
+                homeContainer.getChildren().add(logoView);
+            }
+        } catch (Exception e) {
+            // Logo loading failed, continue without it
+        }
+        
+        // Welcome section
+        Label welcomeLabel = new Label("Welcome to STI ProWear Novaliches");
+        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
+        welcomeLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        welcomeLabel.setAlignment(Pos.CENTER);
+        
+        Label subtitleLabel = new Label("Your one-stop destination for official STI uniforms and gearsets. Browse our collection of\nquality apparel designed specifically for " + "STI" + " students.");
+        subtitleLabel.setFont(Font.font("System", 15));
+        subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+        subtitleLabel.setAlignment(Pos.CENTER);
+        subtitleLabel.setWrapText(true);
+        subtitleLabel.setMaxWidth(800);
+        
+        // Start Shopping Button
+        Button startShoppingBtn = new Button("Start Shopping");
+        startShoppingBtn.setPrefWidth(200);
+        startShoppingBtn.setPrefHeight(50);
+        startShoppingBtn.setStyle(
+            "-fx-background-color: #3E4C96;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 16px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-cursor: hand;" +
+            "-fx-background-radius: 8px;"
+        );
+        startShoppingBtn.setOnAction(e -> {
+            // Trigger navigation to Shop view
+            if (navigateToShopCallback != null) {
+                navigateToShopCallback.run();
+            }
+        });
+        
+        // Feature cards section
+        HBox featuresContainer = new HBox(30);
+        featuresContainer.setAlignment(Pos.CENTER);
+        featuresContainer.setPadding(new Insets(40, 0, 0, 0));
+        featuresContainer.setMaxWidth(1000);
+        
+        VBox qualityCard = createFeatureCard("✓", "#3E4C96", "Quality Uniforms", 
+            "Official STI apparel made with\npremium materials");
+        VBox reservationCard = createFeatureCard("⚡", "#F59E0B", "Quick Reservations", 
+            "Reserve items and pick them\nup at your convenience");
+        VBox claimCard = createFeatureCard("📦", "#EF4444", "Easy Claim", 
+            "Track and claim your reserved\nitems hassle-free");
+        
+        HBox.setHgrow(qualityCard, Priority.ALWAYS);
+        HBox.setHgrow(reservationCard, Priority.ALWAYS);
+        HBox.setHgrow(claimCard, Priority.ALWAYS);
+        
+        featuresContainer.getChildren().addAll(qualityCard, reservationCard, claimCard);
+        
+        homeContainer.getChildren().addAll(welcomeLabel, subtitleLabel, startShoppingBtn, featuresContainer);
+        
+        // Add thin separator line between welcome and featured items
+        VBox separatorBox = new VBox();
+        separatorBox.setPadding(new Insets(40, 0, 40, 0));
+        separatorBox.setMaxWidth(Double.MAX_VALUE);
+        separatorBox.setAlignment(Pos.CENTER);
+        
+        // Create a thin custom separator line
+        Region separatorLine = new Region();
+        separatorLine.setStyle("-fx-background-color: -color-border-default;");
+        separatorLine.setPrefHeight(1);
+        separatorLine.setMaxWidth(1200);
+        separatorLine.setMinHeight(1);
+        separatorBox.getChildren().add(separatorLine);
+        homeContainer.getChildren().add(separatorBox);
+        
+        // Get items
+        List<Item> courseItems = inventoryManager.getItemsByCourse(student.getCourse());
+        List<Item> specialItems = inventoryManager.getItemsByCourse("STI Special");
+        List<Item> bestSellers = courseItems.stream()
+            .filter(item -> item.getQuantity() < 50)  // Simulate best sellers (low stock/high demand)
+            .limit(6)
+            .collect(Collectors.toList());
+        
+        // Featured Items Title
+        Label featuredTitle = new Label("Featured Items");
+        featuredTitle.setFont(Font.font("System", FontWeight.BOLD, 28));
+        featuredTitle.setStyle("-fx-text-fill: -color-fg-default;");
+        featuredTitle.setAlignment(Pos.CENTER);
+        VBox titleBox = new VBox(featuredTitle);
+        titleBox.setAlignment(Pos.CENTER);
+        titleBox.setPadding(new Insets(0, 0, 30, 0));
+        homeContainer.getChildren().add(titleBox);
+        
+        // Best Sellers Section
+        if (!bestSellers.isEmpty()) {
+            VBox bestSellersSection = createHomeSection("⭐ Best Sellers", bestSellers);
+            homeContainer.getChildren().add(bestSellersSection);
+        }
+        
+        // Your Course Items Section
+        if (!courseItems.isEmpty()) {
+            VBox courseSection = createHomeSection("👕 Items for " + student.getCourse(), courseItems.stream().limit(6).collect(Collectors.toList()));
+            homeContainer.getChildren().add(courseSection);
+        }
+        
+        // Special Items Section
+        if (!specialItems.isEmpty()) {
+            VBox specialSection = createHomeSection("✨ Special Items", specialItems.stream().limit(6).collect(Collectors.toList()));
+            homeContainer.getChildren().add(specialSection);
+        }
+        
+        return scrollPane;
+    }
+    
+    /**
+     * Create a feature card for the home page
+     */
+    private VBox createFeatureCard(String icon, String iconColor, String title, String description) {
+        VBox card = new VBox(15);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(30, 20, 30, 20));
+        card.setMaxWidth(300);
+        card.setStyle(
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 8;" +
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 8;"
+        );
+        
+        // Icon circle
+        Label iconLabel = new Label(icon);
+        iconLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
+        iconLabel.setStyle(
+            "-fx-text-fill: white;" +
+            "-fx-background-color: " + iconColor + ";" +
+            "-fx-background-radius: 50%;" +
+            "-fx-min-width: 70px;" +
+            "-fx-min-height: 70px;" +
+            "-fx-max-width: 70px;" +
+            "-fx-max-height: 70px;" +
+            "-fx-alignment: center;"
+        );
+        iconLabel.setAlignment(Pos.CENTER);
+        
+        // Title
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        titleLabel.setAlignment(Pos.CENTER);
+        
+        // Description
+        Label descLabel = new Label(description);
+        descLabel.setFont(Font.font("System", 13));
+        descLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+        descLabel.setAlignment(Pos.CENTER);
+        descLabel.setWrapText(true);
+        descLabel.setMaxWidth(250);
+        
+        card.getChildren().addAll(iconLabel, titleLabel, descLabel);
+        return card;
+    }
+    
+    /**
+     * Create a home section with title and items
+     */
+    private VBox createHomeSection(String title, List<Item> items) {
+        VBox section = new VBox(20);
+        section.setPadding(new Insets(0, 0, 30, 0));
+        section.setMaxWidth(1200);
+        
+        Label sectionTitle = new Label(title);
+        sectionTitle.setFont(Font.font("System", FontWeight.BOLD, 20));
+        sectionTitle.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        // Configure so 6 cards fit in a single row on desktop widths
+        FlowPane itemsGrid = new FlowPane(20, 0);
+        itemsGrid.setPadding(new Insets(0, 0, 0, 0)); // more side padding, no vertical gap
+        itemsGrid.setPrefWrapLength(1920); // effectively one row at common desktop width
+        
+        for (Item item : items) {
+            itemsGrid.getChildren().add(createHomeItemCard(item));
+        }
+        
+        section.getChildren().addAll(sectionTitle, itemsGrid);
+        return section;
+    }
+    
+    /**
+     * Create a simplified item card for home view
+     */
+    private VBox createHomeItemCard(Item item) {
+        // Slightly narrower so 6 cards fit in one row at 1920px while keeping full button labels
+        VBox card = new VBox(10);
+        card.setPrefWidth(180);
+        card.setMaxWidth(180);
+        card.setMinHeight(230);
+        card.setStyle(
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1;" +
+            "-fx-padding: 15;" +
+            "-fx-border-radius: 6;" +
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 6;"
+        );
+        card.setAlignment(Pos.TOP_LEFT);
+        
+        // Item name
+        Label nameLabel = new Label(item.getName());
+        nameLabel.setWrapText(true);
+        nameLabel.setMaxWidth(140);
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 13));
+        nameLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        // Item code
+        Label codeLabel = new Label("Code: " + item.getCode());
+        codeLabel.setFont(Font.font("System", 11));
+        codeLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+        
+        // Item size
+        Label sizeLabel = new Label("Size: " + item.getSize());
+        sizeLabel.setFont(Font.font("System", 11));
+        sizeLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+        
+        // Flexible spacer so that price/stock/buttons align at the bottom
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        
+        // Price
+        Label priceLabel = new Label("₱" + String.format("%.2f", item.getPrice()));
+        priceLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
+        priceLabel.setStyle("-fx-text-fill: #16A34A;");
+        
+        // Stock status
+        HBox stockBox = new HBox(5);
+        stockBox.setAlignment(Pos.CENTER_LEFT);
+        Label stockLabel = new Label(item.getQuantity() > 0 ? "✓ In Stock" : "✗ Out of Stock");
+        stockLabel.setFont(Font.font("System", 10));
+        String stockColor = item.getQuantity() > 0 ? "#16A34A" : "#DC2626";
+        stockLabel.setStyle("-fx-text-fill: " + stockColor + ";");
+        stockBox.getChildren().add(stockLabel);
+        
+        // Bottom button row for consistency across all cards
+        HBox buttonRow = new HBox(8);
+        buttonRow.setAlignment(Pos.CENTER);
+        
+        Button addBtn = new Button("Add");
+        addBtn.setPrefWidth(90);
+        addBtn.setPrefHeight(34);
+        addBtn.setStyle(
+            "-fx-background-color: #3E4C96;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-cursor: hand;"
+        );
+        addBtn.setOnMouseEntered(e -> addBtn.setStyle(
+            "-fx-background-color: #2E3C86;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-cursor: hand;"
+        ));
+        addBtn.setOnMouseExited(e -> addBtn.setStyle(
+            "-fx-background-color: #3E4C96;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-cursor: hand;"
+        ));
+        addBtn.setOnAction(e -> handleAddToCart(item));
+        
+        Button reserveBtn = new Button("Reserve");
+        reserveBtn.setPrefWidth(90);
+        reserveBtn.setPrefHeight(34);
+        reserveBtn.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-text-fill: #3E4C96;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-border-color: #D0D7DE;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 4;" +
+            "-fx-cursor: hand;"
+        );
+        reserveBtn.setOnMouseEntered(e -> reserveBtn.setStyle(
+            "-fx-background-color: #F6F8FA;" +
+            "-fx-text-fill: #3E4C96;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-border-color: #D0D7DE;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 4;" +
+            "-fx-cursor: hand;"
+        ));
+        reserveBtn.setOnMouseExited(e -> reserveBtn.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-text-fill: #3E4C96;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-border-color: #D0D7DE;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 4;" +
+            "-fx-cursor: hand;"
+        ));
+        reserveBtn.setOnAction(e -> handleReserveItem(item));
+        
+        buttonRow.getChildren().addAll(addBtn, reserveBtn);
+        
+        card.getChildren().addAll(
+            nameLabel,
+            codeLabel,
+            sizeLabel,
+            spacer,
+            priceLabel,
+            stockBox,
+            buttonRow
+        );
+        return card;
+    }
+    
+    /**
      * Create shop view
      */
     public Node createShopView() {
-        VBox container = new VBox(20);
-        container.setPadding(new Insets(20));
+        HBox mainContainer = new HBox(0);
+        mainContainer.setPadding(new Insets(0));
+        
+        // Left sidebar for filters
+        VBox filterSidebar = new VBox(20);
+        filterSidebar.setPadding(new Insets(20));
+        filterSidebar.setPrefWidth(260);
+        filterSidebar.setMinWidth(260);
+        filterSidebar.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 0 1 0 0;" +
+            "-fx-border-radius: 0;"
+        );
+        
+        // Get items for student's course (uniforms) and STI Special items ONLY
+        List<Item> allItems = inventoryManager.getItemsByCourse(student.getCourse());
+        List<Item> specialItems = inventoryManager.getItemsByCourse("STI Special");
+        allItems.addAll(specialItems);
+        
+        Label filtersTitle = new Label("Filters");
+        filtersTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
+        filtersTitle.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        // Search box
+        javafx.scene.control.TextField searchField = new javafx.scene.control.TextField();
+        searchField.setPromptText("Search items...");
+        searchField.setPrefWidth(220);
+        searchField.setStyle("-fx-padding: 8px; -fx-font-size: 12px;");
+        
+        // Categories section
+        VBox categoriesBox = new VBox(10);
+        Label categoriesLabel = new Label("Categories");
+        categoriesLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        categoriesLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        CheckBox allItemsCheck = new CheckBox("All Items");
+        CheckBox topsCheck = new CheckBox("Tops");
+        CheckBox bottomsCheck = new CheckBox("Bottoms");
+        CheckBox accessoriesCheck = new CheckBox("Accessories");
+        
+        allItemsCheck.setSelected(true);
+        topsCheck.setSelected(true);
+        bottomsCheck.setSelected(true);
+        
+        categoriesBox.getChildren().addAll(categoriesLabel, allItemsCheck, topsCheck, bottomsCheck, accessoriesCheck);
+        
+        // Gender section
+        VBox genderBox = new VBox(10);
+        Label genderLabel = new Label("Gender");
+        genderLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        genderLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        CheckBox maleCheck = new CheckBox("Male");
+        CheckBox femaleCheck = new CheckBox("Female");
+        CheckBox unisexCheck = new CheckBox("Unisex");
+        
+        genderBox.getChildren().addAll(genderLabel, maleCheck, femaleCheck, unisexCheck);
+        
+        // Size section
+        VBox sizeBox = new VBox(10);
+        Label sizeLabel = new Label("Size");
+        sizeLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        sizeLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        CheckBox xsCheck = new CheckBox("XS");
+        CheckBox sCheck = new CheckBox("S");
+        CheckBox mCheck = new CheckBox("M");
+        CheckBox lCheck = new CheckBox("L");
+        CheckBox xlCheck = new CheckBox("XL");
+        CheckBox xxlCheck = new CheckBox("XXL");
+        
+        sizeBox.getChildren().addAll(sizeLabel, xsCheck, sCheck, mCheck, lCheck, xlCheck, xxlCheck);
+        
+        filterSidebar.getChildren().addAll(filtersTitle, new Separator(), searchField, categoriesBox, genderBox, sizeBox);
+        
+        // Right content area
+        VBox contentArea = new VBox(20);
+        contentArea.setPadding(new Insets(0, 0, 0, 20));
+        HBox.setHgrow(contentArea, Priority.ALWAYS);
         
         // Welcome message
         Label welcomeLabel = new Label("Welcome, " + student.getFirstName() + "! 👋");
-        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
         welcomeLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
-        Label subtitleLabel = new Label("Browse available uniforms and specials for " + student.getCourse());
+        Label subtitleLabel = new Label("Browse available uniforms and gearsets for " + student.getCourse());
         subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
-        
-        // Filter bar
-        HBox filterBar = new HBox(15);
-        filterBar.setAlignment(Pos.CENTER_LEFT);
-        
-        Label filterLabel = new Label("Filter:");
-        filterLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-weight: bold;");
-        
-        ComboBox<String> categoryFilter = new ComboBox<>();
-        categoryFilter.getItems().addAll("All Items", "Uniforms", "Specials");
-        categoryFilter.setValue("All Items");
-        categoryFilter.setPrefWidth(150);
-        
-        ComboBox<String> genderFilter = new ComboBox<>();
-        genderFilter.getItems().addAll("All Genders", "Male", "Female", "Unisex");
-        genderFilter.setValue("All Genders");
-        genderFilter.setPrefWidth(150);
-        
-        ComboBox<String> sizeFilter = new ComboBox<>();
-        sizeFilter.getItems().addAll("All Sizes", "XS", "S", "M", "L", "XL", "XXL", "One Size");
-        sizeFilter.setValue("All Sizes");
-        sizeFilter.setPrefWidth(150);
-        
-        Button searchBtn = new Button("🔍 Search");
-        styleActionButton(searchBtn, "#0969DA");
-        
-        filterBar.getChildren().addAll(filterLabel, categoryFilter, genderFilter, sizeFilter, searchBtn);
         
         // Items grid
         ScrollPane scrollPane = new ScrollPane();
@@ -148,11 +562,6 @@ public class StudentDashboardController {
         
         FlowPane itemsGrid = new FlowPane(20, 20);
         itemsGrid.setPadding(new Insets(10));
-        
-        // Get items for student's course (uniforms) and STI Special items ONLY
-        List<Item> allItems = inventoryManager.getItemsByCourse(student.getCourse());
-        List<Item> specialItems = inventoryManager.getItemsByCourse("STI Special");
-        allItems.addAll(specialItems);
         
         // Display items with available stock initially
         List<Item> initialDisplayItems = allItems.stream()
@@ -170,43 +579,74 @@ public class StudentDashboardController {
             }
         }
         
-        // Filter method
+        scrollPane.setContent(itemsGrid);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+        
+        // Apply filters method
         Runnable applyFilters = () -> {
-            String selectedCategory = categoryFilter.getValue();
-            String selectedGender = genderFilter.getValue();
-            String selectedSize = sizeFilter.getValue();
+            String searchText = searchField.getText().toLowerCase().trim();
             
             List<Item> filteredItems = allItems.stream()
                 .filter(item -> {
-                    // Category filter - only show items from student's course or STI Special
-                    boolean categoryMatch = true;
-                    if (selectedCategory != null) {
-                        if (selectedCategory.equals("Uniforms")) {
-                            // Show only student's course uniforms
-                            categoryMatch = item.getCourse().equals(student.getCourse());
-                        } else if (selectedCategory.equals("Specials")) {
-                            categoryMatch = item.getCourse().equals("STI Special");
+                    // Search filter
+                    if (!searchText.isEmpty()) {
+                        boolean matchesSearch = item.getName().toLowerCase().contains(searchText) ||
+                                              String.valueOf(item.getCode()).contains(searchText);
+                        if (!matchesSearch) return false;
+                    }
+                    
+                    // Category filter
+                    boolean categoryMatch = false;
+                    boolean anyCheckboxSelected = topsCheck.isSelected() || bottomsCheck.isSelected() || accessoriesCheck.isSelected();
+                    
+                    if (!anyCheckboxSelected || allItemsCheck.isSelected()) {
+                        // If no category is selected or "All Items" is checked, show everything
+                        categoryMatch = true;
+                    } else {
+                        // Check which categories are selected
+                        String itemName = item.getName().toLowerCase();
+                        if (topsCheck.isSelected() && (itemName.contains("blouse") || itemName.contains("polo"))) {
+                            categoryMatch = true;
                         }
-                        // "All Items" shows student's course + STI Special (already in allItems)
+                        if (bottomsCheck.isSelected() && (itemName.contains("skirt") || itemName.contains("pants"))) {
+                            categoryMatch = true;
+                        }
+                        if (accessoriesCheck.isSelected() && !itemName.contains("blouse") && !itemName.contains("polo") &&
+                            !itemName.contains("skirt") && !itemName.contains("pants")) {
+                            categoryMatch = true;
+                        }
                     }
                     
                     // Gender filter
                     boolean genderMatch = true;
-                    if (selectedGender != null && !selectedGender.equals("All Genders")) {
+                    if (maleCheck.isSelected() || femaleCheck.isSelected() || unisexCheck.isSelected()) {
+                        genderMatch = false;
                         String itemName = item.getName().toLowerCase();
-                        if (selectedGender.equals("Male")) {
-                            genderMatch = itemName.contains("(male)");
-                        } else if (selectedGender.equals("Female")) {
-                            genderMatch = itemName.contains("(female)");
-                        } else if (selectedGender.equals("Unisex")) {
-                            genderMatch = !itemName.contains("(male)") && !itemName.contains("(female)");
+                        
+                        if (maleCheck.isSelected() && itemName.contains("(male)")) {
+                            genderMatch = true;
+                        }
+                        if (femaleCheck.isSelected() && itemName.contains("(female)")) {
+                            genderMatch = true;
+                        }
+                        if (unisexCheck.isSelected() && !itemName.contains("(male)") && !itemName.contains("(female)")) {
+                            genderMatch = true;
                         }
                     }
                     
                     // Size filter
                     boolean sizeMatch = true;
-                    if (selectedSize != null && !selectedSize.equals("All Sizes")) {
-                        sizeMatch = item.getSize().equalsIgnoreCase(selectedSize);
+                    if (xsCheck.isSelected() || sCheck.isSelected() || mCheck.isSelected() || 
+                        lCheck.isSelected() || xlCheck.isSelected() || xxlCheck.isSelected()) {
+                        sizeMatch = false;
+                        String itemSize = item.getSize().toUpperCase();
+                        
+                        if (xsCheck.isSelected() && itemSize.equals("XS")) sizeMatch = true;
+                        if (sCheck.isSelected() && itemSize.equals("S")) sizeMatch = true;
+                        if (mCheck.isSelected() && itemSize.equals("M")) sizeMatch = true;
+                        if (lCheck.isSelected() && itemSize.equals("L")) sizeMatch = true;
+                        if (xlCheck.isSelected() && itemSize.equals("XL")) sizeMatch = true;
+                        if (xxlCheck.isSelected() && itemSize.equals("XXL")) sizeMatch = true;
                     }
                     
                     return categoryMatch && genderMatch && sizeMatch;
@@ -227,26 +667,30 @@ public class StudentDashboardController {
             }
         };
         
-        // Search/Filter button action
-        searchBtn.setOnAction(e -> applyFilters.run());
+        // Real-time filtering
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        allItemsCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        topsCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        bottomsCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        accessoriesCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        maleCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        femaleCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        unisexCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        xsCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        sCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        mCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        lCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        xlCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        xxlCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
         
-        // Real-time filtering when ComboBox selection changes
-        categoryFilter.setOnAction(e -> applyFilters.run());
-        genderFilter.setOnAction(e -> applyFilters.run());
-        sizeFilter.setOnAction(e -> applyFilters.run());
-        
-        scrollPane.setContent(itemsGrid);
-        VBox.setVgrow(scrollPane, Priority.ALWAYS);
-        
-        container.getChildren().addAll(
+        contentArea.getChildren().addAll(
             welcomeLabel,
             subtitleLabel,
-            new Separator(),
-            filterBar,
             scrollPane
         );
         
-        return container;
+        mainContainer.getChildren().addAll(filterSidebar, contentArea);
+        return mainContainer;
     }
     
     /**
@@ -254,127 +698,183 @@ public class StudentDashboardController {
      */
     private VBox createItemCard(Item item) {
         VBox card = new VBox(10);
-        card.setPrefWidth(220);
+        card.setPrefWidth(240);
         card.setPadding(new Insets(15));
         card.setStyle(
             "-fx-background-color: -color-bg-subtle;" +
-            "-fx-background-radius: 12px;" +
+            "-fx-background-radius: 8px;" +
             "-fx-border-color: -color-border-default;" +
             "-fx-border-width: 1px;" +
-            "-fx-border-radius: 12px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
+            "-fx-border-radius: 8px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);"
         );
-        
-        // Item name
+
+        // Title row
+        HBox titleRow = new HBox(8);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+
         Label nameLabel = new Label(item.getName());
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 15));
         nameLabel.setStyle("-fx-text-fill: -color-fg-default;");
         nameLabel.setWrapText(true);
-        
-        // Item details
-        Label codeLabel = new Label("Code: " + item.getCode());
-        codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
-        
-        // Category badge
-        Label categoryLabel = new Label(item.getCourse().equals("STI Special") ? "🎉 Special" : "👕 Uniform");
-        categoryLabel.setStyle(
+        HBox.setHgrow(nameLabel, Priority.ALWAYS);
+
+        String badgeEmoji = item.getCourse().equals("STI Special") ? "🎉" : "";
+        if (!badgeEmoji.isEmpty()) {
+            Label badgeLabel = new Label(badgeEmoji);
+            badgeLabel.setStyle("-fx-font-size: 14px;");
+            titleRow.getChildren().addAll(nameLabel, badgeLabel);
+        } else {
+            titleRow.getChildren().add(nameLabel);
+        }
+
+        Label categoryBadge = new Label(item.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
+        categoryBadge.setStyle(
             "-fx-background-color: " + (item.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
             "-fx-text-fill: " + (item.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
-            "-fx-padding: 4 8 4 8;" +
-            "-fx-background-radius: 12px;" +
+            "-fx-padding: 3 8 3 8;" +
+            "-fx-background-radius: 10px;" +
             "-fx-font-size: 11px;" +
             "-fx-font-weight: bold;"
         );
-        
+
+        Label codeLabel = new Label("Code: " + item.getCode());
+        codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+
         Label sizeLabel = new Label("Size: " + item.getSize());
         sizeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
-        
+
+        // Spacer so price/stock/buttons sit at bottom for all cards
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
         Label priceLabel = new Label("₱" + String.format("%.2f", item.getPrice()));
-        priceLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        priceLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
         priceLabel.setStyle("-fx-text-fill: #1A7F37;");
-        
-        // Stock status
+
         Label stockLabel;
         if (item.getQuantity() > 10) {
             stockLabel = new Label("✓ In Stock (" + item.getQuantity() + ")");
-            stockLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px;");
+            stockLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 11px;");
         } else if (item.getQuantity() > 0) {
-            stockLabel = new Label("⚠ Low Stock (" + item.getQuantity() + ")");
-            stockLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px;");
+            stockLabel = new Label("✓ In Stock (" + item.getQuantity() + ")");
+            stockLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 11px;");
         } else {
-            stockLabel = new Label("✗ Out of Stock");
-            stockLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 12px;");
+            stockLabel = new Label("Out of Stock");
+            stockLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 11px;");
         }
-        
-        // Buttons
+
+        // Bottom-aligned buttons (always present, just disabled when no stock)
         HBox buttonBox = new HBox(8);
         buttonBox.setAlignment(Pos.CENTER);
-        
-        // Add to Cart button
-        Button addToCartBtn = new Button("🛒 Add");
-        addToCartBtn.setPrefWidth(100);
-        addToCartBtn.setPrefHeight(35);
-        addToCartBtn.setDisable(item.getQuantity() == 0);
-        
-        if (item.getQuantity() > 0) {
-            addToCartBtn.setStyle(
-                "-fx-background-color: #0969DA;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-size: 12px;" +
-                "-fx-font-weight: bold;" +
-                "-fx-background-radius: 6px;" +
-                "-fx-cursor: hand;"
-            );
-        } else {
-            addToCartBtn.setStyle(
-                "-fx-background-color: #6E7781;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-size: 12px;" +
-                "-fx-background-radius: 6px;"
-            );
-        }
-        
-        addToCartBtn.setOnAction(e -> handleAddToCart(item));
-        
-        // Reserve Now button (single item)
+
+        Button addBtn = new Button("Add");
+        addBtn.setPrefWidth(110);
+        addBtn.setPrefHeight(34);
+
         Button reserveBtn = new Button("Reserve");
-        reserveBtn.setPrefWidth(100);
-        reserveBtn.setPrefHeight(35);
-        reserveBtn.setDisable(item.getQuantity() == 0);
-        
+        reserveBtn.setPrefWidth(110);
+        reserveBtn.setPrefHeight(34);
+
         if (item.getQuantity() > 0) {
-            reserveBtn.setStyle(
-                "-fx-background-color: #0969DA;" +
+            addBtn.setDisable(false);
+            addBtn.setStyle(
+                "-fx-background-color: #3E4C96;" +
                 "-fx-text-fill: white;" +
                 "-fx-font-size: 12px;" +
                 "-fx-font-weight: bold;" +
-                "-fx-background-radius: 6px;" +
+                "-fx-background-radius: 4px;" +
                 "-fx-cursor: hand;"
             );
-        } else {
-            reserveBtn.setStyle(
-                "-fx-background-color: #6E7781;" +
+            addBtn.setOnMouseEntered(e -> addBtn.setStyle(
+                "-fx-background-color: #2D3A7A;" +
                 "-fx-text-fill: white;" +
                 "-fx-font-size: 12px;" +
-                "-fx-background-radius: 6px;"
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-cursor: hand;"
+            ));
+            addBtn.setOnMouseExited(e -> addBtn.setStyle(
+                "-fx-background-color: #3E4C96;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-cursor: hand;"
+            ));
+
+            reserveBtn.setDisable(false);
+            reserveBtn.setStyle(
+                "-fx-background-color: transparent;" +
+                "-fx-text-fill: #3E4C96;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-border-color: #D0D7DE;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-cursor: hand;"
+            );
+            reserveBtn.setOnMouseEntered(e -> reserveBtn.setStyle(
+                "-fx-background-color: #F6F8FA;" +
+                "-fx-text-fill: #3E4C96;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-border-color: #D0D7DE;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-cursor: hand;"
+            ));
+            reserveBtn.setOnMouseExited(e -> reserveBtn.setStyle(
+                "-fx-background-color: transparent;" +
+                "-fx-text-fill: #3E4C96;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-border-color: #D0D7DE;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-cursor: hand;"
+            ));
+        } else {
+            // Disabled styles but same size & position to keep alignment identical
+            addBtn.setDisable(true);
+            addBtn.setStyle(
+                "-fx-background-color: #D0D7DE;" +
+                "-fx-text-fill: #57606A;" +
+                "-fx-font-size: 12px;" +
+                "-fx-background-radius: 4px;"
+            );
+
+            reserveBtn.setDisable(true);
+            reserveBtn.setStyle(
+                "-fx-background-color: transparent;" +
+                "-fx-text-fill: #57606A;" +
+                "-fx-font-size: 12px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-border-color: #D0D7DE;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 4px;"
             );
         }
-        
+
+        addBtn.setOnAction(e -> handleAddToCart(item));
         reserveBtn.setOnAction(e -> handleReserveItem(item));
-        
-        buttonBox.getChildren().addAll(addToCartBtn, reserveBtn);
-        
+
+        buttonBox.getChildren().addAll(addBtn, reserveBtn);
+
         card.getChildren().addAll(
-            nameLabel,
-            categoryLabel,
+            titleRow,
+            categoryBadge,
             codeLabel,
             sizeLabel,
-            new Separator(),
+            spacer,
             priceLabel,
             stockLabel,
             buttonBox
         );
-        
+
         return card;
     }
     
@@ -1069,12 +1569,15 @@ public class StudentDashboardController {
         // Reload reservations from file to ensure we have latest data
         List<Reservation> allReservations = FileStorage.loadReservations();
         
-        // Get student's reservations and deduplicate bundles
+        // Get student's reservations
         List<Reservation> myReservations = allReservations.stream()
             .filter(r -> r.getStudentId().equals(student.getStudentId()))
             .collect(Collectors.toList());
         
-        // Deduplicate bundles - show only one card per bundle
+        // Sort by reservation ID descending (newest reservations have higher IDs)
+        myReservations.sort((r1, r2) -> Integer.compare(r2.getReservationId(), r1.getReservationId()));
+        
+        // Deduplicate bundles while preserving order: newest IDs stay on top
         List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(myReservations);
         
         if (deduplicatedReservations.isEmpty()) {
@@ -1147,8 +1650,14 @@ public class StudentDashboardController {
             })
             .collect(Collectors.toList());
         
-        // Deduplicate bundles - show only one card per bundle
+        // Sort by reservation time (most recent first) BEFORE deduplicating
+        pickupItems.sort((r1, r2) -> r2.getReservationTime().compareTo(r1.getReservationTime()));
+        
+        // Deduplicate bundles - show only one card per bundle (will keep first, which is newest due to sort above)
         List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(pickupItems);
+        
+        // Sort by reservation time (most recent first)
+        deduplicatedReservations.sort((r1, r2) -> r2.getReservationTime().compareTo(r1.getReservationTime()));
         
         if (deduplicatedReservations.isEmpty()) {
             VBox emptyBox = new VBox(20);

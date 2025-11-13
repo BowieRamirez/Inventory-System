@@ -128,7 +128,51 @@ public class GUIValidator {
      * @return true if valid course, false otherwise
      */
     public static boolean isValidCourse(String value) {
-        return value != null && ALL_COURSES.contains(value.toUpperCase());
+        String code = normalizeCourse(value);
+        return code != null && ALL_COURSES.contains(code);
+    }
+
+    /**
+     * Normalize a displayed course name (long form) to its code.
+     * Supports strings like "Bachelor of Science in Computer Science (BSCS)" or plain codes like "BSCS".
+     * Also maps SHS strands without parentheses to their codes.
+     * @param value raw display string from UI
+     * @return upper-case course code or null if unknown
+     */
+    public static String normalizeCourse(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) return null;
+        // If already a code
+        String upper = trimmed.toUpperCase();
+        if (ALL_COURSES.contains(upper)) return upper;
+        // If contains parentheses, extract last (...) block assuming code inside
+        int open = trimmed.lastIndexOf('(');
+        int close = trimmed.lastIndexOf(')');
+        if (open >= 0 && close > open) {
+            String inside = trimmed.substring(open + 1, close).trim().toUpperCase();
+            if (ALL_COURSES.contains(inside)) return inside;
+        }
+        // Map SHS long names to codes
+        switch (upper) {
+            case "ACCOUNTANCY, BUSINESS, AND MANAGEMENT": return "ABM";
+            case "SCIENCE, TECHNOLOGY, ENGINEERING, AND MATHEMATICS": return "STEM";
+            case "HUMANITIES AND SOCIAL SCIENCES": return "HUMSS"; // some variants might omit 'and'
+            case "HUMANITIES AND SOCIAL SCIENCES" + "S": return "HUMSS"; // safeguard
+            case "IT IN MOBILE APP AND WEB DEVELOPMENT": return "TVL-ICT";
+            case "TOURISM OPERATIONS": return "TVL-TO";
+            case "CULINARY ARTS": return "TVL-CA";
+            // Tertiary long names without parentheses
+            case "BACHELOR OF SCIENCE IN COMPUTER SCIENCE": return "BSCS";
+            case "BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY": return "BSIT";
+            case "BACHELOR OF SCIENCE IN COMPUTER ENGINEERING": return "BSCPE";
+            case "BACHELOR OF SCIENCE IN BUSINESS ADMINISTRATION": return "BSBA";
+            case "BACHELOR OF SCIENCE IN ACCOUNTANCY": return "BSA";
+            case "BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT": return "BSHM";
+            case "BACHELOR OF MULTIMEDIA ARTS": return "BMMA";
+            case "BACHELOR OF SCIENCE IN TOURISM MANAGEMENT": return "BSTM";
+            default: return null;
+        }
     }
     
     /**

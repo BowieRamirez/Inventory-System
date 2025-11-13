@@ -42,6 +42,13 @@
             <artifactId>atlantafx-base</artifactId>
             <version>${atlantafx.version}</version>
         </dependency>
+
+        <!-- MySQL JDBC Driver -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -88,6 +95,16 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!-- Exec plugin to run migration tool -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>tools.MigrateTxtToMySQL</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>

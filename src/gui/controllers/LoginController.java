@@ -139,20 +139,24 @@ public class LoginController {
      * @return AuthResult containing staff object and deactivation status
      */
     private AuthResult authenticateStaff(String staffId, String password) {
+        boolean deactivatedMatchFound = false;
+        
         // Find staff by ID
         for (Staff staff : staffList) {
-            if (staff.getStaffId().equals(staffId) && 
-                staff.getPassword().equals(password)) {
-                
-                // Check if account is active
+            if (staff.getStaffId().equals(staffId)) {
+                // If this staffId belongs to a deactivated account, always show deactivated warning
                 if (!staff.isActive()) {
                     return new AuthResult(null, true, null);
                 }
                 
-                return new AuthResult(staff, false, null);
+                // Active account: validate password
+                if (staff.getPassword().equals(password)) {
+                    return new AuthResult(staff, false, null);
+                }
             }
         }
         
+        // No matching active/deactivated account with correct password found
         return new AuthResult(null, false, null);
     }
     
@@ -169,18 +173,20 @@ public class LoginController {
         
         // Find student by ID
         for (Student student : students) {
-            if (student.getStudentId().equals(studentId) && 
-                student.getPassword().equals(password)) {
-                
-                // Check if account is active
+            if (student.getStudentId().equals(studentId)) {
+                // If this ID belongs to a deactivated account, always show deactivated warning
                 if (!student.isActive()) {
                     return new AuthResult(null, true, null);
                 }
                 
-                return new AuthResult(null, false, student);
+                // Active account: validate password
+                if (student.getPassword().equals(password)) {
+                    return new AuthResult(null, false, student);
+                }
             }
         }
         
+        // No matching active/deactivated account with correct password found
         return new AuthResult(null, false, null);
     }
     

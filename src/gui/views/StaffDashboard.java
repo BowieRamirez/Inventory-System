@@ -2,12 +2,16 @@ package gui.views;
 
 import gui.controllers.StaffDashboardController;
 import gui.utils.ThemeManager;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.util.Duration;
 
 /**
  * StaffDashboard - Main dashboard for staff users
@@ -37,6 +41,11 @@ public class StaffDashboard {
     // Sidebar labels for theme updates
     private Label logoLabel;
     private Label subtitleLabel;
+    
+    // Theme toggle
+    private StackPane toggleSwitch;
+    private StackPane toggleCircle;
+    private Label toggleIcon;
     
     public StaffDashboard() {
         controller = new StaffDashboardController();
@@ -85,25 +94,60 @@ public class StaffDashboard {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         
-        Button themeBtn = new Button(ThemeManager.isDarkMode() ? "☀" : "🌙");
-        String themeBtnColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
-        themeBtn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + themeBtnColor + ";" +
-            "-fx-font-size: 18px;" +
-            "-fx-cursor: hand;"
+        // Theme toggle switch (reuse LoginView implementation)
+        toggleSwitch = new StackPane();
+        toggleSwitch.setPrefWidth(70);
+        toggleSwitch.setPrefHeight(32);
+        toggleSwitch.setMaxWidth(70);
+        toggleSwitch.setMaxHeight(32);
+        
+        Region toggleBg = new Region();
+        toggleBg.setPrefWidth(70);
+        toggleBg.setPrefHeight(32);
+        String toggleBgColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
+        toggleBg.setStyle(
+            "-fx-background-color: " + toggleBgColor + ";" +
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
         );
-        themeBtn.setOnAction(e -> {
-            ThemeManager.toggleLightDark();
-            themeBtn.setText(ThemeManager.isDarkMode() ? "☀" : "🌙");
-            updateSidebarTheme();
-        });
+        
+        toggleCircle = new StackPane();
+        toggleCircle.setPrefWidth(26);
+        toggleCircle.setPrefHeight(26);
+        toggleCircle.setMaxWidth(26);
+        toggleCircle.setMaxHeight(26);
+        
+        String circleColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+        toggleCircle.setStyle(
+            "-fx-background-color: " + circleColor + ";" +
+            "-fx-background-radius: 13px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
+        );
+        
+        toggleIcon = new Label(ThemeManager.isDarkMode() ? "🌙" : "☀");
+        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 12));
+        toggleIcon.setStyle("-fx-text-fill: #000000;");
+        toggleCircle.getChildren().add(toggleIcon);
+        
+        StackPane.setAlignment(toggleCircle, ThemeManager.isDarkMode() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        StackPane.setMargin(toggleCircle, new Insets(0, 2, 0, 2));
+        
+        toggleSwitch.getChildren().addAll(toggleBg, toggleCircle);
+        toggleSwitch.setOnMouseClicked(e -> toggleTheme());
+        toggleSwitch.setStyle("-fx-cursor: hand;");
         
         Label staffLabel = new Label("👤 Staff");
         String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
         staffLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
         
-        topBar.getChildren().addAll(titleLabel, spacer, themeBtn, staffLabel);
+        topBar.getChildren().addAll(titleLabel, spacer, toggleSwitch, staffLabel);
         return topBar;
     }
     
@@ -306,6 +350,52 @@ public class StaffDashboard {
         titleLabel.setText("Cancelled Orders");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createCancelledView());
+    }
+    
+    /**
+     * Toggle between light and dark theme
+     */
+    private void toggleTheme() {
+        ThemeManager.toggleLightDark();
+        
+        // Update toggle switch appearance with smooth animation
+        toggleIcon.setText(ThemeManager.isDarkMode() ? "🌙" : "☀");
+        
+        // Animate circle position smoothly
+        double targetX = ThemeManager.isDarkMode() ? 44 : 2; // Right: 44, Left: 2
+        Timeline slideAnimation = new Timeline(
+            new KeyFrame(Duration.millis(400), 
+                new KeyValue(toggleCircle.translateXProperty(), targetX - toggleCircle.getLayoutX())
+            )
+        );
+        slideAnimation.setCycleCount(1);
+        slideAnimation.play();
+        
+        // Update circle color
+        String circleColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+        toggleCircle.setStyle(
+            "-fx-background-color: " + circleColor + ";" +
+            "-fx-background-radius: 17px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
+        );
+        
+        // Update background color
+        Region toggleBg = (Region) toggleSwitch.getChildren().get(0);
+        String toggleBgColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
+        toggleBg.setStyle(
+            "-fx-background-color: " + toggleBgColor + ";" +
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
+        );
+        
+        updateSidebarTheme();
     }
     
     private void updateSidebarTheme() {

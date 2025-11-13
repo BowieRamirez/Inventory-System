@@ -17,6 +17,8 @@ import javafx.scene.control.TextArea;
 import javafx.scene.layout.VBox;
 import student.Student;
 import utils.FileStorage;
+import utils.DBManager;
+import dao.StudentDAO;
 import utils.SystemConfigManager;
 import utils.TermsAndConditions;
 
@@ -39,7 +41,12 @@ public class SignupController {
      */
     private void loadStudents() {
         try {
-            students = FileStorage.loadStudents();
+            if (DBManager.isConfigured()) {
+                StudentDAO.createTableIfNotExists();
+                students = StudentDAO.findAll();
+            } else {
+                students = FileStorage.loadStudents();
+            }
         } catch (Exception e) {
             AlertHelper.showError("Error", "Failed to load student data: " + e.getMessage());
             students = List.of();
@@ -95,18 +102,35 @@ public class SignupController {
         }
         
         // Create new student
-        Student newStudent = new Student(studentId, password, course, firstName, lastName, gender);
+        // Normalize course display string to internal code before storing
+        String courseCode = GUIValidator.normalizeCourse(course);
+        if (courseCode == null) {
+            AlertHelper.showError("Registration Failed", "Unrecognized course selection. Please try again.");
+            return;
+        }
+        Student newStudent = new Student(studentId, password, courseCode, firstName, lastName, gender);
         
-        // Save to file
+        // Save to DB or file
         try {
-            boolean success = FileStorage.addStudent(students, newStudent);
+            boolean success;
+            if (DBManager.isConfigured()) {
+                StudentDAO.createTableIfNotExists();
+                if (StudentDAO.exists(studentId)) {
+                    AlertHelper.showError("Registration Failed", "Student ID already exists.");
+                    return;
+                }
+                StudentDAO.insert(newStudent);
+                success = true;
+            } else {
+                success = FileStorage.addStudent(students, newStudent);
+            }
             
             if (success) {
                 AlertHelper.showSuccess("Registration Successful", 
                     "Account created successfully!\n\n" +
                     "Student ID: " + studentId + "\n" +
                     "Name: " + newStudent.getFullName() + "\n" +
-                    "Course: " + course + "\n\n" +
+                    "Course: " + course + " (" + courseCode + ")\n\n" +
                     "You can now login with your credentials.");
                 
                 // Navigate back to login
