@@ -339,26 +339,8 @@ public class SignupView {
         // Store original items for reset
         final ObservableList<String> allCourses = FXCollections.observableArrayList(courseItems);
         
-        // Filter as user types
-        courseComboBox.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                courseComboBox.setItems(allCourses);
-            } else {
-                ObservableList<String> filtered = FXCollections.observableArrayList(
-                    allCourses.stream()
-                        .filter(c -> c.toLowerCase().contains(newVal.toLowerCase()))
-                        .toList()
-                );
-                courseComboBox.setItems(filtered);
-                courseComboBox.show();
-            }
-        });
-        
-        // When dropdown shows, reset to all items and focus editor
-        courseComboBox.setOnShowing(e -> {
-            courseComboBox.setItems(allCourses);
-            courseComboBox.getEditor().requestFocus();
-        });
+        // Attach searchable behavior with autocomplete
+        attachSearchableComboBox(courseComboBox, allCourses);
         
         courseBox.getChildren().addAll(courseLabel, courseComboBox);
         
@@ -406,38 +388,20 @@ public class SignupView {
             "-fx-focus-color: transparent;" +
             "-fx-faint-focus-color: transparent;"
         );
-        
-        // Add search icon using a Label overlay
+
+        // Attach searchable behavior with autocomplete
+        final ObservableList<String> allGenders = FXCollections.observableArrayList(genderItems);
+        attachSearchableComboBox(genderComboBox, allGenders);
+
+        // Add search icon using a Label overlay (icon is created here to keep parity with course)
         Label genderSearchIcon = new Label("🔍");
         genderSearchIcon.setStyle(
             "-fx-font-size: 16px;" +
             "-fx-padding: 0 10px;" +
             "-fx-text-fill: " + fieldText + ";"
         );
-        
-        // Store original items for reset
-        final ObservableList<String> allGenders = FXCollections.observableArrayList(genderItems);
-        
-        // Filter as user types
-        genderComboBox.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                genderComboBox.setItems(allGenders);
-            } else {
-                ObservableList<String> filtered = FXCollections.observableArrayList(
-                    allGenders.stream()
-                        .filter(g -> g.toLowerCase().contains(newVal.toLowerCase()))
-                        .toList()
-                );
-                genderComboBox.setItems(filtered);
-                genderComboBox.show();
-            }
-        });
-        
-        // When dropdown shows, reset to all items and focus editor
-        genderComboBox.setOnShowing(e -> {
-            genderComboBox.setItems(allGenders);
-            genderComboBox.getEditor().requestFocus();
-        });
+
+        // Note: The icon label is styled for consistency; actual overlay is managed by control skin.
         
         genderBox.getChildren().addAll(genderLabel, genderComboBox);
         
@@ -775,6 +739,91 @@ public class SignupView {
     
     public VBox getView() {
         return view;
+    }
+
+    // Shared helper: adds text-input search with autocomplete and allows custom values
+    private void attachSearchableComboBox(ComboBox<String> combo, ObservableList<String> allItems) {
+        final javafx.beans.property.SimpleBooleanProperty updating = new javafx.beans.property.SimpleBooleanProperty(false);
+
+        combo.setItems(FXCollections.observableArrayList(allItems));
+
+        combo.setOnShowing(e -> {
+            combo.setItems(FXCollections.observableArrayList(allItems));
+            combo.getEditor().requestFocus();
+        });
+
+        combo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+            if (updating.get()) return;
+            updating.set(true);
+            try {
+                String typed = newVal == null ? "" : newVal;
+                String lower = typed.toLowerCase();
+
+                java.util.List<String> starts = allItems.stream()
+                    .filter(s -> s.toLowerCase().startsWith(lower))
+                    .toList();
+                java.util.List<String> contains = allItems.stream()
+                    .filter(s -> !starts.contains(s) && s.toLowerCase().contains(lower))
+                    .toList();
+
+                ObservableList<String> filtered;
+                if (typed.isEmpty()) {
+                    filtered = FXCollections.observableArrayList(allItems);
+                } else {
+                    filtered = FXCollections.observableArrayList();
+                    filtered.addAll(starts);
+                    filtered.addAll(contains);
+                }
+
+                combo.getSelectionModel().clearSelection();
+                combo.setItems(filtered);
+                if (!combo.isShowing()) combo.show();
+
+                boolean added = oldVal != null && newVal != null && newVal.length() > oldVal.length();
+                int caret = combo.getEditor().getCaretPosition();
+                boolean atEnd = caret == typed.length();
+
+                if (added && atEnd && !typed.isEmpty() && !starts.isEmpty()) {
+                    String suggestion = starts.get(0);
+                    combo.getEditor().setText(suggestion);
+                    combo.getEditor().positionCaret(typed.length());
+                    combo.getEditor().selectRange(typed.length(), suggestion.length());
+                }
+            } finally {
+                updating.set(false);
+            }
+        });
+
+        // Commit editor text on Enter/Tab and allow custom values
+        combo.getEditor().setOnKeyPressed(e -> {
+            var code = e.getCode();
+            if (code == javafx.scene.input.KeyCode.ENTER || code == javafx.scene.input.KeyCode.TAB) {
+                String text = combo.getEditor().getText();
+                if (text != null && !text.isBlank()) {
+                    combo.setValue(text);
+                } else {
+                    combo.setValue(null);
+                }
+                combo.hide();
+            }
+        });
+
+        // On focus loss, commit current text
+        combo.focusedProperty().addListener((o, was, is) -> {
+            if (!is) {
+                String text = combo.getEditor().getText();
+                if (text != null && !text.isBlank()) {
+                    combo.setValue(text);
+                }
+            }
+        });
+
+        // Keep editor text in sync when value changes
+        combo.valueProperty().addListener((o, ov, nv) -> {
+            if (nv != null) {
+                combo.getEditor().setText(nv);
+            }
+        });
     }
 }
 
