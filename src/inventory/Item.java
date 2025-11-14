@@ -29,6 +29,8 @@ public class Item {
     public void addQuantity(int amount) {
         this.quantity += amount;
     }
+
+    public void setPrice(double price) { this.price = price; }
     
     @Override
     public String toString() {

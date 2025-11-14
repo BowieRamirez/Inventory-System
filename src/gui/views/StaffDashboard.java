@@ -8,6 +8,7 @@ import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -37,6 +38,7 @@ public class StaffDashboard {
     private Button inventoryBtn;
     private Button stockLogsBtn;
     private Button logoutBtn;
+    private Button dashboardBtn;
     
     // Sidebar labels for theme updates
     private Label logoLabel;
@@ -71,19 +73,19 @@ public class StaffDashboard {
         contentArea.setStyle("-fx-background-color: " + contentBg + ";");
         view.setCenter(contentArea);
         
-        showReservations();
+        setActiveButton(dashboardBtn);
+        showDashboard();
     }
     
     private HBox createTopBar() {
         HBox topBar = new HBox(20);
         topBar.setPadding(new Insets(15, 20, 15, 20));
         topBar.setAlignment(Pos.CENTER_LEFT);
-        String topBarBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
-        String borderColor = ThemeManager.isDarkMode() ? "-color-border-default" : "#0550AE";
+        String bgGradient = ThemeManager.isDarkMode()
+            ? "linear-gradient(to right, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to right, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
         topBar.setStyle(
-            "-fx-background-color: " + topBarBg + ";" +
-            "-fx-border-color: " + borderColor + ";" +
-            "-fx-border-width: 0 0 2 0;"
+            "-fx-background-color: " + bgGradient + ";"
         );
         
         titleLabel = new Label("Reservations");
@@ -127,7 +129,7 @@ public class StaffDashboard {
             : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
-            "-fx-background-radius: 13px;" +
+            "-fx-background-radius: 17px;" +
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
         );
         
@@ -156,16 +158,30 @@ public class StaffDashboard {
         sidebar.setPrefWidth(250);
         sidebar.setPadding(new Insets(20));
         
-        // Blue sidebar in light mode, subtle background in dark mode
-        String sidebarColor = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
+        // Gradient blue sidebar in light mode, gradient dark blue in dark mode
+        String bgGradient = ThemeManager.isDarkMode()
+            ? "linear-gradient(to bottom, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to bottom, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
         sidebar.setStyle(
-            "-fx-background-color: " + sidebarColor + ";" +
-            "-fx-border-color: -color-border-default;" +
-            "-fx-border-width: 0 1 0 0;"
+            "-fx-background-color: " + bgGradient + ";"
         );
         
-        logoLabel = new Label("STI ProWear");
-        logoLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        // Logo image
+        ImageView logoImage = new ImageView();
+        try {
+            javafx.scene.image.Image img = new javafx.scene.image.Image(
+                new java.io.FileInputStream("src/database/data/images/NewLogo.png")
+            );
+            logoImage.setImage(img);
+            logoImage.setFitWidth(50);
+            logoImage.setFitHeight(50);
+            logoImage.setPreserveRatio(true);
+        } catch (Exception e) {
+            System.err.println("Failed to load logo: " + e.getMessage());
+        }
+        
+        logoLabel = new Label("STI ProWear Novaliches");
+        logoLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
         logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
         
@@ -173,11 +189,12 @@ public class StaffDashboard {
         String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
-        VBox header = new VBox(5, logoLabel, subtitleLabel);
-        header.setAlignment(Pos.CENTER_LEFT);
+        VBox header = new VBox(10, logoImage, logoLabel, subtitleLabel);
+        header.setAlignment(Pos.TOP_CENTER);
         header.setPadding(new Insets(0, 0, 20, 0));
         
-        reservationsBtn = createNavButton("📋 Reservations", true);
+        dashboardBtn = createNavButton("📊 Dashboard", true);
+        reservationsBtn = createNavButton("📋 Reservations", false);
         pickupApprovalsBtn = createNavButton("📦 Pickup Approvals", false);
         completedBtn = createNavButton("✅ Completed", false);
         returnedBtn = createNavButton("↩️ Returned", false);
@@ -190,14 +207,22 @@ public class StaffDashboard {
         
         logoutBtn = createNavButton("🚪 Logout", false);
         String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
+        String logoutBg = ThemeManager.isDarkMode() ? "-color-danger-emphasis" : "rgba(255,255,255,0.15)";
         logoutBtn.setStyle(
-            "-fx-background-color: transparent;" +
+            "-fx-background-color: " + logoutBg + ";" +
             "-fx-text-fill: " + logoutColor + ";" +
             "-fx-font-size: 14px;" +
-            "-fx-alignment: center-left;" +
+            "-fx-alignment: center;" +
             "-fx-padding: 12px;" +
-            "-fx-cursor: hand;"
+            "-fx-background-radius: 6;" +
+            "-fx-cursor: hand;" +
+            (ThemeManager.isDarkMode() ? "-fx-font-weight: bold;" : "")
         );
+        
+        dashboardBtn.setOnAction(e -> {
+            setActiveButton(dashboardBtn);
+            showDashboard();
+        });
         
         reservationsBtn.setOnAction(e -> {
             setActiveButton(reservationsBtn);
@@ -239,6 +264,7 @@ public class StaffDashboard {
         sidebar.getChildren().addAll(
             header,
             new Separator(),
+            dashboardBtn,
             reservationsBtn,
             pickupApprovalsBtn,
             completedBtn,
@@ -283,7 +309,7 @@ public class StaffDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {reservationsBtn, pickupApprovalsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
+        Button[] buttons = {dashboardBtn, reservationsBtn, pickupApprovalsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -310,6 +336,12 @@ public class StaffDashboard {
         }
     }
     
+    private void showDashboard() {
+        titleLabel.setText("Overview");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createStaffDashboardView());
+    }
+
     private void showReservations() {
         titleLabel.setText("Reservations");
         contentArea.getChildren().clear();
@@ -411,12 +443,11 @@ public class StaffDashboard {
         
         // Update top bar
         HBox topBar = (HBox) view.getTop();
-        String topBarBg = isDark ? "-color-bg-subtle" : "#0969DA";
-        String borderColor = isDark ? "-color-border-default" : "#0550AE";
+        String bgGradient = isDark
+            ? "linear-gradient(to right, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to right, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
         topBar.setStyle(
-            "-fx-background-color: " + topBarBg + ";" +
-            "-fx-border-color: " + borderColor + ";" +
-            "-fx-border-width: 0 0 2 0;"
+            "-fx-background-color: " + bgGradient + ";"
         );
         
         // Update title color
@@ -442,13 +473,15 @@ public class StaffDashboard {
         }
         
         // Update sidebar background
-        String sidebarColor = isDark ? "-color-bg-subtle" : "#0969DA";
-        sidebar.setStyle("-fx-background-color: " + sidebarColor + "; -fx-padding: 20;");
+        String sidebarGradient = isDark
+            ? "linear-gradient(to bottom, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to bottom, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
+        sidebar.setStyle("-fx-background-color: " + sidebarGradient + "; -fx-padding: 20;");
         
         // Update logo and subtitle
         String logoColor = isDark ? "-color-accent-fg" : "white";
         String subtitleColor = isDark ? "-color-fg-muted" : "rgba(255, 255, 255, 0.8)";
-        logoLabel.setStyle("-fx-text-fill: " + logoColor + "; -fx-font-size: 24px; -fx-font-weight: bold;");
+        logoLabel.setStyle("-fx-text-fill: " + logoColor + "; -fx-font-size: 16px; -fx-font-weight: bold;");
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         // Update navigation buttons
@@ -461,13 +494,13 @@ public class StaffDashboard {
                 boolean isActive = currentStyle.contains("-fx-font-weight: bold");
                 
                 if (isDark) {
-                    // Dark mode styling
+                    // Dark mode styling - use darker subtle color for active state
                     if (isActive) {
-                        btn.setStyle("-fx-background-color: -color-accent-emphasis; -fx-text-fill: white; " +
+                        btn.setStyle("-fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; " +
                                    "-fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 6; " +
                                    "-fx-cursor: hand; -fx-alignment: center-left; -fx-font-size: 14px;");
                     } else {
-                        btn.setStyle("-fx-background-color: transparent; -fx-text-fill: -color-fg-muted; " +
+                        btn.setStyle("-fx-background-color: transparent; -fx-text-fill: -color-fg-default; " +
                                    "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
                                    "-fx-alignment: center-left; -fx-font-size: 14px;");
                     }
@@ -486,15 +519,21 @@ public class StaffDashboard {
             }
         }
         
-        // Update logout button
+        // Update logout button: keep it as a nav-style text button in light mode
         if (isDark) {
             logoutBtn.setStyle("-fx-background-color: -color-danger-emphasis; -fx-text-fill: white; " +
                              "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
                              "-fx-alignment: center; -fx-font-size: 14px; -fx-font-weight: bold;");
         } else {
-            logoutBtn.setStyle("-fx-background-color: rgba(220, 53, 69, 0.9); -fx-text-fill: white; " +
-                             "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
-                             "-fx-alignment: center; -fx-font-size: 14px; -fx-font-weight: bold;");
+            // In light mode, show logout as a transparent nav item with white text
+            logoutBtn.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.15);" +
+                "-fx-text-fill: rgba(255,255,255,0.9);" +
+                "-fx-font-size: 14px;" +
+                "-fx-alignment: center;" +
+                "-fx-padding: 12px;" +
+                "-fx-cursor: hand;"
+            );
         }
     }
     

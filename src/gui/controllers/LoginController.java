@@ -139,8 +139,6 @@ public class LoginController {
      * @return AuthResult containing staff object and deactivation status
      */
     private AuthResult authenticateStaff(String staffId, String password) {
-        boolean deactivatedMatchFound = false;
-        
         // Find staff by ID
         for (Staff staff : staffList) {
             if (staff.getStaffId().equals(staffId)) {

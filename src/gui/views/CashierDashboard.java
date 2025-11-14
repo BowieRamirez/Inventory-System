@@ -2,12 +2,17 @@ package gui.views;
 
 import gui.controllers.CashierDashboardController;
 import gui.utils.ThemeManager;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.util.Duration;
 
 /**
  * CashierDashboard - Main dashboard for cashier users
@@ -30,6 +35,11 @@ public class CashierDashboard {
     private Button logoutBtn;
     private Label logoLabel;
     private Label subtitleLabel;
+    
+    // Smooth toggle fields
+    private StackPane toggleSwitch;
+    private StackPane toggleCircle;
+    private Label toggleIcon;
     
     public CashierDashboard() {
         controller = new CashierDashboardController();
@@ -62,12 +72,11 @@ public class CashierDashboard {
         HBox topBar = new HBox(20);
         topBar.setPadding(new Insets(15, 20, 15, 20));
         topBar.setAlignment(Pos.CENTER_LEFT);
-        String topBarBg = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
-        String borderColor = ThemeManager.isDarkMode() ? "-color-border-default" : "#0550AE";
+        String bgGradient = ThemeManager.isDarkMode()
+            ? "linear-gradient(to right, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to right, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
         topBar.setStyle(
-            "-fx-background-color: " + topBarBg + ";" +
-            "-fx-border-color: " + borderColor + ";" +
-            "-fx-border-width: 0 0 2 0;"
+            "-fx-background-color: " + bgGradient + ";"
         );
         
         titleLabel = new Label("Process Payments");
@@ -78,25 +87,60 @@ public class CashierDashboard {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         
-        Button themeBtn = new Button(ThemeManager.isDarkMode() ? "☀" : "🌙");
-        String themeBtnColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
-        themeBtn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + themeBtnColor + ";" +
-            "-fx-font-size: 18px;" +
-            "-fx-cursor: hand;"
+        // Theme toggle switch (smooth animation)
+        toggleSwitch = new StackPane();
+        toggleSwitch.setPrefWidth(70);
+        toggleSwitch.setPrefHeight(32);
+        toggleSwitch.setMaxWidth(70);
+        toggleSwitch.setMaxHeight(32);
+        
+        Region toggleBg = new Region();
+        toggleBg.setPrefWidth(70);
+        toggleBg.setPrefHeight(32);
+        String toggleBgColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
+        toggleBg.setStyle(
+            "-fx-background-color: " + toggleBgColor + ";" +
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
         );
-        themeBtn.setOnAction(e -> {
-            ThemeManager.toggleLightDark();
-            themeBtn.setText(ThemeManager.isDarkMode() ? "☀" : "🌙");
-            updateSidebarTheme();
-        });
+        
+        toggleCircle = new StackPane();
+        toggleCircle.setPrefWidth(26);
+        toggleCircle.setPrefHeight(26);
+        toggleCircle.setMaxWidth(26);
+        toggleCircle.setMaxHeight(26);
+        
+        String circleColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+        toggleCircle.setStyle(
+            "-fx-background-color: " + circleColor + ";" +
+            "-fx-background-radius: 17px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
+        );
+        
+        toggleIcon = new Label(ThemeManager.isDarkMode() ? "🌙" : "☀");
+        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 12));
+        toggleIcon.setStyle("-fx-text-fill: #000000;");
+        toggleCircle.getChildren().add(toggleIcon);
+        
+        StackPane.setAlignment(toggleCircle, ThemeManager.isDarkMode() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        StackPane.setMargin(toggleCircle, new Insets(0, 2, 0, 2));
+        
+        toggleSwitch.getChildren().addAll(toggleBg, toggleCircle);
+        toggleSwitch.setOnMouseClicked(e -> toggleTheme());
+        toggleSwitch.setStyle("-fx-cursor: hand;");
         
         Label cashierLabel = new Label("👤 Cashier");
         String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
         cashierLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
         
-        topBar.getChildren().addAll(titleLabel, spacer, themeBtn, cashierLabel);
+        topBar.getChildren().addAll(titleLabel, spacer, toggleSwitch, cashierLabel);
         return topBar;
     }
     
@@ -105,16 +149,30 @@ public class CashierDashboard {
         sidebar.setPrefWidth(250);
         sidebar.setPadding(new Insets(20));
         
-        // Blue sidebar in light mode, subtle background in dark mode
-        String sidebarColor = ThemeManager.isDarkMode() ? "-color-bg-subtle" : "#0969DA";
+        // Gradient blue sidebar in light mode, gradient dark blue in dark mode
+        String bgGradient = ThemeManager.isDarkMode()
+            ? "linear-gradient(to bottom, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to bottom, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
         sidebar.setStyle(
-            "-fx-background-color: " + sidebarColor + ";" +
-            "-fx-border-color: -color-border-default;" +
-            "-fx-border-width: 0 1 0 0;"
+            "-fx-background-color: " + bgGradient + ";"
         );
         
-        logoLabel = new Label("STI ProWear");
-        logoLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        // Logo image
+        ImageView logoImage = new ImageView();
+        try {
+            javafx.scene.image.Image img = new javafx.scene.image.Image(
+                new java.io.FileInputStream("src/database/data/images/NewLogo.png")
+            );
+            logoImage.setImage(img);
+            logoImage.setFitWidth(50);
+            logoImage.setFitHeight(50);
+            logoImage.setPreserveRatio(true);
+        } catch (Exception e) {
+            System.err.println("Failed to load logo: " + e.getMessage());
+        }
+        
+        logoLabel = new Label("STI ProWear Novaliches");
+        logoLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
         logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
         
@@ -122,8 +180,8 @@ public class CashierDashboard {
         String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
-        VBox header = new VBox(5, logoLabel, subtitleLabel);
-        header.setAlignment(Pos.CENTER_LEFT);
+        VBox header = new VBox(10, logoImage, logoLabel, subtitleLabel);
+        header.setAlignment(Pos.TOP_CENTER);
         header.setPadding(new Insets(0, 0, 20, 0));
         
         paymentsBtn = createNavButton("💳 Process Payments", true);
@@ -134,13 +192,16 @@ public class CashierDashboard {
         
         logoutBtn = createNavButton("🚪 Logout", false);
         String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
+        String logoutBg = ThemeManager.isDarkMode() ? "-color-danger-emphasis" : "rgba(255,255,255,0.15)";
         logoutBtn.setStyle(
-            "-fx-background-color: transparent;" +
+            "-fx-background-color: " + logoutBg + ";" +
             "-fx-text-fill: " + logoutColor + ";" +
             "-fx-font-size: 14px;" +
-            "-fx-alignment: center-left;" +
+            "-fx-alignment: center;" +
             "-fx-padding: 12px;" +
-            "-fx-cursor: hand;"
+            "-fx-background-radius: 6;" +
+            "-fx-cursor: hand;" +
+            (ThemeManager.isDarkMode() ? "-fx-font-weight: bold;" : "")
         );
         
         paymentsBtn.setOnAction(e -> {
@@ -249,12 +310,11 @@ public class CashierDashboard {
         
         // Update top bar
         HBox topBar = (HBox) view.getTop();
-        String topBarBg = isDark ? "-color-bg-subtle" : "#0969DA";
-        String borderColor = isDark ? "-color-border-default" : "#0550AE";
+        String bgGradient = isDark
+            ? "linear-gradient(to right, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to right, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
         topBar.setStyle(
-            "-fx-background-color: " + topBarBg + ";" +
-            "-fx-border-color: " + borderColor + ";" +
-            "-fx-border-width: 0 0 2 0;"
+            "-fx-background-color: " + bgGradient + ";"
         );
         
         // Update title color
@@ -280,8 +340,10 @@ public class CashierDashboard {
         }
         
         // Update sidebar background
-        String sidebarColor = isDark ? "-color-bg-subtle" : "#0969DA";
-        sidebar.setStyle("-fx-background-color: " + sidebarColor + "; -fx-padding: 20;");
+        String sidebarGradient = isDark
+            ? "linear-gradient(to bottom, #1a2a6c 0%, #0d1b4d 50%, #1a2a6c 100%)"
+            : "linear-gradient(to bottom, #1e3c72 0%, #2a5298 50%, #1e3c72 100%)";
+        sidebar.setStyle("-fx-background-color: " + sidebarGradient + "; -fx-padding: 20;");
         
         // Update logo and subtitle
         String logoColor = isDark ? "-color-accent-fg" : "white";
@@ -298,13 +360,13 @@ public class CashierDashboard {
             boolean isActive = currentStyle.contains("-fx-font-weight: bold");
             
             if (isDark) {
-                // Dark mode styling
+                // Dark mode styling - use darker subtle color for active state
                 if (isActive) {
-                    btn.setStyle("-fx-background-color: -color-accent-emphasis; -fx-text-fill: white; " +
+                    btn.setStyle("-fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; " +
                                "-fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 6; " +
                                "-fx-cursor: hand; -fx-alignment: center-left; -fx-font-size: 14px;");
                 } else {
-                    btn.setStyle("-fx-background-color: transparent; -fx-text-fill: -color-fg-muted; " +
+                    btn.setStyle("-fx-background-color: transparent; -fx-text-fill: -color-fg-default; " +
                                "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
                                "-fx-alignment: center-left; -fx-font-size: 14px;");
                 }
@@ -326,12 +388,59 @@ public class CashierDashboard {
         if (isDark) {
             logoutBtn.setStyle("-fx-background-color: -color-danger-emphasis; -fx-text-fill: white; " +
                              "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
-                             "-fx-alignment: center-left; -fx-font-size: 14px; -fx-font-weight: bold;");
+                             "-fx-alignment: center; -fx-font-size: 14px; -fx-font-weight: bold;");
         } else {
-            logoutBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: rgba(255, 255, 255, 0.9); " +
+            logoutBtn.setStyle("-fx-background-color: rgba(255, 255, 255, 0.15); -fx-text-fill: rgba(255, 255, 255, 0.9); " +
                              "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
-                             "-fx-alignment: center-left; -fx-font-size: 14px;");
+                             "-fx-alignment: center; -fx-font-size: 14px;");
         }
+    }
+    
+    /**
+     * Toggle theme with smooth animation
+     */
+    private void toggleTheme() {
+        ThemeManager.toggleLightDark();
+        
+        // Update toggle switch appearance with smooth animation
+        toggleIcon.setText(ThemeManager.isDarkMode() ? "🌙" : "☀");
+        
+        // Animate circle position smoothly
+        double targetX = ThemeManager.isDarkMode() ? 44 : 2; // Right: 44, Left: 2
+        Timeline slideAnimation = new Timeline(
+            new KeyFrame(Duration.millis(400), 
+                new KeyValue(toggleCircle.translateXProperty(), targetX - toggleCircle.getLayoutX())
+            )
+        );
+        slideAnimation.setCycleCount(1);
+        slideAnimation.play();
+        
+        // Update circle color
+        String circleColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+        toggleCircle.setStyle(
+            "-fx-background-color: " + circleColor + ";" +
+            "-fx-background-radius: 13px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
+        );
+        
+        // Update background color
+        Region toggleBg = (Region) toggleSwitch.getChildren().get(0);
+        String toggleBgColor = ThemeManager.isDarkMode() 
+            ? "linear-gradient(to right, #1e3a5f 0%, #0f2a4a 50%, #1e3a5f 100%)"
+            : "linear-gradient(to right, #fff9e6 0%, #ffefb3 50%, #fff9e6 100%)";
+        toggleBg.setStyle(
+            "-fx-background-color: " + toggleBgColor + ";" +
+            "-fx-background-radius: 16px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "rgba(77, 163, 255, 0.3)" : "rgba(245, 197, 66, 0.3)") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 16px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);"
+        );
+        
+        // Update the full UI theme
+        updateSidebarTheme();
     }
     
     public BorderPane getView() {

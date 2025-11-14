@@ -41,6 +41,8 @@ public class ThemeManager {
     }
     
     private static Theme currentTheme = Theme.PRIMER_LIGHT;
+    // Simple theme change listeners
+    private static final java.util.List<Runnable> changeListeners = new java.util.ArrayList<>();
     
     /**
      * Initialize the theme manager with default theme
@@ -57,6 +59,30 @@ public class ThemeManager {
     public static void setTheme(Theme theme) {
         currentTheme = theme;
         Application.setUserAgentStylesheet(theme.getTheme().getUserAgentStylesheet());
+        // notify listeners about theme change
+        try {
+            for (Runnable r : changeListeners) {
+                try { r.run(); } catch (Exception ex) { /* swallow listener errors */ }
+            }
+        } catch (Exception ex) {
+            // ignore
+        }
+    }
+
+    /**
+     * Register a listener that will be invoked when theme changes.
+     */
+    public static void addThemeChangeListener(Runnable listener) {
+        if (listener == null) return;
+        changeListeners.add(listener);
+    }
+
+    /**
+     * Remove a previously registered theme change listener.
+     */
+    public static void removeThemeChangeListener(Runnable listener) {
+        if (listener == null) return;
+        changeListeners.remove(listener);
     }
     
     /**

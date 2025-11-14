@@ -1888,15 +1888,11 @@ public class AdminDashboardController {
         actionCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[6]));
         actionCol.setPrefWidth(150);
 
-        TableColumn<String[], String> approvedByCol = new TableColumn<>("Approved By");
-        approvedByCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[7]));
-        approvedByCol.setPrefWidth(120);
-
         TableColumn<String[], String> detailsCol = new TableColumn<>("Details");
-        detailsCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[8]));
+        detailsCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[7]));
         detailsCol.setPrefWidth(300);
 
-        table.getColumns().addAll(timestampCol, performerCol, codeCol, itemCol, sizeCol, changeCol, actionCol, approvedByCol, detailsCol);
+        table.getColumns().addAll(timestampCol, performerCol, codeCol, itemCol, sizeCol, changeCol, actionCol, detailsCol);
 
         // Load stock logs
         List<String[]> logs = loadStockLogs();
@@ -1977,11 +1973,8 @@ public class AdminDashboardController {
         
         javafx.scene.control.Label performerValue = new javafx.scene.control.Label(logData[1]);
         performerValue.setStyle("-fx-font-size: 14px;");
-        
-        javafx.scene.control.Label approvedByLabel = new javafx.scene.control.Label("Approved By: " + logData[7]);
-        approvedByLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: -color-fg-muted;");
-        
-        performerSection.getChildren().addAll(performerHeader, performerValue, approvedByLabel);
+
+        performerSection.getChildren().addAll(performerHeader, performerValue);
 
         // Item Details Section
         VBox itemSection = new VBox(8);
@@ -2026,7 +2019,7 @@ public class AdminDashboardController {
         javafx.scene.control.Label detailsHeader = new javafx.scene.control.Label("📝 DETAILS");
         detailsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
         
-        javafx.scene.control.Label detailsValue = new javafx.scene.control.Label(logData[8]);
+        javafx.scene.control.Label detailsValue = new javafx.scene.control.Label(logData[7]);
         detailsValue.setWrapText(true);
         detailsValue.setMaxWidth(500);
         detailsValue.setStyle("-fx-font-size: 12px;");
@@ -2052,69 +2045,56 @@ public class AdminDashboardController {
             "STAFF_RETURN", "ITEM_ADDED", "ITEM_DELETED", "ITEM_UPDATED"
         );
         
-        // Load from stock_logs.txt (legacy/old format)
-        try (java.io.BufferedReader br = new java.io.BufferedReader(
-                new java.io.FileReader("src/database/data/stock_logs.txt"))) {
-            String line = br.readLine(); // Skip header
-            while ((line = br.readLine()) != null) {
-                line = line.trim();
-                if (!line.isEmpty()) {
-                    String[] parts = line.split("\\|");
+        // Load from stock_logs.txt with fresh disk read
+        try {
+            java.nio.file.Path logPath = java.nio.file.Paths.get("src/database/data/stock_logs.txt");
+            if (java.nio.file.Files.exists(logPath)) {
+                // Force read from disk to ensure latest data
+                List<String> lines = java.nio.file.Files.readAllLines(logPath, java.nio.charset.StandardCharsets.UTF_8);
+                boolean isFirstLine = true;
+                
+                for (String line : lines) {
+                    // Skip empty lines and header
+                    if (line == null || line.trim().isEmpty()) {
+                        continue;
+                    }
+                    
+                    if (isFirstLine) {
+                        isFirstLine = false;
+                        if (line.toLowerCase().contains("timestamp")) {
+                            continue; // Skip actual header
+                        }
+                    }
+                    
+                    String[] parts = line.split("\\|", -1); // Use -1 to include trailing empty strings
                     if (parts.length >= 8) {
-                        String action = parts[6]; // Action column
+                        String action = parts[6].trim(); // Action column
                         
-                        // Only show admin-relevant actions
+                        // Show admin-relevant actions
                         if (adminRelevantActions.contains(action)) {
-                            // Add "Approved By" column (empty for old logs from stock_logs.txt)
-                            String[] extendedParts = new String[9];
-                            System.arraycopy(parts, 0, extendedParts, 0, 7);
-                            extendedParts[7] = "-"; // Approved By (not applicable for old logs)
-                            extendedParts[8] = parts[7]; // Details
-                            logs.add(extendedParts);
+                            // Trim all parts for cleaner display
+                            for (int i = 0; i < parts.length; i++) {
+                                parts[i] = parts[i].trim();
+                            }
+                            logs.add(parts);
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            // Failed to load logs
-        }
-        
-        // Load from audit system (new format with approval tracking)
-        audit.StockAuditManager auditManager = new audit.StockAuditManager();
-        List<audit.StockAuditLog> auditLogs = auditManager.getAllLogs();
-        
-        for (audit.StockAuditLog auditLog : auditLogs) {
-            String[] logEntry = new String[9];
-            logEntry[0] = auditLog.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            logEntry[1] = auditLog.getStaffUsername();
-            logEntry[2] = String.valueOf(auditLog.getItemCode());
-            logEntry[3] = auditLog.getItemName();
-            logEntry[4] = auditLog.getItemSize();
-            
-            // Format stock change
-            int change = auditLog.getQuantityChanged();
-            String changeStr = (change >= 0 ? "+" : "") + change + "/" + auditLog.getQuantityAfter();
-            logEntry[5] = changeStr;
-            
-            // Action/Status
-            logEntry[6] = auditLog.getStatus() + " - " + auditLog.getChangeType();
-            
-            // Approved By
-            logEntry[7] = auditLog.getApprovedBy() != null ? auditLog.getApprovedBy() : 
-                         ("PENDING".equals(auditLog.getStatus()) ? "Pending" : "-");
-            
-            // Details
-            String details = auditLog.getReason();
-            if (auditLog.getNotes() != null && !auditLog.getNotes().isEmpty()) {
-                details += " | " + auditLog.getNotes();
-            }
-            logEntry[8] = details;
-            
-            logs.add(logEntry);
+            System.err.println("Error loading stock logs: " + e.getMessage());
         }
         
         // Sort by timestamp (newest first)
-        logs.sort((a, b) -> b[0].compareTo(a[0]));
+        logs.sort((a, b) -> {
+            try {
+                java.time.LocalDateTime timeA = java.time.LocalDateTime.parse(a[0], java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                java.time.LocalDateTime timeB = java.time.LocalDateTime.parse(b[0], java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                return timeB.compareTo(timeA);
+            } catch (Exception ex) {
+                return b[0].compareTo(a[0]); // Fallback to string comparison
+            }
+        });
         
         return logs;
     }

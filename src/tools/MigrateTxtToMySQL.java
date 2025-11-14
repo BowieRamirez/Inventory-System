@@ -24,6 +24,18 @@ public class MigrateTxtToMySQL {
         }
         try (Connection con = DBManager.getConnection()) {
             con.setAutoCommit(false);
+            // If run with 'clear' argument, remove existing rows from the legacy tables
+            if (args != null && args.length > 0 && "clear".equalsIgnoreCase(args[0])) {
+                try (Statement st = con.createStatement()) {
+                    System.out.println("Clearing tables: stock_logs, receipts, reservations...");
+                    st.executeUpdate("DELETE FROM stock_logs");
+                    st.executeUpdate("DELETE FROM receipts");
+                    st.executeUpdate("DELETE FROM reservations");
+                }
+                con.commit();
+                System.out.println("Tables cleared successfully.");
+                return;
+            }
             createTables(con);
             migrateStudents(con);
             migrateStaff(con);

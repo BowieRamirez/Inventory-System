@@ -4,4 +4,4 @@
 2000296625|Karl1234|BSIT|Karl Luis|Frias|Male|true
 020002992999|lolpogi123|HUMSS|wadawd|awdadawd|Male|false
 020002100000|123456|BSIT|Frigger|Junela|Female|true
-02000288888|123456|STEM|hashim|raslu|Male|false
+02000288888|123456|STEM|hashim|raslu|Male|true

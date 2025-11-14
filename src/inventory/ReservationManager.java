@@ -205,9 +205,14 @@ public class ReservationManager {
     public boolean approvePickupRequest(int reservationId) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
+            // Mark as approved for pickup first (keeps existing status flow)
             r.setStatus("APPROVED FOR PICKUP");
             saveReservations();
-            return true;
+
+            // Immediately mark as picked up/completed so student does not
+            // need to confirm in their account. This will also update
+            // receipts and write stock logs (same as manual student confirmation).
+            return markAsPickedUp(reservationId);
         }
         return false;
     }

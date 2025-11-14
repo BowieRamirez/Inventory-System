@@ -1,10 +1,24 @@
 package gui.controllers;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
-import audit.StockAuditManager;
+import utils.StockReturnLogger;
 import gui.utils.AlertHelper;
+import gui.utils.ThemeManager;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
@@ -19,15 +33,23 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.Region;
 
 /**
  * StaffDashboardController - Handles staff dashboard operations
@@ -38,7 +60,6 @@ public class StaffDashboardController {
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
     private ReceiptManager receiptManager;
-    private StockAuditManager auditManager;
     
     // Refresh callback for when reservations are modified
     private Runnable refreshCallback;
@@ -47,13 +68,52 @@ public class StaffDashboardController {
         inventoryManager = new InventoryManager();
         reservationManager = new ReservationManager(inventoryManager);
         receiptManager = new ReceiptManager();
-        auditManager = new StockAuditManager();
 
         // Link receipt manager to reservation manager for synchronization
         reservationManager.setReceiptManager(receiptManager);
 
         // Load data
         inventoryManager.getAllItems().forEach(item -> {});
+    }
+
+    /**
+     * Handle price change for an item
+     */
+    private void handleChangePrice(Item item, TableView<Item> table) {
+        TextInputDialog priceDialog = new TextInputDialog(String.format("%.2f", item.getPrice()));
+        priceDialog.setTitle("Change Price");
+        priceDialog.setHeaderText("Change price for: " + item.getName() + " (" + item.getSize() + ")");
+        priceDialog.setContentText("Current Price: ₱" + String.format("%.2f", item.getPrice()) + "\nNew Price:");
+
+        priceDialog.showAndWait().ifPresent(input -> {
+            try {
+                double newPrice = Double.parseDouble(input.trim());
+                if (newPrice < 0) {
+                    AlertHelper.showError("Invalid Input", "Price cannot be negative!");
+                    return;
+                }
+
+                double oldPrice = item.getPrice();
+                boolean success = inventoryManager.updateItemPriceBySize(item.getCode(), item.getSize(), newPrice);
+                if (success) {
+                    // Log legacy change
+                    StockReturnLogger.logPriceChange("staff", item.getCode(), item.getName(), item.getSize(), oldPrice, newPrice);
+
+                    // Refresh table
+                    table.refresh();
+
+                    AlertHelper.showSuccess("Price Updated",
+                        "Price updated successfully!\n\n" +
+                        "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
+                        "Old Price: ₱" + String.format("%.2f", oldPrice) + "\n" +
+                        "New Price: ₱" + String.format("%.2f", newPrice));
+                } else {
+                    AlertHelper.showError("Error", "Failed to update price!");
+                }
+            } catch (NumberFormatException ex) {
+                AlertHelper.showError("Invalid Input", "Please enter a valid numeric price.");
+            }
+        });
     }
     
     /**
@@ -453,7 +513,19 @@ public class StaffDashboardController {
         };
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(searchBar, statsBox, filterBar, table);
+        // Do not add the statsBox to the UI (hide the top summary boxes)
+        container.getChildren().addAll(searchBar, filterBar, table);
+
+        // Make the container resize-friendly and wrap it in a ScrollPane so
+        // the dashboard can be scrolled on smaller screens instead of overflowing.
+        container.setMaxWidth(Double.MAX_VALUE);
+        ScrollPane scroll = new ScrollPane(container);
+        scroll.setFitToWidth(true);
+        scroll.setFitToHeight(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        // Give a small padding so scrollbars don't overlap content on narrow windows
+        scroll.setStyle("-fx-padding: 8;");
 
         // Add row click handler to show order details
         table.setRowFactory(tv -> {
@@ -467,7 +539,7 @@ public class StaffDashboardController {
             return row;
         });
 
-        return container;
+        return scroll;
     }
 
     /**
@@ -1258,18 +1330,170 @@ public class StaffDashboardController {
         
         statsBox.getChildren().addAll(itemsCard, lowStockCard);
 
+        // Course filter buttons (All + per-course)
+        HBox courseBar = new HBox(8);
+        courseBar.setAlignment(Pos.CENTER_LEFT);
+        courseBar.setPadding(new Insets(0, 0, 8, 0));
+
+        // Build course buttons
+        List<String> availableCourses = inventoryManager.getAvailableCourses();
+        availableCourses.removeIf(s -> s == null || s.trim().isEmpty());
+        if (!availableCourses.contains("STI Special")) availableCourses.add(0, "STI Special");
+        // Ensure stable ordering and include 'All'
+        java.util.Collections.sort(availableCourses);
+        javafx.scene.control.ToggleGroup courseToggle = new javafx.scene.control.ToggleGroup();
+        javafx.scene.control.ToggleButton allBtnCourse = new javafx.scene.control.ToggleButton("All");
+        allBtnCourse.setToggleGroup(courseToggle);
+        allBtnCourse.setSelected(true);
+        allBtnCourse.setStyle(getCourseButtonStyle(true));
+        courseBar.getChildren().add(allBtnCourse);
+        for (String c : availableCourses) {
+            javafx.scene.control.ToggleButton tb = new javafx.scene.control.ToggleButton(c);
+            tb.setToggleGroup(courseToggle);
+            tb.setStyle(getCourseButtonStyle(false));
+            courseBar.getChildren().add(tb);
+        }
+
+        // Ensure toggle button styles update when selection changes
+        courseToggle.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+            for (javafx.scene.control.Toggle t : courseToggle.getToggles()) {
+                javafx.scene.control.ToggleButton b = (javafx.scene.control.ToggleButton) t;
+                b.setStyle(getCourseButtonStyle(b.isSelected()));
+            }
+        });
+
+        // Also update course button styles when the application theme changes
+        // (ThemeManager notifies registered listeners on setTheme)
+        Runnable courseThemeRefresher = () -> {
+            try {
+                for (javafx.scene.control.Toggle t : courseToggle.getToggles()) {
+                    javafx.scene.control.ToggleButton b = (javafx.scene.control.ToggleButton) t;
+                    // run on FX thread if needed
+                    if (javafx.application.Platform.isFxApplicationThread()) {
+                        b.setStyle(getCourseButtonStyle(b.isSelected()));
+                    } else {
+                        javafx.application.Platform.runLater(() -> b.setStyle(getCourseButtonStyle(b.isSelected())));
+                    }
+                }
+            } catch (Exception ex) {
+                // ignore
+            }
+        };
+        ThemeManager.addThemeChangeListener(courseThemeRefresher);
+
         // Action buttons
         HBox actionBar = new HBox(15);
         actionBar.setAlignment(Pos.CENTER_LEFT);
 
         Button refreshBtn = new Button("🔄 Refresh");
+        Button addItemBtn = new Button("＋ Add Item");
         TextField searchField = new TextField();
         searchField.setPromptText("Search by item name or code...");
         searchField.setPrefWidth(250);
 
         styleActionButton(refreshBtn);
+        styleActionButton(addItemBtn);
 
-        actionBar.getChildren().addAll(refreshBtn, searchField);
+        actionBar.getChildren().addAll(refreshBtn, addItemBtn, searchField);
+
+        // Add Item button action - open dialog to create new item
+        addItemBtn.setOnAction(e -> {
+            javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+            dialog.setTitle("Add New Item");
+
+            javafx.scene.control.ButtonType addBtnType = new javafx.scene.control.ButtonType("Add", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+            javafx.scene.control.ButtonType cancelBtnType = new javafx.scene.control.ButtonType("Cancel", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+            dialog.getDialogPane().getButtonTypes().addAll(addBtnType, cancelBtnType);
+
+            VBox content = new VBox(10);
+            content.setPadding(new Insets(12));
+
+            // Generate next item code
+            final int[] nextCode = new int[] { 1001 };
+            List<Item> existing = inventoryManager.getAllItems();
+            for (Item it : existing) {
+                if (it.getCode() >= nextCode[0]) nextCode[0] = it.getCode() + 1;
+            }
+
+            javafx.scene.control.Label codeLabel = new javafx.scene.control.Label("Item Code: " + nextCode[0]);
+
+            TextField nameField = new TextField();
+            nameField.setPromptText("Item Name");
+
+            // Course selection - include existing courses and an "STI Special" option
+            javafx.scene.control.ComboBox<String> courseCombo = new javafx.scene.control.ComboBox<>();
+            List<String> courses = inventoryManager.getAvailableCourses();
+            courses.removeIf(s -> s == null || s.trim().isEmpty());
+            if (!courses.contains("STI Special")) {
+                courses.add(0, "STI Special");
+            }
+            courseCombo.setItems(FXCollections.observableArrayList(courses));
+            courseCombo.setEditable(true);
+            courseCombo.setPromptText("Course or 'STI Special'");
+
+            javafx.scene.control.ComboBox<String> sizeCombo = new javafx.scene.control.ComboBox<>();
+            sizeCombo.setItems(FXCollections.observableArrayList("S", "M", "L", "XL", "One Size"));
+            sizeCombo.setPromptText("Size");
+
+            TextField qtyField = new TextField();
+            qtyField.setPromptText("Quantity");
+
+            TextField priceField = new TextField();
+            priceField.setPromptText("Price (e.g. 450.00)");
+
+            content.getChildren().addAll(codeLabel, nameField, courseCombo, sizeCombo, qtyField, priceField);
+
+            dialog.getDialogPane().setContent(content);
+
+            // Enable/disable Add button based on validation
+            javafx.scene.control.Button addActionBtn = (javafx.scene.control.Button) dialog.getDialogPane().lookupButton(addBtnType);
+            addActionBtn.setDisable(true);
+
+            // Simple validation listener
+            Runnable validate = () -> {
+                boolean ok = !nameField.getText().trim().isEmpty()
+                         && courseCombo.getValue() != null && !courseCombo.getValue().trim().isEmpty()
+                         && sizeCombo.getValue() != null && !sizeCombo.getValue().trim().isEmpty();
+                try {
+                    int q = Integer.parseInt(qtyField.getText().trim());
+                    double p = Double.parseDouble(priceField.getText().trim());
+                    ok = ok && q >= 0 && p >= 0;
+                } catch (Exception ex) {
+                    ok = false;
+                }
+                addActionBtn.setDisable(!ok);
+            };
+
+            nameField.textProperty().addListener((obs, o, n) -> validate.run());
+            courseCombo.valueProperty().addListener((obs, o, n) -> validate.run());
+            sizeCombo.valueProperty().addListener((obs, o, n) -> validate.run());
+            qtyField.textProperty().addListener((obs, o, n) -> validate.run());
+            priceField.textProperty().addListener((obs, o, n) -> validate.run());
+
+            dialog.setResultConverter(button -> {
+                if (button == addBtnType) {
+                    try {
+                        String name = nameField.getText().trim();
+                        String course = courseCombo.getValue().trim();
+                        String size = sizeCombo.getValue().trim();
+                        int qty = Integer.parseInt(qtyField.getText().trim());
+                        double price = Double.parseDouble(priceField.getText().trim());
+
+                        Item newItem = new Item(nextCode[0], name, course, size, qty, price);
+                        inventoryManager.addItem(newItem);
+
+                        // Refresh table and stats by invoking the refresh button action
+                        refreshBtn.fire();
+
+                    } catch (Exception ex) {
+                        // ignore - validation prevents this
+                    }
+                }
+                return null;
+            });
+
+            dialog.showAndWait();
+        });
 
         // Create inventory table
         TableView<Item> table = new TableView<>();
@@ -1310,10 +1534,11 @@ public class StaffDashboardController {
         });
         priceCol.setPrefWidth(100);
         
-        // Actions column - Adjust Stock button
+        // Actions column - Adjust Stock and Change Price buttons
         TableColumn<Item, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Item, Void>() {
             private final Button adjustBtn = new Button("📝 Adjust Stock");
+            private final Button priceBtn = new Button("₱ Change Price");
 
             @Override
             protected void updateItem(Void item, boolean empty) {
@@ -1324,54 +1549,423 @@ public class StaffDashboardController {
                     Item currentItem = getTableView().getItems().get(getIndex());
                     adjustBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
                     adjustBtn.setOnAction(e -> handleStockAdjustment(currentItem, table));
-                    setGraphic(adjustBtn);
+
+                    priceBtn.setStyle("-fx-background-color: #0A84FF; -fx-text-fill: white; -fx-cursor: hand;");
+                    priceBtn.setOnAction(e -> handleChangePrice(currentItem, table));
+
+                    HBox btns = new HBox(8, adjustBtn, priceBtn);
+                    btns.setAlignment(Pos.CENTER);
+                    setGraphic(btns);
                 }
             }
         });
-        actionsCol.setPrefWidth(150);
+        actionsCol.setPrefWidth(220);
 
         table.getColumns().addAll(codeCol, nameCol, courseCol, sizeCol, qtyCol, priceCol, actionsCol);
 
-        // Load all items
-        List<Item> allItems = inventoryManager.getAllItems();
-        ObservableList<Item> itemsList = FXCollections.observableArrayList(allItems);
-        table.setItems(itemsList);
+        // Make columns resize to fill the available width of the container
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+        table.setPrefWidth(Double.MAX_VALUE);
 
-        // Search functionality
+        // Bind column widths as percentages of the table width so the table fills its box
+        codeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
+        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.42));
+        courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.14));
+        sizeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
+        qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.08));
+        priceCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
+        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
+
+        // Keep table visual size consistent when limiting rows: fix row height and pref height
+        // (pref height will be set after itemsPerPage is declared below)
+
+        // Load all items (we'll manage paging/filtering)
+        List<Item> allItems = inventoryManager.getAllItems();
+
+        final int[] currentPage = new int[] { 1 };
+        final int itemsPerPage = 10;
+        final String[] currentCourse = new String[] { "All" };
+        // Sliding window start for page numbers (so 1 2 3 ... N can slide to 2 3 4 ... N)
+        final int[] pageWindowStart = new int[] { 1 };
+
+        // Pagination controls container
+        HBox pageControls = new HBox(6);
+        pageControls.setAlignment(Pos.CENTER_LEFT);
+        pageControls.setPadding(new Insets(8, 0, 0, 0));
+
+        // pageControls created earlier - we will update it via helper method below
+
+        // Search functionality -> reset to page 1 and update via helper
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                table.setItems(FXCollections.observableArrayList(allItems));
+            currentPage[0] = 1;
+            pageWindowStart[0] = 1;
+            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+        });
+
+        // Course toggle action -> update via helper
+        courseToggle.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+            if (newT == null) {
+                courseToggle.selectToggle((javafx.scene.control.Toggle) courseToggle.getToggles().get(0));
+                currentCourse[0] = "All";
             } else {
-                List<Item> filtered = allItems.stream()
-                    .filter(item -> item.getName().toLowerCase().contains(newVal.toLowerCase()) ||
-                                  String.valueOf(item.getCode()).contains(newVal))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(filtered));
+                javafx.scene.control.ToggleButton tb = (javafx.scene.control.ToggleButton) newT;
+                currentCourse[0] = tb.getText();
             }
+            currentPage[0] = 1;
+            pageWindowStart[0] = 1;
+            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
         });
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
             List<Item> refreshed = inventoryManager.getAllItems();
-            table.setItems(FXCollections.observableArrayList(refreshed));
+            allItems.clear();
+            allItems.addAll(refreshed);
+            currentPage[0] = 1;
+            pageWindowStart[0] = 1;
+            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
             searchField.clear();
-            
-            // Update stats cards
-            int updatedTotal = inventoryManager.getAllItems().size();
-            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
-                .setText(String.valueOf(updatedTotal));
-            
-            int updatedLowStock = (int) inventoryManager.getAllItems().stream()
-                .filter(item -> item.getQuantity() < 10)
-                .count();
-            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(1)).getChildren().get(1))
-                .setText(String.valueOf(updatedLowStock));
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(statsBox, actionBar, table);
+        // Add course bar, action bar, table and pagination controls
+        container.getChildren().addAll(courseBar, actionBar, table, pageControls);
+
+        // Now that itemsPerPage is known, make the rows scale to fill the available table height
+        // Bind fixedCellSize so rows expand/shrink to fill the table area and remove empty gap below
+        // Use a stable fixed row height so layout stays predictable and table fills the box
+        final double headerReserve = 56; // approximate height occupied by headers and paddings
+        final double rowHeight = 65; // stable row height
+        table.setFixedCellSize(rowHeight);
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
+        // initial display
+        updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
 
         return container;
+    }
+
+    /**
+     * Update inventory table contents and rebuild pagination controls
+     */
+    private void updateInventoryTable(TableView<Item> table, List<Item> allItems, String[] currentCourse,
+                                      int[] currentPage, int itemsPerPage, HBox pageControls, HBox statsBox,
+                                      TextField searchField, int[] pageWindowStart) {
+        String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+
+        List<Item> filtered = allItems.stream()
+            .filter(it -> {
+                boolean courseMatch = "All".equalsIgnoreCase(currentCourse[0]) ||
+                                      (it.getCourse() != null && it.getCourse().equalsIgnoreCase(currentCourse[0])) ||
+                                      ("STI Special".equalsIgnoreCase(it.getCourse()) && "STI Special".equalsIgnoreCase(currentCourse[0]));
+                boolean searchMatch = q.isEmpty() || (it.getName() != null && it.getName().toLowerCase().contains(q)) || String.valueOf(it.getCode()).contains(q);
+                return courseMatch && searchMatch;
+            })
+            .collect(java.util.stream.Collectors.toList());
+
+        int totalPages = Math.max(1, (int) Math.ceil((double) filtered.size() / itemsPerPage));
+        if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+
+        int start = (currentPage[0] - 1) * itemsPerPage;
+        int end = Math.min(start + itemsPerPage, filtered.size());
+        List<Item> pageItems = filtered.isEmpty() ? java.util.Collections.emptyList() : filtered.subList(start, end);
+
+        table.setItems(FXCollections.observableArrayList(pageItems));
+
+        // Build pagination controls: sliding window pages, then Prev/Next inserted before ellipsis/last
+        pageControls.getChildren().clear();
+
+        // sliding window configuration
+        int windowSize = 3;
+
+        // Prepare Prev/Next buttons (we'll insert them after the sliding window pages)
+        Button prev = new Button("◀");
+        prev.setOnAction(ev -> {
+            if (currentPage[0] > 1) currentPage[0] = Math.max(1, currentPage[0] - 1);
+            if (pageWindowStart[0] > 1) pageWindowStart[0] = Math.max(1, pageWindowStart[0] - 1);
+            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+        });
+
+        Button next = new Button("▶");
+        next.setOnAction(ev -> {
+            int totalPagesLocal = Math.max(1, (int) Math.ceil((double) filtered.size() / itemsPerPage));
+            if (currentPage[0] < totalPagesLocal) currentPage[0] = Math.min(totalPagesLocal, currentPage[0] + 1);
+            int maxWindowStartLocal = Math.max(1, totalPagesLocal - windowSize + 1);
+            if (pageWindowStart[0] < maxWindowStartLocal) pageWindowStart[0] = Math.min(maxWindowStartLocal, pageWindowStart[0] + 1);
+            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+        });
+
+        int maxWindowStart = Math.max(1, totalPages - windowSize + 1);
+        if (pageWindowStart[0] < 1) pageWindowStart[0] = 1;
+        if (pageWindowStart[0] > maxWindowStart) pageWindowStart[0] = maxWindowStart;
+
+        // Helper to add page button
+        java.util.function.BiConsumer<Integer, Boolean> addPageBtn = (pageNum, isCurrent) -> {
+            Button p = new Button(String.valueOf(pageNum));
+            p.setDisable(isCurrent);
+            int pi = pageNum;
+            p.setOnAction(ev -> {
+                currentPage[0] = pi;
+                if (pi < pageWindowStart[0]) pageWindowStart[0] = pi;
+                else if (pi > pageWindowStart[0] + windowSize - 1) pageWindowStart[0] = Math.max(1, pi - windowSize + 1);
+                updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+            });
+            if (isCurrent) p.setStyle("-fx-background-color: -color-bg-subtle; -fx-border-color: -color-border-default; -fx-font-weight: bold;");
+            pageControls.getChildren().add(p);
+        };
+
+        int windowEnd = Math.min(totalPages, pageWindowStart[0] + windowSize - 1);
+
+        if (totalPages <= windowSize + 1) {
+            // small number of pages: just render them
+            for (int i = 1; i <= totalPages; i++) {
+                addPageBtn.accept(i, i == currentPage[0]);
+            }
+            // Always show Prev/Next to the right so user can navigate
+            prev.setDisable(currentPage[0] <= 1);
+            next.setDisable(currentPage[0] >= totalPages);
+            prev.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
+            next.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
+            pageControls.getChildren().addAll(prev, next);
+        } else {
+            // Render the sliding window page buttons
+            for (int i = pageWindowStart[0]; i <= windowEnd; i++) {
+                addPageBtn.accept(i, i == currentPage[0]);
+            }
+
+            // If there's a gap before the last page, insert Prev/Next in the middle,
+            // otherwise append Prev/Next to the right so they remain visible on the last page.
+            boolean hasGapBeforeLast = windowEnd < totalPages - 1;
+            if (hasGapBeforeLast) {
+                prev.setDisable(currentPage[0] <= 1);
+                next.setDisable(currentPage[0] >= totalPages);
+                HBox middleControls = new HBox(6);
+                middleControls.setAlignment(Pos.CENTER);
+                prev.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
+                next.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
+                middleControls.getChildren().addAll(prev, next);
+                pageControls.getChildren().add(middleControls);
+
+                // show ellipsis + last page
+                pageControls.getChildren().add(new javafx.scene.control.Label("..."));
+                addPageBtn.accept(totalPages, currentPage[0] == totalPages);
+            } else {
+                // Window already reaches the end: append last page if needed, then Prev/Next to the right
+                if (windowEnd == totalPages - 1) {
+                    addPageBtn.accept(totalPages, currentPage[0] == totalPages);
+                }
+                prev.setDisable(currentPage[0] <= 1);
+                next.setDisable(currentPage[0] >= totalPages);
+                prev.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
+                next.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
+                pageControls.getChildren().addAll(prev, next);
+            }
+        }
+
+        // Update stats badge for total items (all items in inventory)
+        try {
+            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1)).setText(String.valueOf(allItems.size()));
+        } catch (Exception ex) {
+            // ignore if layout differs
+        }
+    }
+
+    /**
+     * Create staff analytics dashboard view
+     */
+    public Node createStaffDashboardView() {
+        VBox container = new VBox(24);
+        container.setPadding(new Insets(24));
+
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+        List<Item> allItems = inventoryManager.getAllItems();
+        List<Reservation> completedReservations = allReservations.stream()
+            .filter(r -> "COMPLETED".equals(r.getStatus()))
+            .collect(Collectors.toList());
+
+        YearMonth currentMonth = YearMonth.now();
+        LocalDate today = LocalDate.now();
+
+        double salesThisMonth = calculateSales(allReservations, reservation ->
+            "COMPLETED".equals(reservation.getStatus()) &&
+            YearMonth.from(getRelevantDate(reservation)).equals(currentMonth)
+        );
+
+        double overallSales = calculateSales(allReservations,
+            reservation -> "COMPLETED".equals(reservation.getStatus()));
+
+        long ordersToday = countOrders(allReservations, reservation ->
+            "COMPLETED".equals(reservation.getStatus()) &&
+            getRelevantDate(reservation).equals(today)
+        );
+
+        long lowStockCount = allItems.stream()
+            .filter(item -> item.getQuantity() <= 15 && item.getQuantity() > 5)
+            .count();
+        long criticalStockCount = allItems.stream()
+            .filter(item -> item.getQuantity() > 0 && item.getQuantity() <= 5)
+            .count();
+        long outOfStockCount = allItems.stream()
+            .filter(item -> item.getQuantity() == 0)
+            .count();
+
+        // Stock Status overview: show key metric cards (Net Sales month, Net Sales all-time,
+        // Orders today, Completed orders). Low/critical segmented bar removed per request.
+        VBox stockStatusBox = new VBox(8);
+        stockStatusBox.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 14; -fx-background-radius: 8; -fx-border-radius:8;");
+
+        javafx.scene.control.Label stockTitle = new javafx.scene.control.Label("Stock Status");
+        stockTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        int totalProducts = allItems.size();
+        int completedOrdersCount = completedReservations.size();
+
+        javafx.scene.control.Label productsLabel = new javafx.scene.control.Label(totalProducts + " Products");
+        productsLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+
+        // Progress bar made from regions with proportional widths (Stock Status bar)
+        HBox barContainer = new HBox();
+        barContainer.setStyle("-fx-background-color: #edf2f6; -fx-background-radius: 8; -fx-padding: 0;");
+        barContainer.setPrefHeight(18);
+        barContainer.setMaxWidth(Double.MAX_VALUE);
+        barContainer.setMinHeight(18);
+        barContainer.setAlignment(Pos.CENTER_LEFT);
+        barContainer.setSpacing(0);
+        HBox.setHgrow(barContainer, Priority.ALWAYS);
+
+        int lowCount = (int) lowStockCount;
+        int criticalCount = (int) criticalStockCount;
+        int outOfStock = (int) outOfStockCount;
+        int inStockCount = Math.max(0, totalProducts - lowCount - criticalCount - outOfStock);
+
+        Region inRegion = new Region();
+        inRegion.setStyle("-fx-background-color: #1A7F37; -fx-background-radius: 6 0 0 6; -fx-min-width: 20;");
+        Region lowRegion = new Region();
+        lowRegion.setStyle("-fx-background-color: #FB8C00; -fx-background-radius: 0 0 0 0; -fx-min-width: 1;");
+        Region critRegion = new Region();
+        critRegion.setStyle("-fx-background-color: #CF222E; -fx-background-radius: 0 0 0 0; -fx-min-width: 1;");
+        Region outRegion = new Region();
+        outRegion.setStyle("-fx-background-color: #6B5B95; -fx-background-radius: 0 6 6 0; -fx-min-width: 1;");
+
+        // Let the regions expand/shrink correctly inside the HBox
+        HBox.setHgrow(inRegion, Priority.ALWAYS);
+        HBox.setHgrow(lowRegion, Priority.ALWAYS);
+        HBox.setHgrow(critRegion, Priority.ALWAYS);
+        HBox.setHgrow(outRegion, Priority.ALWAYS);
+        inRegion.setMinHeight(18);
+        lowRegion.setMinHeight(18);
+        critRegion.setMinHeight(18);
+        outRegion.setMinHeight(18);
+
+        double denom = Math.max(1, (double) totalProducts);
+        inRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) inStockCount / denom));
+        lowRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) lowCount / denom));
+        critRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) criticalCount / denom));
+        outRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) outOfStock / denom));
+
+        barContainer.getChildren().addAll(inRegion, lowRegion, critRegion, outRegion);
+
+        // Legend
+        HBox legend = new HBox(12);
+        legend.setAlignment(Pos.CENTER_LEFT);
+
+        Region legendIn = new Region(); legendIn.setPrefSize(12,12); legendIn.setStyle("-fx-background-color: #1A7F37; -fx-background-radius:2;");
+        Region legendLow = new Region(); legendLow.setPrefSize(12,12); legendLow.setStyle("-fx-background-color: #FB8C00; -fx-background-radius:2;");
+        Region legendCrit = new Region(); legendCrit.setPrefSize(12,12); legendCrit.setStyle("-fx-background-color: #CF222E; -fx-background-radius:2;");
+        Region legendOut = new Region(); legendOut.setPrefSize(12,12); legendOut.setStyle("-fx-background-color: #6B5B95; -fx-background-radius:2;");
+
+        javafx.scene.control.Label lblIn = new javafx.scene.control.Label("In stock: " + inStockCount);
+        javafx.scene.control.Label lblLow = new javafx.scene.control.Label("Low stock: " + lowCount);
+        javafx.scene.control.Label lblCrit = new javafx.scene.control.Label("Critical: " + criticalCount);
+        javafx.scene.control.Label lblOut = new javafx.scene.control.Label("Out of stock: " + outOfStock);
+
+        HBox inItem = new HBox(6, legendIn, lblIn);
+        HBox lowItem = new HBox(6, legendLow, lblLow);
+        HBox critItem = new HBox(6, legendCrit, lblCrit);
+        HBox outItem = new HBox(6, legendOut, lblOut);
+
+        legend.getChildren().addAll(inItem, lowItem, critItem, outItem);
+
+        // Metric cards row
+        HBox metricsRow = new HBox(12);
+        metricsRow.setAlignment(Pos.CENTER_LEFT);
+
+        // Helper to create a small card
+        java.util.function.BiFunction<String, String, VBox> makeCard = (title, value) -> {
+            VBox card = new VBox(6);
+            card.setStyle("-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 6; -fx-border-radius:6; -fx-border-color: rgba(0,0,0,0.04);");
+            javafx.scene.control.Label t = new javafx.scene.control.Label(title);
+            t.setStyle("-fx-font-size: 12px; -fx-text-fill: -color-fg-muted;");
+            javafx.scene.control.Label v = new javafx.scene.control.Label(value);
+            v.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+            card.getChildren().addAll(t, v);
+            return card;
+        };
+
+        String salesMonthStr = String.format("₱%.2f", salesThisMonth);
+        String salesAllStr = String.format("₱%.2f", overallSales);
+        String ordersTodayStr = String.valueOf(ordersToday);
+        String completedStr = String.valueOf(completedOrdersCount);
+
+        VBox card1 = makeCard.apply("Net Sales (This Month)", salesMonthStr);
+        VBox card2 = makeCard.apply("Net Sales (All Time)", salesAllStr);
+        VBox card3 = makeCard.apply("Orders Today", ordersTodayStr);
+        VBox card4 = makeCard.apply("Completed Orders", completedStr);
+
+        HBox.setHgrow(card1, Priority.ALWAYS);
+        HBox.setHgrow(card2, Priority.ALWAYS);
+        HBox.setHgrow(card3, Priority.ALWAYS);
+        HBox.setHgrow(card4, Priority.ALWAYS);
+
+        metricsRow.getChildren().addAll(card1, card2, card3, card4);
+
+        stockStatusBox.getChildren().addAll(stockTitle, productsLabel, barContainer, legend, metricsRow);
+
+        javafx.scene.control.Label trendingLabel = new javafx.scene.control.Label("Trending");
+        trendingLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        HBox trendRow = new HBox(20);
+        trendRow.setAlignment(Pos.CENTER);
+        trendRow.setPrefHeight(320);
+        BarChart<String, Number> weeklySalesChart = buildWeeklySalesChart(completedReservations, allReservations);
+        LineChart<String, Number> salesTrendChart = buildSalesTrendChart(completedReservations, allReservations);
+        HBox.setHgrow(weeklySalesChart, Priority.ALWAYS);
+        HBox.setHgrow(salesTrendChart, Priority.ALWAYS);
+        trendRow.getChildren().addAll(weeklySalesChart, salesTrendChart);
+
+        javafx.scene.control.Label breakdownLabel = new javafx.scene.control.Label("Product Breakdown");
+        breakdownLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        TableView<ProductStat> breakdownTable = buildProductBreakdownTable(allReservations);
+        TableView<Item> lowStockTable = buildLowStockTable(allItems);
+
+        VBox alertsSection = new VBox(8,
+            new javafx.scene.control.Label("Inventory Alerts"),
+            lowStockTable
+        );
+        ((javafx.scene.control.Label) alertsSection.getChildren().get(0))
+            .setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        container.getChildren().addAll(
+            stockStatusBox,
+            trendingLabel,
+            trendRow,
+            breakdownLabel,
+            breakdownTable,
+            alertsSection
+        );
+
+        // Wrap the dashboard in a ScrollPane so the content becomes scrollable
+        // on smaller windows instead of being clipped.
+        container.setMaxWidth(Double.MAX_VALUE);
+        ScrollPane scroll = new ScrollPane(container);
+        scroll.setFitToWidth(true);
+        scroll.setFitToHeight(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setStyle("-fx-padding: 8;");
+
+        return scroll;
     }
     
     /**
@@ -1386,68 +1980,46 @@ public class StaffDashboardController {
         newQtyDialog.showAndWait().ifPresent(input -> {
             try {
                 int newQuantity = Integer.parseInt(input.trim());
-                
+
                 if (newQuantity < 0) {
                     AlertHelper.showError("Invalid Input", "Quantity cannot be negative!");
                     return;
                 }
-                
+
                 if (newQuantity == item.getQuantity()) {
                     AlertHelper.showInfo("No Change", "New quantity is the same as current quantity.");
                     return;
                 }
-                
-                // Ask for reason
-                TextInputDialog reasonDialog = new TextInputDialog();
-                reasonDialog.setTitle("Stock Adjustment Reason");
-                reasonDialog.setHeaderText("Provide a reason for this stock change");
-                reasonDialog.setContentText("Reason:");
-                
-                reasonDialog.showAndWait().ifPresent(reason -> {
-                    if (reason.trim().isEmpty()) {
-                        AlertHelper.showError("Validation Error", "Reason is required!");
-                        return;
-                    }
-                    
-                    // Calculate the difference
-                    int oldQuantity = item.getQuantity();
-                    int stockChange = newQuantity - oldQuantity;
-                    String action = stockChange > 0 ? "ADD" : (stockChange < 0 ? "REMOVE" : "ADJUST");
-                    
-                    // Log the stock change to audit system
-                    auditManager.logStockChange(
-                        "staff", // Performed by staff
-                        item.getName(),
-                        item.getCode(),
-                        item.getSize(),
-                        oldQuantity,
-                        newQuantity,
-                        reason.trim(),
-                        action
-                    );
-                    
-                    // Update the stock directly using InventoryManager
-                    boolean success = inventoryManager.updateItemQuantityBySize(
-                        item.getCode(),
-                        item.getSize(),
-                        newQuantity
-                    );
-                    
-                    if (success) {
-                        // Refresh the table to show updated stock
-                        table.refresh();
-                        
-                        AlertHelper.showSuccess("Stock Updated", 
-                            "Stock updated successfully!\n\n" +
-                            "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
-                            "Old Quantity: " + oldQuantity + "\n" +
-                            "New Quantity: " + newQuantity + "\n" +
-                            "Change: " + (stockChange > 0 ? "+" : "") + stockChange);
-                    } else {
-                        AlertHelper.showError("Error", "Failed to update stock!");
-                    }
-                });
-                
+
+                // Calculate the difference
+                int oldQuantity = item.getQuantity();
+                int stockChange = newQuantity - oldQuantity;
+
+                // Apply the change immediately (staff can adjust without admin approval)
+                boolean success = inventoryManager.updateItemQuantityBySize(
+                    item.getCode(),
+                    item.getSize(),
+                    newQuantity
+                );
+
+                if (success) {
+                    // Log the change into the legacy stock logs so Admin can see it in the Admin UI
+                    String details = String.format("Adjusted by staff: %s → %s", oldQuantity, newQuantity);
+                    StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), oldQuantity, newQuantity, details);
+
+                    // Refresh the table to show updated stock
+                    table.refresh();
+
+                    AlertHelper.showSuccess("Stock Updated",
+                        "Stock updated successfully!\n\n" +
+                        "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
+                        "Old Quantity: " + oldQuantity + "\n" +
+                        "New Quantity: " + newQuantity + "\n" +
+                        "Change: " + (stockChange > 0 ? "+" : "") + stockChange);
+                } else {
+                    AlertHelper.showError("Error", "Failed to update stock!");
+                }
+
             } catch (NumberFormatException e) {
                 AlertHelper.showError("Invalid Input", "Please enter a valid number!");
             }
@@ -1656,39 +2228,59 @@ public class StaffDashboardController {
         
         // Staff-relevant actions (user/customer activities only)
         List<String> staffRelevantActions = java.util.Arrays.asList(
-            "USER_PICKUP", "USER_RETURN"
+            "USER_PICKUP", "USER_RETURN", "ITEM_UPDATED", "ITEM_ADDED", "ITEM_DELETED", "STAFF_RETURN"
         );
         
         try {
             java.nio.file.Path logPath = java.nio.file.Paths.get("src/database/data/stock_logs.txt");
             if (java.nio.file.Files.exists(logPath)) {
-                List<String> lines = java.nio.file.Files.readAllLines(logPath);
+                // Force read from disk to ensure latest data
+                List<String> lines = java.nio.file.Files.readAllLines(logPath, java.nio.charset.StandardCharsets.UTF_8);
                 boolean isFirstLine = true;
                 
                 for (String line : lines) {
-                    // Skip header
-                    if (isFirstLine) {
-                        isFirstLine = false;
+                    // Skip empty lines and header
+                    if (line == null || line.trim().isEmpty()) {
                         continue;
                     }
                     
-                    String[] parts = line.split("\\|");
+                    if (isFirstLine) {
+                        isFirstLine = false;
+                        if (line.toLowerCase().contains("timestamp")) {
+                            continue; // Skip actual header
+                        }
+                    }
+                    
+                    String[] parts = line.split("\\|", -1); // Use -1 to include trailing empty strings
                     if (parts.length >= 8) {
-                        String action = parts[6]; // Action column
+                        String action = parts[6].trim(); // Action column
                         
-                        // Only show staff-relevant actions (user activities)
+                        // Show all relevant actions for staff
                         if (staffRelevantActions.contains(action)) {
+                            // Trim all parts for cleaner display
+                            for (int i = 0; i < parts.length; i++) {
+                                parts[i] = parts[i].trim();
+                            }
                             logs.add(parts);
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            // Silently handle error
+            // Log error but continue
+            System.err.println("Error loading stock logs: " + e.getMessage());
         }
         
         // Sort by timestamp (newest first)
-        logs.sort((a, b) -> b[0].compareTo(a[0]));
+        logs.sort((a, b) -> {
+            try {
+                java.time.LocalDateTime timeA = java.time.LocalDateTime.parse(a[0], java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                java.time.LocalDateTime timeB = java.time.LocalDateTime.parse(b[0], java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                return timeB.compareTo(timeA);
+            } catch (Exception ex) {
+                return b[0].compareTo(a[0]); // Fallback to string comparison
+            }
+        });
         
         return logs;
     }
@@ -1706,6 +2298,22 @@ public class StaffDashboardController {
             "-fx-cursor: hand;" +
             "-fx-pref-height: 36px;"
         );
+    }
+
+    /**
+     * Return a style string for course filter buttons honoring dark mode and selection
+     */
+    private String getCourseButtonStyle(boolean selected) {
+        boolean dark = ThemeManager.isDarkMode();
+        if (selected) {
+            return dark
+                ? "-fx-background-color: #2b6fb2; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 6px;"
+                : "-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 6px;";
+        } else {
+            return dark
+                ? "-fx-background-color: rgba(255,255,255,0.04); -fx-text-fill: #dbeafe; -fx-cursor: hand; -fx-background-radius: 6px;"
+                : "-fx-background-color: #e6eef8; -fx-text-fill: -color-fg-default; -fx-cursor: hand; -fx-background-radius: 6px;";
+        }
     }
     
     /**
@@ -1733,6 +2341,352 @@ public class StaffDashboardController {
 
         card.getChildren().addAll(titleLabel, valueLabel);
         return card;
+    }
+
+    @SuppressWarnings("unused")
+    private VBox createMetricCard(String title, String value, String description, String color) {
+        VBox card = new VBox(6);
+        card.setPadding(new Insets(18));
+        card.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: " + color + ";" +
+            "-fx-border-width: 2;" +
+            "-fx-border-radius: 10;" +
+            "-fx-background-radius: 10;"
+        );
+
+        javafx.scene.control.Label titleLabel = new javafx.scene.control.Label(title);
+        titleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 13px;");
+
+        javafx.scene.control.Label valueLabel = new javafx.scene.control.Label(value);
+        valueLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 32px; -fx-font-weight: bold;");
+
+        javafx.scene.control.Label descLabel = new javafx.scene.control.Label(description);
+        descLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+
+        card.getChildren().addAll(titleLabel, valueLabel, descLabel);
+        return card;
+    }
+
+    private BarChart<String, Number> buildWeeklySalesChart(List<Reservation> completedReservations, List<Reservation> allReservations) {
+        CategoryAxis xAxis = new CategoryAxis();
+        xAxis.setLabel("Week");
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel("Net Sales (₱)");
+        BarChart<String, Number> chart = new BarChart<>(xAxis, yAxis);
+        chart.setLegendVisible(false);
+        chart.setTitle("Net Sales Week Trend");
+        chart.setAnimated(false);
+
+        Map<String, Double> weeklySales = calculateWeeklySales(completedReservations, allReservations, 5);
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        weeklySales.forEach((label, total) -> series.getData().add(new XYChart.Data<>(label, total)));
+        chart.getData().add(series);
+        chart.setCategoryGap(18);
+        chart.setBarGap(6);
+        chart.setMinWidth(350);
+        chart.setPrefWidth(450);
+        return chart;
+    }
+
+    private LineChart<String, Number> buildSalesTrendChart(List<Reservation> completedReservations, List<Reservation> allReservations) {
+        CategoryAxis xAxis = new CategoryAxis();
+        xAxis.setLabel("Date");
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel("Net Sales (₱)");
+
+        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
+        chart.setTitle("Total Sales Trend (30 days)");
+        chart.setAnimated(false);
+
+        Map<LocalDate, Double> dailySales = calculateDailySales(completedReservations, allReservations, 30);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
+
+        XYChart.Series<String, Number> salesSeries = new XYChart.Series<>();
+        salesSeries.setName("Net Sales");
+        dailySales.forEach((date, total) ->
+            salesSeries.getData().add(new XYChart.Data<>(date.format(formatter), total))
+        );
+
+        chart.getData().add(salesSeries);
+        chart.setCreateSymbols(false);
+        chart.setPrefWidth(550);
+        return chart;
+    }
+
+    private TableView<ProductStat> buildProductBreakdownTable(List<Reservation> reservations) {
+        TableView<ProductStat> table = new TableView<>();
+        table.setPrefHeight(260);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+
+        TableColumn<ProductStat, String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().itemName));
+
+        TableColumn<ProductStat, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().size));
+        sizeCol.setMaxWidth(80);
+
+        TableColumn<ProductStat, Number> ordersCol = new TableColumn<>("Orders");
+        ordersCol.setCellValueFactory(data -> new javafx.beans.property.SimpleIntegerProperty(data.getValue().orders));
+
+        TableColumn<ProductStat, Number> unitsCol = new TableColumn<>("Units");
+        unitsCol.setCellValueFactory(data -> new javafx.beans.property.SimpleIntegerProperty(data.getValue().quantity));
+
+        TableColumn<ProductStat, String> salesCol = new TableColumn<>("Net Sales");
+        salesCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(formatCurrency(data.getValue().sales)));
+
+        table.getColumns().addAll(itemCol, sizeCol, ordersCol, unitsCol, salesCol);
+
+        Map<String, ProductAccumulator> aggregated = new HashMap<>();
+        for (Reservation reservation : reservations) {
+            if (!"COMPLETED".equals(reservation.getStatus())) {
+                continue;
+            }
+            String key = reservation.getItemName() + "|" + reservation.getSize();
+            ProductAccumulator acc = aggregated.computeIfAbsent(key,
+                k -> new ProductAccumulator(reservation.getItemName(), reservation.getSize()));
+            acc.orders += 1;
+            acc.quantity += reservation.getQuantity();
+            acc.sales += reservation.getTotalPrice();
+        }
+
+        List<ProductStat> stats = aggregated.values().stream()
+            .map(ProductAccumulator::toStat)
+            .sorted((a, b) -> Double.compare(b.sales, a.sales))
+            .limit(10)
+            .collect(Collectors.toList());
+
+        table.setItems(FXCollections.observableArrayList(stats));
+        return table;
+    }
+
+    private TableView<Item> buildLowStockTable(List<Item> items) {
+        TableView<Item> table = new TableView<>();
+        table.setPrefHeight(260);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        table.setPlaceholder(new javafx.scene.control.Label("No items between 0-15 units."));
+
+        TableColumn<Item, String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getName()));
+        itemCol.setPrefWidth(200);
+
+        TableColumn<Item, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
+        sizeCol.setPrefWidth(80);
+
+        TableColumn<Item, Number> qtyCol = new TableColumn<>("Qty");
+        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getQuantity()));
+        qtyCol.setPrefWidth(80);
+
+        TableColumn<Item, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(data -> {
+            String status = data.getValue().getQuantity() <= 5 ? "CRITICAL" : "LOW";
+            return new javafx.beans.property.SimpleStringProperty(status);
+        });
+        statusCol.setCellFactory(col -> new TableCell<Item, String>() {
+            @Override
+            protected void updateItem(String status, boolean empty) {
+                super.updateItem(status, empty);
+                if (empty || status == null) {
+                    setText(null);
+                    setStyle(null);
+                } else {
+                    setText(status);
+                    String textColor = "CRITICAL".equals(status) ? "#CF222E" : "#C69026";
+                    setStyle("-fx-text-fill: " + textColor + "; -fx-font-weight: bold;");
+                }
+            }
+        });
+
+        table.getColumns().addAll(itemCol, sizeCol, qtyCol, statusCol);
+
+        List<Item> lowCriticalItems = items.stream()
+            .filter(item -> item.getQuantity() <= 15)
+            .sorted(Comparator.comparingInt(Item::getQuantity))
+            .collect(Collectors.toList());
+        table.setItems(FXCollections.observableArrayList(lowCriticalItems));
+
+        table.setRowFactory(tv -> new TableRow<Item>() {
+            @Override
+            protected void updateItem(Item item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setStyle(null);
+                } else if (item.getQuantity() <= 5) {
+                    setStyle("-fx-background-color: rgba(207,34,46,0.12);");
+                } else {
+                    setStyle("-fx-background-color: rgba(251,140,0,0.12);");
+                }
+            }
+        });
+
+        return table;
+    }
+
+    private double calculateSales(List<Reservation> reservations, Predicate<Reservation> filter) {
+        Set<String> processedBundles = new HashSet<>();
+        double total = 0;
+        for (Reservation reservation : reservations) {
+            if (!filter.test(reservation)) {
+                continue;
+            }
+            if (reservation.isPartOfBundle()) {
+                String bundleId = reservation.getBundleId();
+                if (bundleId != null && processedBundles.add(bundleId)) {
+                    total += ControllerUtils.calculateBundleTotal(bundleId, reservations);
+                }
+            } else {
+                total += reservation.getTotalPrice();
+            }
+        }
+        return total;
+    }
+
+    private long countOrders(List<Reservation> reservations, Predicate<Reservation> filter) {
+        Set<String> processedBundles = new HashSet<>();
+        long count = 0;
+        for (Reservation reservation : reservations) {
+            if (!filter.test(reservation)) {
+                continue;
+            }
+            if (reservation.isPartOfBundle()) {
+                String bundleId = reservation.getBundleId();
+                if (bundleId != null && processedBundles.add(bundleId)) {
+                    count++;
+                }
+            } else {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private Map<String, Double> calculateWeeklySales(List<Reservation> completedReservations,
+                                                     List<Reservation> allReservations,
+                                                     int weeks) {
+        LinkedHashMap<String, Double> weeklyTotals = new LinkedHashMap<>();
+        WeekFields wf = WeekFields.of(Locale.getDefault());
+        LocalDate now = LocalDate.now();
+        for (int i = weeks - 1; i >= 0; i--) {
+            LocalDate weekStart = now.minusWeeks(i).with(wf.dayOfWeek(), 1);
+            int weekNumber = weekStart.get(wf.weekOfWeekBasedYear());
+            int year = weekStart.get(wf.weekBasedYear());
+            String label = "W" + weekNumber + "\n" + year;
+            weeklyTotals.put(label, 0d);
+        }
+
+        List<Reservation> deduped = deduplicateBundles(completedReservations);
+        for (Reservation reservation : deduped) {
+            LocalDate date = getRelevantDate(reservation);
+            int weekNumber = date.get(wf.weekOfWeekBasedYear());
+            int year = date.get(wf.weekBasedYear());
+            String label = "W" + weekNumber + "\n" + year;
+            if (!weeklyTotals.containsKey(label)) {
+                continue;
+            }
+            double amount = getReservationChartAmount(reservation, allReservations);
+            weeklyTotals.put(label, weeklyTotals.get(label) + amount);
+        }
+        return weeklyTotals;
+    }
+
+    private Map<LocalDate, Double> calculateDailySales(List<Reservation> completedReservations,
+                                                       List<Reservation> allReservations,
+                                                       int days) {
+        LinkedHashMap<LocalDate, Double> totals = new LinkedHashMap<>();
+        LocalDate today = LocalDate.now();
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
+            totals.put(date, 0d);
+        }
+
+        List<Reservation> deduped = deduplicateBundles(completedReservations);
+        for (Reservation reservation : deduped) {
+            LocalDate date = getRelevantDate(reservation);
+            if (!totals.containsKey(date)) {
+                continue;
+            }
+            double amount = getReservationChartAmount(reservation, allReservations);
+            totals.put(date, totals.get(date) + amount);
+        }
+
+        return totals;
+    }
+
+    private List<Reservation> deduplicateBundles(List<Reservation> reservations) {
+        Set<String> bundleIds = new HashSet<>();
+        List<Reservation> deduped = new ArrayList<>();
+        for (Reservation reservation : reservations) {
+            if (reservation.isPartOfBundle()) {
+                String bundleId = reservation.getBundleId();
+                if (bundleId != null && bundleIds.add(bundleId)) {
+                    deduped.add(reservation);
+                }
+            } else {
+                deduped.add(reservation);
+            }
+        }
+        return deduped;
+    }
+
+    private double getReservationChartAmount(Reservation reservation, List<Reservation> allReservations) {
+        if (reservation.isPartOfBundle() && reservation.getBundleId() != null) {
+            return ControllerUtils.calculateBundleTotal(reservation.getBundleId(), allReservations);
+        }
+        return reservation.getTotalPrice();
+    }
+
+    private LocalDate getRelevantDate(Reservation reservation) {
+        if (reservation.getCompletedDate() != null) {
+            return reservation.getCompletedDate().toLocalDate();
+        }
+        return reservation.getReservationTime() != null
+            ? reservation.getReservationTime().toLocalDate()
+            : LocalDate.now();
+    }
+
+    private String formatCurrency(double amount) {
+        return "₱" + String.format("%,.2f", amount);
+    }
+
+    @SuppressWarnings("unused")
+    private String formatNumber(long value) {
+        return String.format("%,d", value);
+    }
+
+    private static class ProductStat {
+        final String itemName;
+        final String size;
+        final int orders;
+        final int quantity;
+        final double sales;
+
+        ProductStat(String itemName, String size, int orders, int quantity, double sales) {
+            this.itemName = itemName;
+            this.size = size;
+            this.orders = orders;
+            this.quantity = quantity;
+            this.sales = sales;
+        }
+    }
+
+    private static class ProductAccumulator {
+        private final String itemName;
+        private final String size;
+        private int orders;
+        private int quantity;
+        private double sales;
+
+        ProductAccumulator(String itemName, String size) {
+            this.itemName = itemName;
+            this.size = size;
+        }
+
+        ProductStat toStat() {
+            return new ProductStat(itemName, size, orders, quantity, sales);
+        }
     }
     
     /**
@@ -1967,7 +2921,8 @@ public class StaffDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(statsBox, actionBar, table);
+        // Hide the pickup-approvals summary card from the layout
+        container.getChildren().addAll(actionBar, table);
 
         return container;
     }

@@ -1,4 +1,1 @@
-10000000|2025-11-10 17:04:03|COMPLETED|1|450.0|1003|IT/Eng Gray 3/4 Blouse (Female)|S|Ramirez, Bowie|
-10000001|2025-11-10 17:14:34|RETURNED - REFUNDED|1|450.0|1003|IT/Eng Gray 3/4 Blouse (Female)|S|Ramirez, Bowie|
-10000002|2025-11-10 17:19:56|COMPLETED|1|450.0|1003|IT/Eng Gray 3/4 Blouse (Female)|S|Ramirez, Bowie|
-10000003|2025-11-13 23:51:55|PAID|1|450.0|1003|IT/Eng Gray 3/4 Blouse (Female)|S|Ramirez, Bowie|
+10000000|2025-11-15 01:46:58|COMPLETED|1|450.0|1003|IT/Eng Gray 3/4 Blouse (Female)|L|Ramirez, Bowie|

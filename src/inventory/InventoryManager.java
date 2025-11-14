@@ -157,6 +157,21 @@ public class InventoryManager {
         }
         return false;
     }
+
+    // ✅ Update item price by code and size
+    public boolean updateItemPriceBySize(int code, String size, double newPrice) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item != null) {
+            double oldPrice = item.getPrice();
+            item.setPrice(newPrice);
+            // Save updated inventory to file
+            FileStorage.saveItems(inventory);
+            // Log price update activity
+            SystemLogger.logActivity("Price updated: " + item.getName() + " (" + size + ") " + String.format("₱%.2f -> ₱%.2f", oldPrice, newPrice));
+            return true;
+        }
+        return false;
+    }
     
     // ✅ Restock item (used for returns/refunds)
     public boolean restockItem(int code, String size, int quantity) {

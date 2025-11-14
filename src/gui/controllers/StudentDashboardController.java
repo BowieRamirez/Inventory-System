@@ -23,7 +23,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
@@ -2759,6 +2758,7 @@ public class StudentDashboardController {
     /**
      * Style action button
      */
+    @SuppressWarnings("unused")
     private void styleActionButton(Button btn, String color) {
         btn.setPrefHeight(36);
         btn.setStyle(

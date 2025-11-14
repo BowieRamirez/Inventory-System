@@ -79,6 +79,38 @@ public class StockReturnLogger {
             // Error logging
         }
     }
+
+    // Log price change
+    public static void logPriceChange(String performedBy, int itemCode, String itemName,
+                                      String size, double oldPrice, double newPrice) {
+        String action = "PRICE_UPDATED";
+        String details = String.format("Price changed: ₱%.2f -> ₱%.2f", oldPrice, newPrice);
+        try {
+            File file = new File(LOG_FILE);
+            if (!file.exists()) {
+                file.getParentFile().mkdirs();
+                file.createNewFile();
+                try (FileWriter fw = new FileWriter(file, true);
+                     BufferedWriter bw = new BufferedWriter(fw);
+                     PrintWriter out = new PrintWriter(bw)) {
+                    out.println("Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details");
+                }
+            }
+
+            try (FileWriter fw = new FileWriter(file, true);
+                 BufferedWriter bw = new BufferedWriter(fw);
+                 PrintWriter out = new PrintWriter(bw)) {
+                String timestamp = LocalDateTime.now().format(formatter);
+                // For price changes, stockChange column is left empty
+                String stockChange = "";
+                String logEntry = String.format("%s|%s|%d|%s|%s|%s|%s|%s",
+                    timestamp, performedBy, itemCode, itemName, size, stockChange, action, details);
+                out.println(logEntry);
+            }
+        } catch (IOException e) {
+            // ignore
+        }
+    }
     
     // Generic log method
     private static void logStockChange(String performedBy, int itemCode, String itemName,
@@ -92,10 +124,11 @@ public class StockReturnLogger {
                 file.createNewFile();
 
                 // Write header if new file
-                try (FileWriter fw = new FileWriter(file, true);
+                try (FileWriter fw = new FileWriter(file, false);
                      BufferedWriter bw = new BufferedWriter(fw);
                      PrintWriter out = new PrintWriter(bw)) {
                     out.println("Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details");
+                    out.flush();
                 }
             }
 
@@ -114,10 +147,13 @@ public class StockReturnLogger {
                     timestamp, performedBy, itemCode, itemName, size, stockChange, action, details);
 
                 out.println(logEntry);
+                out.flush(); // Ensure data is written immediately
+                bw.flush();
             }
 
         } catch (IOException e) {
             // Error logging stock change
+            e.printStackTrace();
         }
     }
 }
