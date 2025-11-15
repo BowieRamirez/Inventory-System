@@ -17,7 +17,7 @@ import inventory.ReservationManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
+ 
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -1077,7 +1077,7 @@ public class StudentDashboardController {
                     "Reservation created successfully!\n\n" +
                     "Reservation ID: " + reservation.getReservationId() + "\n" +
                     "Status: " + reservation.getStatus() + "\n\n" +
-                    "Please wait for admin approval.");
+                    "Please wait for staff approval.");
             } else {
                 AlertHelper.showError("Error", "Failed to create reservation. Item may be out of stock.");
             }
@@ -1532,7 +1532,7 @@ public class StudentDashboardController {
             }
             
             message += "Status: Pending Approval\n\n" +
-                      "Please wait for admin approval.";
+                      "Please wait for staff approval.";
             
             AlertHelper.showSuccess(title, message);
             
@@ -1634,7 +1634,7 @@ public class StudentDashboardController {
         List<Reservation> pickupItems = allReservations.stream()
             .filter(r -> r.getStudentId().equals(student.getStudentId()))
             .filter(r -> "PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus()) || 
-                        "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus()) ||
+                        "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()) ||
                         "APPROVED FOR PICKUP".equals(r.getStatus()))
             .filter(r -> {
                 // For bundles, verify all items in the bundle have the same status
@@ -1799,18 +1799,18 @@ public class StudentDashboardController {
             );
             requestBtn.setOnAction(e -> handleRequestPickup(r));
             
-            Label awaitingNote = new Label("💡 Click to request admin approval for pickup");
+            Label awaitingNote = new Label("💡 Click to request Staff approval for pickup");
             awaitingNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
             awaitingNote.setWrapText(true);
             
             actionBox.getChildren().addAll(awaitingLabel, requestBtn, awaitingNote);
             
-        } else if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(status)) {
-            // Waiting for admin approval
-            Label pendingLabel = new Label("⏳ Status: Waiting for Admin Approval");
+        } else if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(status)) {
+            // Waiting for staff approval
+            Label pendingLabel = new Label("⏳ Status: Waiting for Staff Approval");
             pendingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-weight: bold;");
             
-            Button pendingBtn = new Button("⏳ Pending Admin Approval");
+            Button pendingBtn = new Button("⏳ Pending Staff Approval");
             pendingBtn.setMaxWidth(Double.MAX_VALUE);
             pendingBtn.setPrefHeight(40);
             pendingBtn.setStyle(
@@ -1823,7 +1823,7 @@ public class StudentDashboardController {
             );
             pendingBtn.setDisable(true);
             
-            Label pendingNote = new Label("⏱️ Please wait for admin to approve your pickup request");
+            Label pendingNote = new Label("⏱️ Please wait for Staff to approve your pickup request");
             pendingNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
             pendingNote.setWrapText(true);
             
@@ -1847,7 +1847,7 @@ public class StudentDashboardController {
             );
             claimBtn.setOnAction(e -> handleClaimItem(r));
             
-            Label approvedNote = new Label("💡 Confirm you've received the item from admin");
+            Label approvedNote = new Label("💡 Confirm you've received the item from Staff");
             approvedNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
             approvedNote.setWrapText(true);
             
@@ -1860,7 +1860,7 @@ public class StudentDashboardController {
     }
     
     /**
-     * Handle pickup request (student requests admin approval)
+     * Handle pickup request (student requests staff approval)
      */
     private void handleRequestPickup(Reservation r) {
         String itemDescription = r.isPartOfBundle() ? 
@@ -1871,7 +1871,7 @@ public class StudentDashboardController {
         confirmAlert.setTitle("Request Pickup");
         confirmAlert.setHeaderText("Request Pickup Approval");
         confirmAlert.setContentText(
-            "Request admin approval to pickup this " + itemDescription + "?\n\n" +
+            "Request Staff approval to pickup this " + itemDescription + "?\n\n" +
             "After approval, you'll be able to claim your item.\n\n" +
             "Total Paid: ₱" + String.format("%.2f", r.getTotalPrice())
         );
@@ -1905,7 +1905,7 @@ public class StudentDashboardController {
                     
                     AlertHelper.showSuccess("Request Sent", 
                         "Pickup request submitted successfully!\n\n" +
-                        "Please wait for admin approval.");
+                        "Please wait for Staff approval.");
                 } else {
                     AlertHelper.showError("Error", "Failed to send pickup request. Please try again.");
                 }
@@ -2050,22 +2050,27 @@ public class StudentDashboardController {
             itemsBox.getChildren().add(bundleLabel);
             
             for (Reservation item : bundleItems) {
-                String statusTag = "";
+                String displayText;
                 String statusColor = "-color-fg-default";
                 
-                if (item.getStatus().contains("RETURNED")) {
-                    statusTag = " (Refunded)";
-                    statusColor = "#656D76"; // Gray for returned
+                if (item.getStatus().contains("REPLACED")) {
+                    // Show replacement info: Original → Replaced into: New Item
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) → Replaced into: " + item.getReplacementItemName() + " (" + item.getReplacementSize() + ")";
+                    statusColor = "#656D76"; // Gray for replaced
                 } else if ("COMPLETED".equals(item.getStatus())) {
-                    statusTag = " (Completed)";
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) (Completed)";
                     statusColor = "#1A7F37"; // Green for completed
-                } else if (item.getStatus().contains("RETURN REQUESTED")) {
-                    statusTag = " (Return Requested)";
-                    statusColor = "#BF8700"; // Orange for pending return
+                } else if (item.getStatus().contains("REPLACEMENT REQUESTED")) {
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) (Replacement Requested)";
+                    statusColor = "#BF8700"; // Orange for pending replacement
+                } else {
+                    // For any other status, show it explicitly
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) (" + item.getStatus() + ")";
                 }
                 
-                Label itemLabel = new Label("• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x)" + statusTag);
+                Label itemLabel = new Label(displayText);
                 itemLabel.setStyle("-fx-text-fill: " + statusColor + "; -fx-font-size: 13px;");
+                itemLabel.setWrapText(true);
                 itemsBox.getChildren().add(itemLabel);
             }
         } else {
@@ -2119,8 +2124,8 @@ public class StudentDashboardController {
             Label pickupLabel = new Label("📋 Payment completed! Go to 'Claim Items' to request pickup");
             pickupLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-style: italic; -fx-font-weight: bold;");
             card.getChildren().add(pickupLabel);
-        } else if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
-            Label awaitingLabel = new Label("⏳ Pickup request sent - Waiting for admin approval");
+        } else if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus())) {
+            Label awaitingLabel = new Label("⏳ Pickup request sent - Waiting for staff approval");
             awaitingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-style: italic;");
             card.getChildren().add(awaitingLabel);
         } else if ("APPROVED FOR PICKUP".equals(r.getStatus())) {
@@ -2128,20 +2133,20 @@ public class StudentDashboardController {
             approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-style: italic; -fx-font-weight: bold;");
             card.getChildren().add(approvedLabel);
         } else if ("COMPLETED".equals(r.getStatus()) && r.isEligibleForReturn()) {
-            Label returnLabel = new Label("↩ Click to request return (" + r.getDaysUntilReturnExpires() + " days left)");
+            Label returnLabel = new Label("↩ Click to request replacement (" + r.getDaysUntilReturnExpires() + " days left)");
             returnLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold; -fx-font-style: italic;");
             card.getChildren().add(returnLabel);
         } else if (r.isPartOfBundle() && hasCompletedItems(r.getBundleId())) {
             // Bundle with some completed items that can be returned
-            Label returnLabel = new Label("↩ Click to view and return eligible items");
+            Label returnLabel = new Label("↩ Click to view and replace eligible items");
             returnLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold; -fx-font-style: italic;");
             card.getChildren().add(returnLabel);
-        } else if ("RETURN REQUESTED".equals(r.getStatus())) {
-            Label waitingLabel = new Label("⏳ Return request pending approval");
+        } else if ("REPLACEMENT REQUESTED".equals(r.getStatus())) {
+            Label waitingLabel = new Label("⏳ Replacement request pending approval");
             waitingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-style: italic;");
             card.getChildren().add(waitingLabel);
-        } else if ("RETURNED - REFUNDED".equals(r.getStatus())) {
-            Label refundedLabel = new Label("✓ Returned and refunded successfully");
+        } else if ("REPLACED".equals(r.getStatus())) {
+            Label refundedLabel = new Label("✓ Item replaced successfully (items can only be replaced once)");
             refundedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-style: italic;");
             card.getChildren().add(refundedLabel);
         } else if ("CANCELLED".equals(r.getStatus())) {
@@ -2189,8 +2194,8 @@ public class StudentDashboardController {
         }
         
         Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle("Request Return");
-        dialog.setHeaderText("Request Return for: " + itemDescription);
+        dialog.setTitle("Request Replacement");
+        dialog.setHeaderText("Request Replacement for: " + itemDescription);
 
         ButtonType submitButtonType = new ButtonType("Submit Request", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
@@ -2280,7 +2285,7 @@ public class StudentDashboardController {
             grid.add(itemsList, 0, 1);
         }
 
-        Label infoLabel = new Label("Please provide a reason for the return:");
+        Label infoLabel = new Label("Please provide a reason for the replacement:");
         infoLabel.setStyle("-fx-font-weight: bold;");
 
         TextArea reasonArea = new TextArea();
@@ -2288,7 +2293,7 @@ public class StudentDashboardController {
         reasonArea.setPrefRowCount(4);
         reasonArea.setWrapText(true);
 
-        Label noteLabel = new Label("Note: Return requests must be approved by admin/staff.");
+        Label noteLabel = new Label("⚠ Important: Replacement requests must be approved by staff. Items can only be replaced once.");
         noteLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
         noteLabel.setWrapText(true);
 
@@ -2303,7 +2308,7 @@ public class StudentDashboardController {
             if (dialogButton == submitButtonType) {
                 String reason = reasonArea.getText().trim();
                 if (reason.isEmpty()) {
-                    AlertHelper.showError("Error", "Please provide a reason for the return.");
+                    AlertHelper.showError("Error", "Please provide a reason for the replacement.");
                     return null;
                 }
                 return reason;
@@ -2379,7 +2384,7 @@ public class StudentDashboardController {
                     }
                     
                     AlertHelper.showSuccess("Success",
-                        message + "Please wait for admin/staff approval.");
+                        message + "Please wait for staff approval.");
                     refreshReservationsView();
                 } else if (successCount > 0) {
                     AlertHelper.showWarning("Partial Success",
@@ -2547,14 +2552,14 @@ public class StudentDashboardController {
                 String statusTag = "";
                 String statusColor = "-color-fg-default";
                 
-                if (item.getStatus().contains("RETURNED")) {
-                    statusTag = " (Refunded)";
+                if (item.getStatus().contains("REPLACED")) {
+                    statusTag = " (Replaced)";
                     statusColor = "#656D76";
                 } else if ("COMPLETED".equals(item.getStatus())) {
                     statusTag = " (Completed)";
                     statusColor = "#1A7F37";
-                } else if (item.getStatus().contains("RETURN REQUESTED")) {
-                    statusTag = " (Return Requested)";
+                } else if (item.getStatus().contains("REPLACEMENT REQUESTED")) {
+                    statusTag = " (Replacement Requested)";
                     statusColor = "#BF8700";
                 }
                 
@@ -2569,6 +2574,43 @@ public class StudentDashboardController {
                                        " (" + r.getQuantity() + "x) - ₱" + 
                                        String.format("%.2f", r.getTotalPrice()));
             itemsBox.getChildren().add(itemLabel);
+        }
+        
+        // Replacement item if exists
+        if (r.getReplacementItemName() != null && !r.getReplacementItemName().isEmpty()) {
+            VBox replacementBox = new VBox(8);
+            replacementBox.setPadding(new Insets(10));
+            replacementBox.setStyle(
+                "-fx-background-color: #E6F7FF;" +
+                "-fx-border-color: #0969DA;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 6px;" +
+                "-fx-background-radius: 6px;"
+            );
+            
+            Label replacementTitle = new Label("Item Replacement Summary:");
+            replacementTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #0969DA; -fx-font-size: 13px;");
+            
+            // Original item returned
+            VBox returnedBox = new VBox(3);
+            Label returnedLabel = new Label("↩ Returned Item:");
+            returnedLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #CF222E; -fx-font-size: 12px;");
+            Label returnedText = new Label("• " + r.getItemName() + " - " + r.getSize());
+            returnedText.setWrapText(true);
+            returnedText.setStyle("-fx-text-fill: #CF222E;");
+            returnedBox.getChildren().addAll(returnedLabel, returnedText);
+            
+            // Replacement item received
+            VBox receivedBox = new VBox(3);
+            Label receivedLabel = new Label("↪ Received Replacement:");
+            receivedLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #1A7F37; -fx-font-size: 12px;");
+            Label receivedText = new Label("• " + r.getReplacementItemName() + " - " + r.getReplacementSize());
+            receivedText.setWrapText(true);
+            receivedText.setStyle("-fx-text-fill: #1A7F37;");
+            receivedBox.getChildren().addAll(receivedLabel, receivedText);
+            
+            replacementBox.getChildren().addAll(replacementTitle, returnedBox, receivedBox);
+            content.getChildren().add(replacementBox);
         }
         
         // Reason if exists
@@ -2778,8 +2820,7 @@ public class StudentDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1920, 1025);
-            SceneManager.setScene(scene);
+            SceneManager.setRoot(loginView.getView());
         }
     }
 }

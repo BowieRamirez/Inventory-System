@@ -8,7 +8,6 @@ import gui.utils.AlertHelper;
 import gui.utils.GUIValidator;
 import gui.utils.SceneManager;
 import gui.views.SignupView;
-import javafx.scene.Scene;
 import student.Student;
 import utils.FileStorage;
 import utils.SystemConfigManager;
@@ -193,8 +192,7 @@ public class LoginController {
      */
     private void navigateToAdminDashboard() {
         gui.views.AdminDashboard dashboard = new gui.views.AdminDashboard();
-        Scene scene = new Scene(dashboard.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(dashboard.getView());
         SceneManager.setTitle("STI ProWear System - Admin Dashboard");
     }
     
@@ -203,8 +201,7 @@ public class LoginController {
      */
     private void navigateToStaffDashboard() {
         gui.views.StaffDashboard dashboard = new gui.views.StaffDashboard();
-        Scene scene = new Scene(dashboard.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(dashboard.getView());
         SceneManager.setTitle("STI ProWear System - Staff Dashboard");
     }
     
@@ -213,8 +210,7 @@ public class LoginController {
      */
     private void navigateToCashierDashboard() {
         gui.views.CashierDashboard dashboard = new gui.views.CashierDashboard();
-        Scene scene = new Scene(dashboard.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(dashboard.getView());
         SceneManager.setTitle("STI ProWear System - Cashier Dashboard");
     }
     
@@ -225,8 +221,7 @@ public class LoginController {
      */
     private void navigateToStudentDashboard(Student student) {
         gui.views.StudentDashboard dashboard = new gui.views.StudentDashboard(student);
-        Scene scene = new Scene(dashboard.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(dashboard.getView());
         SceneManager.setTitle("STI ProWear System - Student Portal");
     }
     
@@ -236,8 +231,7 @@ public class LoginController {
     public void handleSignup() {
         // Navigate to signup view
         SignupView signupView = new SignupView();
-        Scene scene = new Scene(signupView.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(signupView.getView());
     }
     
     /**

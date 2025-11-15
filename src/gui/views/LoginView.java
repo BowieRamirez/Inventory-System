@@ -32,8 +32,8 @@ import javafx.util.Duration;
 
         // We'll layer a blurred image behind the HBox so it extends behind the login card
         StackPane layeredSplit = new StackPane();
-        layeredSplit.setMaxWidth(1600);
-        layeredSplit.setMaxHeight(850);
+        layeredSplit.setMaxWidth(Double.MAX_VALUE);
+        layeredSplit.setMaxHeight(Double.MAX_VALUE);
         layeredSplit.setAlignment(Pos.CENTER_LEFT);
  * Provides a modern login interface with username/student ID input,
  * password field, role selection, and theme toggle.
@@ -92,6 +92,7 @@ public class LoginView {
         leftPane.setPrefWidth(700);
         leftPane.setMinHeight(720);
         leftPane.setMaxHeight(850);
+        HBox.setHgrow(leftPane, Priority.SOMETIMES);
     String leftBg = "linear-gradient(from 0% 0% to 100% 100%, #163764 0%, #1f4c86 100%)";
     leftPane.setStyle("-fx-background-color: " + leftBg + "; -fx-background-radius: 20 0 0 20;");
 
@@ -100,7 +101,7 @@ public class LoginView {
             if (sideImageFile.exists()) {
                 Image sideImage = new Image(sideImageFile.toURI().toString(), true);
                 ImageView shirt = new ImageView(sideImage);
-                shirt.setPreserveRatio(false); // fill the entire left container
+                shirt.setPreserveRatio(false);
                 shirt.setSmooth(true);
                 shirt.fitWidthProperty().bind(leftPane.widthProperty());
                 shirt.fitHeightProperty().bind(leftPane.heightProperty());
@@ -119,6 +120,7 @@ public class LoginView {
         rightContainer.setPrefWidth(700);
         rightContainer.setMinHeight(720);
         rightContainer.setMaxHeight(850);
+        HBox.setHgrow(rightContainer, Priority.ALWAYS);
         String cardBg = ThemeManager.isDarkMode() ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
         rightContainer.setStyle(
             "-fx-background-color: " + cardBg + ";" +
@@ -129,8 +131,8 @@ public class LoginView {
         loginCard = new VBox(20);
         loginCard.setAlignment(Pos.CENTER);
         loginCard.setPadding(new Insets(10, 45, 10, 45));
-        loginCard.setMaxWidth(480);
-        loginCard.setMinWidth(380);
+        loginCard.setMaxWidth(Double.MAX_VALUE);
+        loginCard.setMinWidth(350);
         
         // Logo Section - Load STI ProWear Logo with rounded corners
         StackPane logoContainer = new StackPane();
@@ -280,8 +282,8 @@ public class LoginView {
         toggleCircle.setMaxHeight(26);
         
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 13px;" +
@@ -387,8 +389,8 @@ public class LoginView {
         
         // Update circle color with improved gradient
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 17px;" +

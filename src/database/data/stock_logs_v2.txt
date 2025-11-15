@@ -1,0 +1,10 @@
+Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
+2025-11-15 20:35:44|staff|1005|IT/Eng RTW Pants (Female)|S|+99/100|ITEM_UPDATED|Adjusted by staff: 1 → 100
+2025-11-15 20:35:48|staff|1005|IT/Eng RTW Pants (Female)|M|+99/100|ITEM_UPDATED|Adjusted by staff: 1 → 100
+2025-11-15 21:02:02|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|-1/99|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-15 21:02:02|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|-1/99|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-15 21:02:02|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-1/98|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-15 21:37:25|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|+1/0|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: L)
+2025-11-15 21:59:37|Ramirez, Bowie|1095|PE White Shirt|XL|-1/79|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-15 22:00:25|Ramirez, Bowie|1095|PE White Shirt|XL|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: PE White Shirt (Size: L)
+2025-11-15 22:01:46|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: M)

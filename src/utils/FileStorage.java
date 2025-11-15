@@ -446,7 +446,7 @@ public class FileStorage {
     
     /**
      * Parse reservation from file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline
+     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline|replacementItemCode|replacementItemName|replacementSize
      */
     private static Reservation parseReservation(String line) {
         String[] parts = line.split("\\|", -1); // -1 to keep empty trailing fields
@@ -471,10 +471,24 @@ public class FileStorage {
             String reason = parts[14];
             String bundleId = (parts.length > 15 && !parts[15].isEmpty()) ? parts[15] : null;
             String paymentDeadlineStr = (parts.length > 16 && !parts[16].isEmpty()) ? parts[16] : "";
+            
+            // Parse replacement item info
+            int replacementItemCode = (parts.length > 17 && !parts[17].isEmpty()) ? Integer.parseInt(parts[17]) : 0;
+            String replacementItemName = (parts.length > 18 && !parts[18].isEmpty()) ? parts[18] : "";
+            String replacementSize = (parts.length > 19 && !parts[19].isEmpty()) ? parts[19] : "";
 
             // Create reservation with bundleId
             Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
                                                       itemCode, itemName, quantity, totalPrice, size, bundleId);
+
+            // Migrate old status strings to new ones
+            if (status.equals("PICKUP REQUESTED - AWAITING ADMIN APPROVAL")) {
+                status = "PICKUP REQUESTED - AWAITING STAFF APPROVAL";
+            }
+            // Migrate RETURN REQUESTED to REPLACEMENT REQUESTED
+            if (status.equals("RETURN REQUESTED")) {
+                status = "REPLACEMENT REQUESTED";
+            }
 
             // Set status and payment info
             reservation.setStatus(status);
@@ -498,6 +512,11 @@ public class FileStorage {
             // Set reason if exists
             if (!reason.isEmpty()) {
                 reservation.setReason(reason);
+            }
+            
+            // Set replacement item if exists
+            if (replacementItemCode > 0 && !replacementItemName.isEmpty()) {
+                reservation.setReplacementItem(replacementItemCode, replacementItemName, replacementSize);
             }
 
             return reservation;
@@ -536,7 +555,7 @@ public class FileStorage {
     
     /**
      * Convert reservation to file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline
+     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline|replacementItemCode|replacementItemName|replacementSize
      */
     private static String reservationToFileFormat(Reservation reservation) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -547,6 +566,12 @@ public class FileStorage {
         String bundleId = reservation.getBundleId() != null ? reservation.getBundleId() : "";
         String paymentDeadline = reservation.getPaymentDeadline() != null ? 
                                  reservation.getPaymentDeadline().format(formatter) : "";
+        String replacementItemCode = reservation.getReplacementItemCode() > 0 ? 
+                                      String.valueOf(reservation.getReplacementItemCode()) : "";
+        String replacementItemName = reservation.getReplacementItemName() != null ? 
+                                      reservation.getReplacementItemName() : "";
+        String replacementSize = reservation.getReplacementSize() != null ? 
+                                 reservation.getReplacementSize() : "";
         
         return reservation.getReservationId() + "|" +
                reservation.getStudentName() + "|" +
@@ -564,7 +589,10 @@ public class FileStorage {
                completedDate + "|" +
                reason + "|" +
                bundleId + "|" +
-               paymentDeadline;
+               paymentDeadline + "|" +
+               replacementItemCode + "|" +
+               replacementItemName + "|" +
+               replacementSize;
     }
     
     /**

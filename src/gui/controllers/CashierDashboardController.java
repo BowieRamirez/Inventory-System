@@ -16,7 +16,6 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -32,7 +31,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import utils.SystemLogger;
-
+ 
 /**
  * CashierDashboardController - Handles cashier dashboard operations
  */
@@ -709,8 +708,9 @@ public class CashierDashboardController {
         
         Label paymentLabel = new Label("Payment Method:");
         ComboBox<String> paymentMethodBox = new ComboBox<>();
-        paymentMethodBox.getItems().addAll("CASH", "GCASH", "CARD", "BANK");
+        paymentMethodBox.getItems().addAll("CASH");
         paymentMethodBox.setValue("CASH");
+        paymentMethodBox.setDisable(true);
         
         paymentBox.getChildren().addAll(paymentLabel, paymentMethodBox);
         mainContainer.getChildren().add(paymentBox);
@@ -1304,8 +1304,8 @@ public class CashierDashboardController {
                         statusTag = " (COMPLETED)";
                         statusColor = "#1A7F37"; // Green
                         borderColor = "#1A7F37";
-                    } else if (itemStatus.contains("RETURN REQUESTED")) {
-                        statusTag = " (RETURN REQUESTED)";
+                    } else if (itemStatus.contains("REPLACEMENT REQUESTED")) {
+                        statusTag = " (REPLACEMENT REQUESTED)";
                         statusColor = "#BF8700"; // Orange
                         borderColor = "#BF8700";
                     }
@@ -1359,8 +1359,8 @@ public class CashierDashboardController {
                 statusTag = " (COMPLETED)";
                 statusColor = "#1A7F37"; // Green
                 borderColor = "#1A7F37";
-            } else if (itemStatus.contains("RETURN REQUESTED")) {
-                statusTag = " (RETURN REQUESTED)";
+            } else if (itemStatus.contains("REPLACEMENT REQUESTED")) {
+                statusTag = " (REPLACEMENT REQUESTED)";
                 statusColor = "#BF8700"; // Orange
                 borderColor = "#BF8700";
             }
@@ -1487,8 +1487,7 @@ public class CashierDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1920, 1025);
-            SceneManager.setScene(scene);
+            SceneManager.setRoot(loginView.getView());
         }
     }
 }

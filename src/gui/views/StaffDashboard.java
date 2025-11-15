@@ -125,8 +125,8 @@ public class StaffDashboard {
         toggleCircle.setMaxHeight(26);
         
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 17px;" +
@@ -405,8 +405,8 @@ public class StaffDashboard {
         
         // Update circle color
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 17px;" +

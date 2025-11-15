@@ -4,8 +4,8 @@ import gui.utils.SceneManager;
 import gui.utils.ThemeManager;
 import gui.views.LoginView;
 import javafx.application.Application;
-import javafx.scene.Scene;
 import javafx.stage.Stage;
+import utils.StockReturnLogger;
 
 /**
  * Main JavaFX Application Entry Point for STI ProWear System
@@ -30,6 +30,9 @@ public class MainApp extends Application {
         // Initialize SceneManager
         SceneManager.initialize(stage);
         
+        // Ensure database table for stock logs exists
+        StockReturnLogger.ensureTableExists();
+        
         // Configure primary stage
         stage.setTitle("STI ProWear System - Modern Inventory Management");
         stage.setMinWidth(1024);
@@ -38,20 +41,22 @@ public class MainApp extends Application {
         // Show login screen
         showLoginScreen();
         
-        // Show the stage first
+        // Show the stage and open maximized (fullscreen windowed). We only
+        // maximize once at startup to avoid toggling/minimize issues when
+        // switching scenes later.
         stage.show();
-        
-        // Then immediately maximize (more reliable when done after show)
-        stage.setMaximized(true);
+        // Maximize on the next pulse to allow initial layout to stabilize and
+        // avoid transient size/decorations glitches when switching scenes.
+        javafx.application.Platform.runLater(() -> stage.setMaximized(true));
     }
+
     
     /**
      * Display the login screen
      */
     private void showLoginScreen() {
         LoginView loginView = new LoginView();
-        Scene scene = new Scene(loginView.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(loginView.getView());
     }
     
     /**

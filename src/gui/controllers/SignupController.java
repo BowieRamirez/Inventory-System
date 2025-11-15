@@ -8,7 +8,6 @@ import gui.utils.GUIValidator;
 import gui.utils.SceneManager;
 import gui.views.LoginView;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -295,7 +294,6 @@ public class SignupController {
      */
     public void navigateToLogin() {
         LoginView loginView = new LoginView();
-        Scene scene = new Scene(loginView.getView(), 1920, 1025);
-        SceneManager.setScene(scene);
+        SceneManager.setRoot(loginView.getView());
     }
 }

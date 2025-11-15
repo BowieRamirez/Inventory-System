@@ -92,17 +92,9 @@ public class AdminDashboard {
      */
     private void wireQuickActions() {
         // Get the buttons from controller (they're created when createDashboardView is called)
-        Button approvePendingBtn = controller.getApprovePendingBtn();
         Button manageAccountsBtn = controller.getManageAccountsBtn();
         
         // Wire up actions if buttons exist
-        if (approvePendingBtn != null) {
-            approvePendingBtn.setOnAction(e -> {
-                setActiveButton(stockLogsBtn);
-                showStockLogs();
-            });
-        }
-        
         if (manageAccountsBtn != null) {
             manageAccountsBtn.setOnAction(e -> {
                 setActiveButton(accountsBtn);
@@ -162,8 +154,8 @@ public class AdminDashboard {
         toggleCircle.setMaxHeight(26);
         
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 13px;" +
@@ -237,7 +229,7 @@ public class AdminDashboard {
         // Navigation buttons
         dashboardBtn = createNavButton("📊 Dashboard", true);
         accountsBtn = createNavButton("👥 Accounts", false);
-        stockLogsBtn = createNavButton("📝 Stock Logs", false);
+        stockLogsBtn = createNavButton("📋 Stock Logs", false);
         systemSettingsBtn = createNavButton("⚙️ System Settings", false);
         
         Region spacer = new Region();
@@ -380,21 +372,21 @@ public class AdminDashboard {
     
     
     /**
-     * Show stock logs
-     */
-    private void showStockLogs() {
-        titleLabel.setText("Stock Logs");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createStockLogsView());
-    }
-    
-    /**
      * Show system settings
      */
     private void showSystemSettings() {
         titleLabel.setText("System Settings");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createSystemSettingsView());
+    }
+    
+    /**
+     * Show stock logs
+     */
+    private void showStockLogs() {
+        titleLabel.setText("Stock Logs");
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createStockLogsView());
     }
     
     /**
@@ -530,8 +522,8 @@ public class AdminDashboard {
         
         // Update circle color
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 17px;" +

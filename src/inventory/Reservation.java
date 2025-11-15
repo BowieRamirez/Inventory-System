@@ -21,6 +21,9 @@ public class Reservation {
     private double totalPrice;
     private String size;
     private String bundleId; // Identifier for bundle purchases (null for single items)
+    private int replacementItemCode; // Item code of replacement (when status is REPLACED)
+    private String replacementItemName; // Item name of replacement (when status is REPLACED)
+    private String replacementSize; // Size of replacement item
     public Reservation(int reservationId, String studentName, String studentId, String course,
                        int itemCode, String itemName, int quantity, double totalPrice, String size) {
         this.reservationId = reservationId;
@@ -71,6 +74,16 @@ public class Reservation {
     public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }
     public void setBundleId(String bundleId) { this.bundleId = bundleId; }
     
+    // Replacement item tracking
+    public int getReplacementItemCode() { return replacementItemCode; }
+    public String getReplacementItemName() { return replacementItemName; }
+    public String getReplacementSize() { return replacementSize; }
+    public void setReplacementItem(int itemCode, String itemName, String size) {
+        this.replacementItemCode = itemCode;
+        this.replacementItemName = itemName;
+        this.replacementSize = size;
+    }
+    
     public boolean isPartOfBundle() { return bundleId != null && !bundleId.isEmpty(); }
     
     public String getFormattedTime() {
@@ -82,8 +95,12 @@ public class Reservation {
         if (completedDate == null) {
             return false;
         }
-        // Allow returns for COMPLETED or RETURN REQUESTED status
-        if (!status.equals("COMPLETED") && !status.equals("RETURN REQUESTED")) {
+        // Cannot replace if already replaced
+        if (status.equals("REPLACED")) {
+            return false;
+        }
+        // Allow returns for COMPLETED or REPLACEMENT REQUESTED status
+        if (!status.equals("COMPLETED") && !status.equals("REPLACEMENT REQUESTED")) {
             return false;
         }
         LocalDateTime now = LocalDateTime.now();

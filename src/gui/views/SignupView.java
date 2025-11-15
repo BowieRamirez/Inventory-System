@@ -76,7 +76,7 @@ public class SignupView {
         split.setAlignment(Pos.CENTER);
         split.setSpacing(0);
         split.setMaxWidth(1400);
-        split.setMaxHeight(100);
+        split.setMaxHeight(850);
     // Unified shadow and rounded outer corners
     split.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 40, 0, 0, 10);");
     Rectangle outerClip = new Rectangle();
@@ -91,6 +91,7 @@ public class SignupView {
         leftPane.setPrefWidth(700);
         leftPane.setMinHeight(720);
         leftPane.setMaxHeight(850);
+        HBox.setHgrow(leftPane, Priority.SOMETIMES);
     String leftBg = "linear-gradient(from 0% 0% to 100% 100%, #163764 0%, #1f4c86 100%)";
     leftPane.setStyle("-fx-background-color: " + leftBg + ";");
         try {
@@ -102,6 +103,7 @@ public class SignupView {
                 shirt.fitWidthProperty().bind(leftPane.widthProperty());
                 shirt.fitHeightProperty().bind(leftPane.heightProperty());
                 leftPane.getChildren().add(shirt);
+                StackPane.setAlignment(shirt, Pos.CENTER);
             }
         } catch (Exception e) {
             System.err.println("Error loading side image: " + e.getMessage());
@@ -115,6 +117,7 @@ public class SignupView {
         rightContainer.setPrefWidth(700);
         rightContainer.setMinHeight(720);
         rightContainer.setMaxHeight(850);
+        HBox.setHgrow(rightContainer, Priority.ALWAYS);
         String cardBg = ThemeManager.isDarkMode() ? "rgba(30, 40, 70, 0.9)" : "#ffffff";
         rightContainer.setStyle(
             "-fx-background-color: " + cardBg + ";"
@@ -122,20 +125,21 @@ public class SignupView {
         
         // Create signup form with scrollable content
     ScrollPane scrollPane = new ScrollPane();
-    scrollPane.setFitToWidth(false);
+    scrollPane.setFitToWidth(true);
     scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
     scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-    scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-    scrollPane.setPrefWidth(480);
-    scrollPane.setMaxWidth(480);
-    scrollPane.setMinWidth(380);
+    // Always show scrollbar to prevent layout shift
+    scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+    scrollPane.setMaxWidth(Double.MAX_VALUE);
+    scrollPane.setMinWidth(350);
+    VBox.setVgrow(scrollPane, Priority.ALWAYS);
         
     VBox signupCard = new VBox(12);
     signupCard.setAlignment(Pos.CENTER);
     signupCard.setPadding(new Insets(10, 45, 10, 45));
-    signupCard.setMaxWidth(480);
-    signupCard.setMinWidth(380);
-    signupCard.setPrefWidth(480);
+    signupCard.setMaxWidth(Double.MAX_VALUE);
+    signupCard.setMinWidth(350);
+    signupCard.setPrefWidth(500);
         
         // Maintenance Mode Banner (if enabled)
         SystemConfigManager configManager = SystemConfigManager.getInstance();
@@ -450,10 +454,11 @@ public class SignupView {
         scrollPane.setContent(signupCard);
         
         // Wrap scrollPane in a StackPane to maintain fixed width while allowing scroll
+        // Add 17px to width to account for scrollbar (scrollbar is always visible)
         StackPane scrollWrapper = new StackPane(scrollPane);
-        scrollWrapper.setPrefWidth(480);
-        scrollWrapper.setMaxWidth(480);
-        scrollWrapper.setMinWidth(380);
+        scrollWrapper.setPrefWidth(497);
+        scrollWrapper.setMaxWidth(497);
+        scrollWrapper.setMinWidth(397);
         scrollWrapper.setPrefHeight(600);
         scrollWrapper.setMaxHeight(600);
         scrollWrapper.setAlignment(Pos.CENTER);
@@ -489,8 +494,8 @@ public class SignupView {
         toggleCircle.setMaxHeight(26);
         
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 13px;" +
@@ -563,8 +568,8 @@ public class SignupView {
         
         // Update circle color with improved gradient
         String circleColor = ThemeManager.isDarkMode() 
-            ? "linear-gradient(135deg, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
-            : "linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
+            ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
+            : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
             "-fx-background-radius: 13px;" +

@@ -32,13 +32,18 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
+ 
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -46,10 +51,13 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Region;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 
 /**
  * StaffDashboardController - Handles staff dashboard operations
@@ -193,7 +201,7 @@ public class StaffDashboardController {
         Button pendingBtn = new Button("Pending");
         Button approvedBtn = new Button("Approved");
         Button pickupApprovalsBtn = new Button("📦 Pickup Approvals");
-        Button returnRequestsBtn = new Button("Return Requests");
+        Button returnRequestsBtn = new Button("Replacement Requests");
         Button refreshBtn = new Button("🔄 Refresh");
 
         styleActionButton(allBtn);
@@ -368,13 +376,13 @@ public class StaffDashboardController {
                         approveBtn.setOnAction(e -> handleApproveReservation(reservation, table));
                         rejectBtn.setOnAction(e -> handleRejectReservation(reservation, table));
                         setGraphic(buttons);
-                    } else if ("RETURN REQUESTED".equals(reservation.getStatus())) {
-                        approveBtn.setText("✓ Approve Return");
+                    } else if ("REPLACEMENT REQUESTED".equals(reservation.getStatus())) {
+                        approveBtn.setText("✓ Approve Replacement");
                         rejectBtn.setText("✗ Reject Return");
                         approveBtn.setOnAction(e -> handleApproveReturn(reservation, table));
                         rejectBtn.setOnAction(e -> handleRejectReturn(reservation, table));
                         setGraphic(buttons);
-                    } else if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(reservation.getStatus())) {
+                    } else if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(reservation.getStatus())) {
                         approveBtn.setText("✓ Approve Pickup");
                         rejectBtn.setText("✗ Reject");
                         approveBtn.setOnAction(e -> handleApprovePickup(reservation, table));
@@ -392,7 +400,7 @@ public class StaffDashboardController {
 
         // Load ONLY PENDING reservations (deduplicated for bundles)
         List<Reservation> pendingReservations = reservationManager.getAllReservations().stream()
-            .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+            .filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus()))
             .collect(java.util.stream.Collectors.toList());
         ObservableList<Reservation> allReservations = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(pendingReservations));
         ObservableList<Reservation> filteredReservations = FXCollections.observableArrayList(allReservations);
@@ -465,7 +473,7 @@ public class StaffDashboardController {
         allBtn.setOnAction(e -> {
             currentFilter[0] = "ALL";
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+                .filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
             allReservations.setAll(ControllerUtils.getDeduplicatedReservations(filtered));
             searchField.clear();
@@ -595,14 +603,14 @@ public class StaffDashboardController {
                 String statusIndicator = "";
                 String statusColor = "-color-fg-default";
                 
-                if (item.getStatus().contains("RETURNED")) {
-                    statusIndicator = " (RETURNED)";
+                if (item.getStatus().contains("REPLACED")) {
+                    statusIndicator = " (REPLACED)";
                     statusColor = "#656D76"; // Gray
                 } else if ("COMPLETED".equals(item.getStatus())) {
                     statusIndicator = " (COMPLETED)";
                     statusColor = "#1A7F37"; // Green
-                } else if (item.getStatus().contains("RETURN REQUESTED")) {
-                    statusIndicator = " (RETURN REQUESTED)";
+                } else if (item.getStatus().contains("REPLACEMENT REQUESTED")) {
+                    statusIndicator = " (REPLACEMENT REQUESTED)";
                     statusColor = "#BF8700"; // Orange
                 }
                 
@@ -624,8 +632,8 @@ public class StaffDashboardController {
                 itemRow.getChildren().addAll(itemName, itemSize, itemQty, itemPrice);
                 itemsSection.getChildren().add(itemRow);
                 
-                // Only add to total if not returned
-                if (!item.getStatus().contains("RETURNED")) {
+                // Only add to total if not replaced
+                if (!item.getStatus().contains("REPLACED")) {
                     totalPrice += item.getTotalPrice();
                     totalQuantity += item.getQuantity();
                 }
@@ -875,7 +883,7 @@ public class StaffDashboardController {
                 if (refreshCallback != null) {
                     refreshCallback.run();
                 }
-                AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle approved!" : "Reservation approved!");
+                AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle approved! Student can now pay in Cashier to pickup the item." : "Reservation approved! Student can now pay in Cashier to pickup the item.");
             } else {
                 AlertHelper.showError("Error", "Failed to approve reservation");
             }
@@ -947,14 +955,14 @@ public class StaffDashboardController {
         
         if (reservation.isPartOfBundle()) {
             String bundleId = reservation.getBundleId();
-            // Get all items in the bundle with RETURN REQUESTED status
+            // Get all items in the bundle with REPLACEMENT REQUESTED status
             itemsToReturn = reservationManager.getAllReservations().stream()
                 .filter(res -> bundleId.equals(res.getBundleId()))
-                .filter(res -> "RETURN REQUESTED".equals(res.getStatus()))
+                .filter(res -> "REPLACEMENT REQUESTED".equals(res.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
             
             if (itemsToReturn.isEmpty()) {
-                AlertHelper.showError("Error", "No items in this bundle have pending return requests.");
+                AlertHelper.showError("Error", "No items in this bundle have pending replacement requests.");
                 return;
             }
             
@@ -968,7 +976,7 @@ public class StaffDashboardController {
         
         // Build confirmation message
         StringBuilder message = new StringBuilder();
-        message.append("Approve return request for:\n");
+        message.append("Approve replacement request for:\n");
         message.append("Student: ").append(reservation.getStudentName()).append("\n\n");
         
         if (reservation.isPartOfBundle()) {
@@ -985,21 +993,32 @@ public class StaffDashboardController {
         
         message.append("\nTotal Refund Amount: ₱").append(String.format("%.2f", totalRefund)).append("\n\n");
         message.append("Reason: ").append(reservation.getReason() != null ? reservation.getReason() : "N/A").append("\n\n");
-        message.append("This will restock all items and mark as refunded.");
+        message.append("Select replacement item for each.");
         
-        boolean confirm = AlertHelper.showConfirmation("Approve Return", message.toString());
+        boolean confirm = AlertHelper.showConfirmation("Approve Replacement", message.toString());
 
         if (confirm) {
-            // Approve return for all items
+            // Approve replacement for all items - show dialog to select replacement item
             boolean allSuccess = true;
             int successCount = 0;
             
             for (Reservation item : itemsToReturn) {
-                boolean success = reservationManager.approveReturn(item.getReservationId());
-                if (success) {
-                    successCount++;
+                // Show item selection dialog for replacement
+                Item selectedReplacement = showReplacementItemSelection(item);
+                if (selectedReplacement != null) {
+                    boolean success = reservationManager.approveReplacementWithItem(
+                        item.getReservationId(),
+                        selectedReplacement.getCode(),
+                        selectedReplacement.getName(),
+                        selectedReplacement.getSize()
+                    );
+                    if (success) {
+                        successCount++;
+                    } else {
+                        allSuccess = false;
+                    }
                 } else {
-                    allSuccess = false;
+                    allSuccess = false; // User cancelled selection
                 }
             }
             
@@ -1009,21 +1028,21 @@ public class StaffDashboardController {
                     refreshCallback.run();
                 }
                 String successMsg = reservation.isPartOfBundle() ?
-                    "Return approved for all " + successCount + " items!\n\n" :
-                    "Return approved!\n\n";
+                    "Replacement approved for all " + successCount + " items!\n\n" :
+                    "Replacement approved!\n\n";
                 
                 AlertHelper.showSuccess("Success",
-                    successMsg + "Items have been restocked and marked as refunded.");
+                    successMsg + "Items have been replaced successfully. previous item is back in inventory.");
             } else if (successCount > 0) {
                 // Call refresh callback to update the display with current filter applied
                 if (refreshCallback != null) {
                     refreshCallback.run();
                 }
                 AlertHelper.showWarning("Partial Success",
-                    "Return approved for " + successCount + " out of " + itemsToReturn.size() + " items.\n" +
-                    "Some items may not be restockable.");
+                    "Replacement approved for " + successCount + " out of " + itemsToReturn.size() + " items.\n" +
+                    "Previous items are back in inventory.");
             } else {
-                AlertHelper.showError("Error", "Failed to approve return. Items may not be restockable.");
+                AlertHelper.showError("Error", "Failed to approve replacement. Insufficient stock for replacement items.");
             }
         }
     }
@@ -1087,7 +1106,7 @@ public class StaffDashboardController {
                     String bundleId = reservation.getBundleId();
                     List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
                         .filter(r -> bundleId.equals(r.getBundleId()))
-                        .filter(r -> "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus()))
+                        .filter(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
                         .collect(java.util.stream.Collectors.toList());
                     
                     for (Reservation item : bundleItems) {
@@ -1106,7 +1125,7 @@ public class StaffDashboardController {
                         refreshCallback.run();
                     }
                     AlertHelper.showSuccess("Success", 
-                        reservation.isPartOfBundle() ? "Bundle pickup approved! Student can now claim items." : "Pickup approved! Student can now claim item.");
+                        reservation.isPartOfBundle() ? "Bundle pickup approved! Students now claimed the item." : "Pickup approved! Student now claimed the item.");
                 } else {
                     AlertHelper.showError("Error", "Failed to approve pickup request");
                 }
@@ -1139,7 +1158,7 @@ public class StaffDashboardController {
                             String bundleId = reservation.getBundleId();
                             List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
                                 .filter(r -> bundleId.equals(r.getBundleId()))
-                                .filter(r -> "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus()))
+                                .filter(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
                                 .collect(java.util.stream.Collectors.toList());
                             
                             for (Reservation item : bundleItems) {
@@ -1482,6 +1501,9 @@ public class StaffDashboardController {
                         Item newItem = new Item(nextCode[0], name, course, size, qty, price);
                         inventoryManager.addItem(newItem);
 
+                        // Log the new item addition to stock logs
+                        StockReturnLogger.logItemAdded("staff", nextCode[0], name, size, qty, price);
+
                         // Refresh table and stats by invoking the refresh button action
                         refreshBtn.fire();
 
@@ -1672,95 +1694,65 @@ public class StaffDashboardController {
 
         table.setItems(FXCollections.observableArrayList(pageItems));
 
-        // Build pagination controls: sliding window pages, then Prev/Next inserted before ellipsis/last
+        // Build new pagination controls - simple clean design: [Previous] [Page X of Y] [Search Box] [Next]
         pageControls.getChildren().clear();
+        pageControls.setSpacing(12);
 
-        // sliding window configuration
-        int windowSize = 3;
-
-        // Prepare Prev/Next buttons (we'll insert them after the sliding window pages)
-        Button prev = new Button("◀");
-        prev.setOnAction(ev -> {
-            if (currentPage[0] > 1) currentPage[0] = Math.max(1, currentPage[0] - 1);
-            if (pageWindowStart[0] > 1) pageWindowStart[0] = Math.max(1, pageWindowStart[0] - 1);
-            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
-        });
-
-        Button next = new Button("▶");
-        next.setOnAction(ev -> {
-            int totalPagesLocal = Math.max(1, (int) Math.ceil((double) filtered.size() / itemsPerPage));
-            if (currentPage[0] < totalPagesLocal) currentPage[0] = Math.min(totalPagesLocal, currentPage[0] + 1);
-            int maxWindowStartLocal = Math.max(1, totalPagesLocal - windowSize + 1);
-            if (pageWindowStart[0] < maxWindowStartLocal) pageWindowStart[0] = Math.min(maxWindowStartLocal, pageWindowStart[0] + 1);
-            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
-        });
-
-        int maxWindowStart = Math.max(1, totalPages - windowSize + 1);
-        if (pageWindowStart[0] < 1) pageWindowStart[0] = 1;
-        if (pageWindowStart[0] > maxWindowStart) pageWindowStart[0] = maxWindowStart;
-
-        // Helper to add page button
-        java.util.function.BiConsumer<Integer, Boolean> addPageBtn = (pageNum, isCurrent) -> {
-            Button p = new Button(String.valueOf(pageNum));
-            p.setDisable(isCurrent);
-            int pi = pageNum;
-            p.setOnAction(ev -> {
-                currentPage[0] = pi;
-                if (pi < pageWindowStart[0]) pageWindowStart[0] = pi;
-                else if (pi > pageWindowStart[0] + windowSize - 1) pageWindowStart[0] = Math.max(1, pi - windowSize + 1);
+        // Previous button
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setDisable(currentPage[0] <= 1);
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        prevBtn.setOnAction(ev -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
                 updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
-            });
-            if (isCurrent) p.setStyle("-fx-background-color: -color-bg-subtle; -fx-border-color: -color-border-default; -fx-font-weight: bold;");
-            pageControls.getChildren().add(p);
-        };
-
-        int windowEnd = Math.min(totalPages, pageWindowStart[0] + windowSize - 1);
-
-        if (totalPages <= windowSize + 1) {
-            // small number of pages: just render them
-            for (int i = 1; i <= totalPages; i++) {
-                addPageBtn.accept(i, i == currentPage[0]);
             }
-            // Always show Prev/Next to the right so user can navigate
-            prev.setDisable(currentPage[0] <= 1);
-            next.setDisable(currentPage[0] >= totalPages);
-            prev.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
-            next.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
-            pageControls.getChildren().addAll(prev, next);
-        } else {
-            // Render the sliding window page buttons
-            for (int i = pageWindowStart[0]; i <= windowEnd; i++) {
-                addPageBtn.accept(i, i == currentPage[0]);
-            }
+        });
 
-            // If there's a gap before the last page, insert Prev/Next in the middle,
-            // otherwise append Prev/Next to the right so they remain visible on the last page.
-            boolean hasGapBeforeLast = windowEnd < totalPages - 1;
-            if (hasGapBeforeLast) {
-                prev.setDisable(currentPage[0] <= 1);
-                next.setDisable(currentPage[0] >= totalPages);
-                HBox middleControls = new HBox(6);
-                middleControls.setAlignment(Pos.CENTER);
-                prev.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
-                next.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
-                middleControls.getChildren().addAll(prev, next);
-                pageControls.getChildren().add(middleControls);
+        // Page info label
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label("Page " + currentPage[0] + " of " + totalPages);
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
 
-                // show ellipsis + last page
-                pageControls.getChildren().add(new javafx.scene.control.Label("..."));
-                addPageBtn.accept(totalPages, currentPage[0] == totalPages);
-            } else {
-                // Window already reaches the end: append last page if needed, then Prev/Next to the right
-                if (windowEnd == totalPages - 1) {
-                    addPageBtn.accept(totalPages, currentPage[0] == totalPages);
+        // Go to page input field
+        TextField goToPageField = new TextField();
+        goToPageField.setPromptText("Go to page...");
+        goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120;");
+        goToPageField.setOnAction(ev -> {
+            try {
+                String input = goToPageField.getText().trim();
+                if (!input.isEmpty()) {
+                    int pageNum = Integer.parseInt(input);
+                    if (pageNum >= 1 && pageNum <= totalPages) {
+                        currentPage[0] = pageNum;
+                        goToPageField.clear();
+                        updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+                    } else {
+                        goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                        goToPageField.clear();
+                        goToPageField.setPromptText("Invalid page (1-" + totalPages + ")");
+                    }
                 }
-                prev.setDisable(currentPage[0] <= 1);
-                next.setDisable(currentPage[0] >= totalPages);
-                prev.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
-                next.setStyle("-fx-background-radius:6; -fx-cursor: hand;");
-                pageControls.getChildren().addAll(prev, next);
+            } catch (NumberFormatException ex) {
+                goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                goToPageField.clear();
+                goToPageField.setPromptText("Enter a valid number");
             }
-        }
+        });
+
+        // Next button
+        Button nextBtn = new Button("Next →");
+        nextBtn.setDisable(currentPage[0] >= totalPages);
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        nextBtn.setOnAction(ev -> {
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+            }
+        });
+
+        // Add all controls to the container and center them
+        pageControls.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
+        pageControls.setAlignment(Pos.CENTER);
 
         // Update stats badge for total items (all items in inventory)
         try {
@@ -2030,6 +2022,33 @@ public class StaffDashboardController {
         VBox container = new VBox(15);
         container.setPadding(new Insets(20));
 
+        // Create TabPane with two tabs: Student Stock Logs and Staff Stock Logs
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        
+        // Tab 1: Student Stock Logs
+        Tab studentLogsTab = new Tab("📚 Student Stock Logs", createStudentStockLogsTab());
+        studentLogsTab.setDisable(false);
+        
+        // Tab 2: Staff Stock Logs (what this staff member updated)
+        Tab staffLogsTab = new Tab("👤 Staff Stock Logs", createStaffStockLogsTab());
+        staffLogsTab.setDisable(false);
+        
+        tabPane.getTabs().addAll(studentLogsTab, staffLogsTab);
+        
+        VBox.setVgrow(tabPane, Priority.ALWAYS);
+        container.getChildren().add(tabPane);
+
+        return container;
+    }
+
+    /**
+     * Create Student Stock Logs tab
+     */
+    private Node createStudentStockLogsTab() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(15));
+
         // Action buttons
         HBox actionBar = new HBox(15);
         actionBar.setAlignment(Pos.CENTER_LEFT);
@@ -2046,6 +2065,7 @@ public class StaffDashboardController {
         // Create stock logs table
         TableView<String[]> table = new TableView<>();
         table.setStyle("-fx-background-color: -color-bg-subtle;");
+        table.setPrefHeight(400);
 
         TableColumn<String[], String> timestampCol = new TableColumn<>("Timestamp");
         timestampCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[0]));
@@ -2081,32 +2101,86 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(timestampCol, performedByCol, codeCol, itemCol, sizeCol, changeCol, actionCol, detailsCol);
 
+        // Pagination setup
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+        
         // Load stock logs
         List<String[]> allLogs = loadStockLogs();
-        ObservableList<String[]> logsList = FXCollections.observableArrayList(allLogs);
-        table.setItems(logsList);
-
+        
+        // Pagination controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+        
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+        
+        // Function to update table with current page
+        Runnable updateTable = () -> {
+            List<String[]> displayLogs = allLogs;
+            
+            // Apply search filter if any
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.isEmpty()) {
+                displayLogs = displayLogs.stream()
+                    .filter(log -> String.join(" ", log).toLowerCase().contains(searchText.toLowerCase()))
+                    .collect(java.util.stream.Collectors.toList());
+            }
+            
+            int totalPages = Math.max(1, (int) Math.ceil((double) displayLogs.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, displayLogs.size());
+            
+            List<String[]> pageItems = displayLogs.isEmpty() ? java.util.Collections.emptyList() : displayLogs.subList(start, end);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+        
+        // Previous button action
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
+                updateTable.run();
+            }
+        });
+        
+        // Next button action
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) allLogs.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateTable.run();
+            }
+        });
+        
         // Search functionality
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                table.setItems(FXCollections.observableArrayList(allLogs));
-            } else {
-                List<String[]> filtered = allLogs.stream()
-                    .filter(log -> String.join(" ", log).toLowerCase().contains(newVal.toLowerCase()))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(filtered));
-            }
+            currentPage[0] = 1;
+            updateTable.run();
         });
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
-            List<String[]> refreshed = loadStockLogs();
-            table.setItems(FXCollections.observableArrayList(refreshed));
+            allLogs.clear();
+            allLogs.addAll(loadStockLogs());
+            currentPage[0] = 1;
             searchField.clear();
+            updateTable.run();
         });
-
-        VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
 
         // Add row click handler to show log details
         table.setRowFactory(tv -> {
@@ -2119,6 +2193,177 @@ public class StaffDashboardController {
             });
             return row;
         });
+        
+        // Set fixed row height to match inventory table (65px) for consistency
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+        
+        // Initial load
+        updateTable.run();
+        
+        VBox.setVgrow(table, Priority.ALWAYS);
+        container.getChildren().addAll(actionBar, table, pageControls);
+
+        return container;
+    }
+
+    /**
+     * Create Staff Stock Logs tab (only logs updated by current staff)
+     */
+    private Node createStaffStockLogsTab() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(15));
+
+        // Action buttons
+        HBox actionBar = new HBox(15);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
+
+        Button refreshBtn = new Button("🔄 Refresh");
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search logs...");
+        searchField.setPrefWidth(250);
+
+        styleActionButton(refreshBtn);
+
+        actionBar.getChildren().addAll(refreshBtn, searchField);
+
+        // Create stock logs table
+        TableView<String[]> table = new TableView<>();
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        table.setPrefHeight(400);
+
+        TableColumn<String[], String> timestampCol = new TableColumn<>("Timestamp");
+        timestampCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[0]));
+        timestampCol.setPrefWidth(150);
+
+        TableColumn<String[], String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[3]));
+        itemCol.setPrefWidth(150);
+
+        TableColumn<String[], String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[4]));
+        sizeCol.setPrefWidth(60);
+
+        TableColumn<String[], String> changeCol = new TableColumn<>("Change");
+        changeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[5]));
+        changeCol.setPrefWidth(80);
+
+        TableColumn<String[], String> actionCol = new TableColumn<>("Action");
+        actionCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[6]));
+        actionCol.setPrefWidth(100);
+
+        TableColumn<String[], String> detailsCol = new TableColumn<>("Details");
+        detailsCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[7]));
+        detailsCol.setPrefWidth(200);
+
+        table.getColumns().addAll(timestampCol, itemCol, sizeCol, changeCol, actionCol, detailsCol);
+
+        // Pagination setup
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+        
+        // Load staff stock logs
+        List<String[]> staffLogs = loadStaffStockLogs();
+        
+        // Pagination controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+        
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+        
+        // Function to update table with current page
+        Runnable updateTable = () -> {
+            List<String[]> displayLogs = staffLogs;
+            
+            // Apply search filter if any
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.isEmpty()) {
+                displayLogs = displayLogs.stream()
+                    .filter(log -> String.join(" ", log).toLowerCase().contains(searchText.toLowerCase()))
+                    .collect(java.util.stream.Collectors.toList());
+            }
+            
+            int totalPages = Math.max(1, (int) Math.ceil((double) displayLogs.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, displayLogs.size());
+            
+            List<String[]> pageItems = displayLogs.isEmpty() ? java.util.Collections.emptyList() : displayLogs.subList(start, end);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+        
+        // Previous button action
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
+                updateTable.run();
+            }
+        });
+        
+        // Next button action
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) staffLogs.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateTable.run();
+            }
+        });
+        
+        // Search functionality
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            currentPage[0] = 1;
+            updateTable.run();
+        });
+
+        // Refresh button action
+        refreshBtn.setOnAction(e -> {
+            staffLogs.clear();
+            staffLogs.addAll(loadStaffStockLogs());
+            currentPage[0] = 1;
+            searchField.clear();
+            updateTable.run();
+        });
+
+        // Add row click handler to show log details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<String[]> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    String[] clickedLog = row.getItem();
+                    showStockLogDetailsDialog(clickedLog);
+                }
+            });
+            return row;
+        });
+        
+        // Set fixed row height to match inventory table (65px) for consistency
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+        
+        // Initial load
+        updateTable.run();
+        
+        VBox.setVgrow(table, Priority.ALWAYS);
+        container.getChildren().addAll(actionBar, table, pageControls);
 
         return container;
     }
@@ -2226,13 +2471,13 @@ public class StaffDashboardController {
     private List<String[]> loadStockLogs() {
         List<String[]> logs = new ArrayList<>();
         
-        // Staff-relevant actions (user/customer activities only)
-        List<String> staffRelevantActions = java.util.Arrays.asList(
-            "USER_PICKUP", "USER_RETURN", "ITEM_UPDATED", "ITEM_ADDED", "ITEM_DELETED", "STAFF_RETURN"
+        // Only student/user-relevant actions (customer activities only - NOT staff updates)
+        List<String> studentOnlyActions = java.util.Arrays.asList(
+            "USER_PICKUP", "USER_RETURN", "STAFF_RETURN"
         );
         
         try {
-            java.nio.file.Path logPath = java.nio.file.Paths.get("src/database/data/stock_logs.txt");
+            java.nio.file.Path logPath = java.nio.file.Paths.get(StockReturnLogger.getLogFilePath());
             if (java.nio.file.Files.exists(logPath)) {
                 // Force read from disk to ensure latest data
                 List<String> lines = java.nio.file.Files.readAllLines(logPath, java.nio.charset.StandardCharsets.UTF_8);
@@ -2255,8 +2500,8 @@ public class StaffDashboardController {
                     if (parts.length >= 8) {
                         String action = parts[6].trim(); // Action column
                         
-                        // Show all relevant actions for staff
-                        if (staffRelevantActions.contains(action)) {
+                        // Show only student activities (NOT staff updates)
+                        if (studentOnlyActions.contains(action)) {
                             // Trim all parts for cleaner display
                             for (int i = 0; i < parts.length; i++) {
                                 parts[i] = parts[i].trim();
@@ -2269,6 +2514,72 @@ public class StaffDashboardController {
         } catch (Exception e) {
             // Log error but continue
             System.err.println("Error loading stock logs: " + e.getMessage());
+        }
+        
+        // Sort by timestamp (newest first)
+        logs.sort((a, b) -> {
+            try {
+                java.time.LocalDateTime timeA = java.time.LocalDateTime.parse(a[0], java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                java.time.LocalDateTime timeB = java.time.LocalDateTime.parse(b[0], java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                return timeB.compareTo(timeA);
+            } catch (Exception ex) {
+                return b[0].compareTo(a[0]); // Fallback to string comparison
+            }
+        });
+        
+        return logs;
+    }
+
+    /**
+     * Load staff stock logs - only logs updated by the current staff member
+     */
+    private List<String[]> loadStaffStockLogs() {
+        List<String[]> logs = new ArrayList<>();
+        
+        // Get current staff member (assuming there's a way to identify current staff - could use a static/singleton)
+        // For now, we'll load all ITEM_UPDATED, ITEM_ADDED, ITEM_DELETED actions (staff-only updates)
+        List<String> staffOnlyActions = java.util.Arrays.asList(
+            "ITEM_UPDATED", "ITEM_ADDED", "ITEM_DELETED"
+        );
+        
+        try {
+            java.nio.file.Path logPath = java.nio.file.Paths.get(StockReturnLogger.getLogFilePath());
+            if (java.nio.file.Files.exists(logPath)) {
+                // Force read from disk to ensure latest data
+                List<String> lines = java.nio.file.Files.readAllLines(logPath, java.nio.charset.StandardCharsets.UTF_8);
+                boolean isFirstLine = true;
+                
+                for (String line : lines) {
+                    // Skip empty lines and header
+                    if (line == null || line.trim().isEmpty()) {
+                        continue;
+                    }
+                    
+                    if (isFirstLine) {
+                        isFirstLine = false;
+                        if (line.toLowerCase().contains("timestamp")) {
+                            continue; // Skip actual header
+                        }
+                    }
+                    
+                    String[] parts = line.split("\\|", -1); // Use -1 to include trailing empty strings
+                    if (parts.length >= 8) {
+                        String action = parts[6].trim(); // Action column
+                        
+                        // Show only staff-updated items
+                        if (staffOnlyActions.contains(action)) {
+                            // Trim all parts for cleaner display
+                            for (int i = 0; i < parts.length; i++) {
+                                parts[i] = parts[i].trim();
+                            }
+                            logs.add(parts);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Log error but continue
+            System.err.println("Error loading staff stock logs: " + e.getMessage());
         }
         
         // Sort by timestamp (newest first)
@@ -3217,9 +3528,9 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
 
-        // Load RETURNED orders only (RETURNED - REFUNDED)
+        // Load REPLACED orders only (items that have been replaced)
         List<Reservation> returnedOrders = reservationManager.getAllReservations().stream()
-            .filter(r -> r.getStatus().contains("RETURNED"))
+            .filter(r -> r.getStatus().contains("REPLACED"))
             .collect(java.util.stream.Collectors.toList());
         ObservableList<Reservation> returnedList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(returnedOrders));
         table.setItems(returnedList);
@@ -3228,12 +3539,12 @@ public class StaffDashboardController {
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == null || newVal.isEmpty()) {
                 List<Reservation> refreshedReturned = reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("RETURNED"))
+                    .filter(r -> r.getStatus().contains("REPLACED"))
                     .collect(java.util.stream.Collectors.toList());
                 table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedReturned)));
             } else {
                 List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("RETURNED"))
+                    .filter(r -> r.getStatus().contains("REPLACED"))
                     .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
                                String.valueOf(r.getReservationId()).contains(newVal) ||
                                (r.getBundleId() != null && r.getBundleId().contains(newVal)))
@@ -3245,7 +3556,7 @@ public class StaffDashboardController {
         // Refresh button
         refreshBtn.setOnAction(e -> {
             List<Reservation> refreshedReturned = reservationManager.getAllReservations().stream()
-                .filter(r -> r.getStatus().contains("RETURNED"))
+                .filter(r -> r.getStatus().contains("REPLACED"))
                 .collect(java.util.stream.Collectors.toList());
             table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedReturned)));
             searchField.clear();
@@ -3444,8 +3755,153 @@ public class StaffDashboardController {
         boolean confirm = AlertHelper.showConfirmation("Logout", "Are you sure you want to logout?");
         if (confirm) {
             LoginView loginView = new LoginView();
-            Scene scene = new Scene(loginView.getView(), 1920, 1025);
-            SceneManager.setScene(scene);
+            SceneManager.setRoot(loginView.getView());
+        }
+    }
+    
+    /**
+     * Show dialog to select replacement item with search and filter options
+     */
+    private Item showReplacementItemSelection(Reservation originalItem) {
+        Dialog<Item> dialog = new Dialog<>();
+        dialog.setTitle("Select Replacement Item");
+        dialog.setHeaderText("Select replacement item for: " + originalItem.getItemName() + " (Size: " + originalItem.getSize() + ")");
+        
+        // Make dialog responsive - use 60-70% of screen size
+        javafx.stage.Screen screen = javafx.stage.Screen.getPrimary();
+        double screenWidth = screen.getVisualBounds().getWidth();
+        double screenHeight = screen.getVisualBounds().getHeight();
+        double dialogWidth = Math.min(900, screenWidth * 0.75);
+        double dialogHeight = Math.min(700, screenHeight * 0.80);
+        
+        dialog.getDialogPane().setPrefSize(dialogWidth, dialogHeight);
+
+        // Get only items with the same name and course as the original item
+        List<Item> allItems = inventoryManager.getAllItems();
+        List<Item> sameItemVariants = allItems.stream()
+            .filter(item -> item.getName().equals(originalItem.getItemName()) && 
+                           item.getCourse().equals(originalItem.getCourse()))
+            .collect(Collectors.toList());
+        ObservableList<Item> itemList = FXCollections.observableArrayList(sameItemVariants);
+        ObservableList<Item> filteredList = FXCollections.observableArrayList(sameItemVariants);
+
+        // Create search and filter controls
+        HBox searchBox = new HBox(10);
+        searchBox.setPadding(new Insets(10));
+        searchBox.setStyle("-fx-border-color: #cccccc; -fx-border-width: 0 0 1 0;");
+
+        Label sizeLabel = new Label("Size:");
+        ComboBox<String> sizeFilter = new ComboBox<>();
+        sizeFilter.getItems().addAll("All", "XS", "S", "M", "L", "XL", "XXL");
+        sizeFilter.setValue("All");
+        sizeFilter.setPrefWidth(100);
+
+        Button clearButton = new Button("Clear");
+        clearButton.setPrefWidth(80);
+
+        searchBox.getChildren().addAll(sizeLabel, sizeFilter, clearButton);
+        searchBox.setStyle("-fx-alignment: center-left;");
+
+        // Create table for item selection
+        TableView<Item> itemTable = new TableView<>(filteredList);
+        itemTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        itemTable.setPrefHeight(400);
+
+        TableColumn<Item, String> nameCol = new TableColumn<>("Item Name");
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        TableColumn<Item, Integer> codeCol = new TableColumn<>("Code");
+        codeCol.setCellValueFactory(new PropertyValueFactory<>("code"));
+        codeCol.setPrefWidth(80);
+
+        TableColumn<Item, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(new PropertyValueFactory<>("size"));
+        sizeCol.setPrefWidth(80);
+
+        TableColumn<Item, Integer> qtyCol = new TableColumn<>("Stock");
+        qtyCol.setCellValueFactory(new PropertyValueFactory<>("quantity"));
+        qtyCol.setPrefWidth(80);
+
+        itemTable.getColumns().addAll(nameCol, codeCol, sizeCol, qtyCol);
+
+        // Filtering logic - only filter by size since all items have the same name
+        sizeFilter.valueProperty().addListener((obs, oldVal, newVal) -> {
+            filteredList.clear();
+            String sizeValue = newVal;
+            
+            for (Item item : itemList) {
+                boolean matchesSize = "All".equals(sizeValue) || sizeValue.equals(item.getSize());
+                
+                if (matchesSize && item.getQuantity() > 0) {
+                    filteredList.add(item);
+                }
+            }
+        });
+
+        clearButton.setOnAction(e -> {
+            sizeFilter.setValue("All");
+        });
+
+        // Create container with search box and table
+        VBox container = new VBox();
+        container.getChildren().addAll(searchBox, itemTable);
+        VBox.setVgrow(itemTable, Priority.ALWAYS);
+
+        dialog.getDialogPane().setContent(container);
+        
+        ButtonType selectButtonType = new ButtonType("Select", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(selectButtonType, ButtonType.CANCEL);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == selectButtonType) {
+                Item selected = itemTable.getSelectionModel().getSelectedItem();
+                if (selected != null && selected.getQuantity() > 0) {
+                    return selected;
+                } else {
+                    AlertHelper.showError("Error", "Please select an item with available stock.");
+                    return null;
+                }
+            }
+            return null;
+        });
+
+        return dialog.showAndWait().orElse(null);
+    }
+
+    /**
+     * Update the filtered item list based on search and size filter
+     */
+    private void updateItemFilter(ObservableList<Item> filteredList, 
+                                  ObservableList<Item> itemList,
+                                  TextField searchField,
+                                  ComboBox<String> sizeFilter) {
+        String searchText = searchField.getText().toLowerCase().trim();
+        String selectedSize = sizeFilter.getValue();
+
+        filteredList.clear();
+        
+        for (Item item : itemList) {
+            // Only show items with stock > 0
+            if (item.getQuantity() <= 0) {
+                continue;
+            }
+
+            // Check search filter (name or code)
+            boolean matchesSearch = true;
+            if (!searchText.isEmpty()) {
+                matchesSearch = item.getName().toLowerCase().contains(searchText) ||
+                               String.valueOf(item.getCode()).contains(searchText);
+            }
+
+            // Check size filter
+            boolean matchesSize = true;
+            if (!selectedSize.equals("All")) {
+                matchesSize = item.getSize().equals(selectedSize);
+            }
+
+            if (matchesSearch && matchesSize) {
+                filteredList.add(item);
+            }
         }
     }
     
@@ -3479,7 +3935,7 @@ public class StaffDashboardController {
                 break;
             default: // ALL
                 refreshed = reservationManager.getAllReservations().stream()
-                    .filter(r -> "PENDING".equals(r.getStatus()) || "RETURN REQUESTED".equals(r.getStatus()))
+                    .filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus()))
                     .collect(java.util.stream.Collectors.toList());
         }
         allReservations.setAll(ControllerUtils.getDeduplicatedReservations(refreshed));

@@ -185,13 +185,13 @@ public class ReservationManager {
     }
 
     /**
-     * Student requests pickup - changes status to awaiting admin approval
-     * Changes status from "PAID - AWAITING PICKUP APPROVAL" to "PICKUP REQUESTED - AWAITING ADMIN APPROVAL"
+     * Student requests pickup - changes status to awaiting staff approval
+     * Changes status from "PAID - AWAITING PICKUP APPROVAL" to "PICKUP REQUESTED - AWAITING STAFF APPROVAL"
      */
     public boolean requestPickup(int reservationId) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus())) {
-            r.setStatus("PICKUP REQUESTED - AWAITING ADMIN APPROVAL");
+            r.setStatus("PICKUP REQUESTED - AWAITING STAFF APPROVAL");
             saveReservations();
             return true;
         }
@@ -199,12 +199,12 @@ public class ReservationManager {
     }
     
     /**
-     * Admin approves pickup request
-     * Changes status from "PICKUP REQUESTED - AWAITING ADMIN APPROVAL" to "APPROVED FOR PICKUP"
+     * Staff approves pickup request
+     * Changes status from "PICKUP REQUESTED - AWAITING STAFF APPROVAL" to "APPROVED FOR PICKUP"
      */
     public boolean approvePickupRequest(int reservationId) {
         Reservation r = findReservationById(reservationId);
-        if (r != null && "PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
+        if (r != null && "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus())) {
             // Mark as approved for pickup first (keeps existing status flow)
             r.setStatus("APPROVED FOR PICKUP");
             saveReservations();
@@ -218,12 +218,12 @@ public class ReservationManager {
     }
     
     /**
-     * Get all pickup requests awaiting admin approval
+     * Get all pickup requests awaiting staff approval
      */
     public List<Reservation> getPickupRequestsAwaitingApproval() {
         List<Reservation> pickupRequests = new ArrayList<>();
         for (Reservation r : reservations) {
-            if ("PICKUP REQUESTED - AWAITING ADMIN APPROVAL".equals(r.getStatus())) {
+            if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus())) {
                 pickupRequests.add(r);
             }
         }
@@ -277,8 +277,8 @@ public class ReservationManager {
     public boolean requestReturn(int reservationId, String reason) {
         Reservation r = findReservationById(reservationId);
         if (r != null && r.isEligibleForReturn()) {
-            r.setStatus("RETURN REQUESTED");
-            r.setReason("Return requested - Reason: " + reason);
+            r.setStatus("REPLACEMENT REQUESTED");
+            r.setReason("Replacement requested - Reason: " + reason);
             saveReservations();
             return true;
         }
@@ -312,8 +312,8 @@ public class ReservationManager {
         // For partial returns, create a new "virtual" return request
         // The original reservation keeps its full quantity, but the return request
         // will specify how many items are being returned
-        String partialReturnReason = "Partial Return (" + quantityToReturn + " of " + originalQty + " items) - Reason: " + reason;
-        r.setStatus("RETURN REQUESTED");
+        String partialReturnReason = "Partial Replacement (" + quantityToReturn + " of " + originalQty + " items) - Reason: " + reason;
+        r.setStatus("REPLACEMENT REQUESTED");
         r.setReason(partialReturnReason);
         saveReservations();
         
@@ -326,7 +326,7 @@ public class ReservationManager {
      */
     public boolean approveReturn(int reservationId) {
         Reservation r = findReservationById(reservationId);
-        if (r != null && "RETURN REQUESTED".equals(r.getStatus())) {
+        if (r != null && "REPLACEMENT REQUESTED".equals(r.getStatus())) {
             // Check if this is a partial return
             int quantityToReturn = r.getQuantity();
             String reasonText = r.getReason() != null ? r.getReason() : "";
@@ -347,7 +347,7 @@ public class ReservationManager {
             // Restock the item
             boolean restocked = inventoryManager.restockItem(r.getItemCode(), r.getSize(), quantityToReturn);
             if (restocked) {
-                r.setStatus("RETURNED - REFUNDED");
+                r.setStatus("REPLACED");
                 r.setReason(r.getReason() != null ? r.getReason() : "Item returned within 10 days");
                 saveReservations();
 
@@ -385,13 +385,64 @@ public class ReservationManager {
     }
 
     /**
+     * Approve replacement with specific replacement item (does NOT restock - item is replaced with new one)
+     */
+    public boolean approveReplacementWithItem(int reservationId, int replacementItemCode, String replacementItemName, String replacementSize) {
+        Reservation r = findReservationById(reservationId);
+        if (r != null && "REPLACEMENT REQUESTED".equals(r.getStatus())) {
+            // Restock the original item
+            inventoryManager.restockItem(r.getItemCode(), r.getSize(), r.getQuantity());
+
+            // Destock the replacement item
+            Item replacementItem = inventoryManager.findItemByCodeAndSize(replacementItemCode, replacementSize);
+            if (replacementItem != null && replacementItem.getQuantity() >= r.getQuantity()) {
+                // Remove the replacement item from stock
+                inventoryManager.updateItemQuantityBySize(replacementItemCode, replacementSize, 
+                    replacementItem.getQuantity() - r.getQuantity());
+            } else {
+                return false; // Not enough stock for replacement
+            }
+
+            // Track the replacement item
+            r.setReplacementItem(replacementItemCode, replacementItemName, replacementSize);
+            r.setStatus("REPLACED");
+            r.setReason(r.getReason() != null ? r.getReason() : "Item replaced with new one");
+            saveReservations();
+
+            // Update receipt status to indicate replacement
+            if (receiptManager != null) {
+                Receipt receipt = receiptManager.findReceiptByItemAndBuyer(r.getItemCode(), r.getStudentName());
+                if (receipt != null) {
+                    receiptManager.updatePaymentStatus(receipt.getReceiptId(), "REPLACED");
+                }
+            }
+
+            // Log replacement to stock_logs.txt
+            String replacementInfo = "Replaced with: " + replacementItemName + " (Size: " + replacementSize + ")";
+            StockReturnLogger.logUserReturn(
+                r.getStudentId(),
+                r.getStudentName(),
+                r.getItemCode(),
+                r.getItemName(),
+                r.getSize(),
+                r.getQuantity(),
+                r.getQuantity(), // Original item restocked
+                replacementInfo
+            );
+
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Reject return request (admin/staff rejects)
      */
     public boolean rejectReturn(int reservationId, String reason) {
         Reservation r = findReservationById(reservationId);
-        if (r != null && "RETURN REQUESTED".equals(r.getStatus())) {
+        if (r != null && "REPLACEMENT REQUESTED".equals(r.getStatus())) {
             r.setStatus("COMPLETED");
-            r.setReason("Return rejected - Reason: " + reason);
+            r.setReason("Replacement rejected - Reason: " + reason);
             saveReservations();
             return true;
         }
@@ -404,7 +455,7 @@ public class ReservationManager {
     public List<Reservation> getReturnRequests() {
         List<Reservation> returnRequests = new ArrayList<>();
         for (Reservation r : reservations) {
-            if ("RETURN REQUESTED".equals(r.getStatus())) {
+            if ("REPLACEMENT REQUESTED".equals(r.getStatus())) {
                 returnRequests.add(r);
             }
         }
