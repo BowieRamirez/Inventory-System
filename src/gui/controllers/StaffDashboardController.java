@@ -9,10 +9,13 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -46,6 +49,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -93,7 +97,7 @@ public class StaffDashboardController {
     /**
      * Handle price change for an item
      */
-    private void handleChangePrice(Item item, TableView<Item> table) {
+    private void handleChangePriceForItem(Item item, Runnable refreshAction) {
         TextInputDialog priceDialog = new TextInputDialog(String.format("%.2f", item.getPrice()));
         priceDialog.setTitle("Change Price");
         priceDialog.setHeaderText("Change price for: " + item.getName() + " (" + item.getSize() + ")");
@@ -114,7 +118,7 @@ public class StaffDashboardController {
                     StockReturnLogger.logPriceChange("staff", item.getCode(), item.getName(), item.getSize(), oldPrice, newPrice);
 
                     // Refresh table
-                    table.refresh();
+                    refreshAction.run();
 
                     AlertHelper.showSuccess("Price Updated",
                         "Price updated successfully!\n\n" +
@@ -207,6 +211,7 @@ public class StaffDashboardController {
         Button allBtn = new Button("All");
         Button pendingBtn = new Button("Pending");
         Button approvedBtn = new Button("Approved");
+        Button replacedBtn = new Button("Replaced");
         Button pickupApprovalsBtn = new Button("📦 Pickup Approvals");
         Button returnRequestsBtn = new Button("Replacement Requests");
         Button refreshBtn = new Button("🔄 Refresh");
@@ -214,6 +219,7 @@ public class StaffDashboardController {
         styleActionButton(allBtn);
         styleActionButton(pendingBtn);
         styleActionButton(approvedBtn);
+        styleActionButton(replacedBtn);
         styleActionButton(pickupApprovalsBtn);
         styleActionButton(returnRequestsBtn);
         styleActionButton(refreshBtn);
@@ -272,7 +278,7 @@ public class StaffDashboardController {
         StackPane.setAlignment(pendingBadge, Pos.TOP_RIGHT);
         StackPane.setMargin(pendingBadge, new Insets(0, -6, 20, 0));
 
-        filterBar.getChildren().addAll(allBtn, pendingStack, approvedBtn, pickupStack, returnStack, refreshBtn);
+        filterBar.getChildren().addAll(allBtn, pendingStack, approvedBtn, replacedBtn, pickupStack, returnStack, refreshBtn);
 
         // Create reservations table
         TableView<Reservation> table = new TableView<>();
@@ -733,7 +739,7 @@ public class StaffDashboardController {
             // Ensure actions column is visible for non-approved filters
             actionsCol.setVisible(true);
             updateTable.run();
-            activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+            activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
 
         pendingBtn.setOnAction(e -> {
@@ -748,7 +754,7 @@ public class StaffDashboardController {
             // Show actions for pending
             actionsCol.setVisible(true);
             updateTable.run();
-            activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+            activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
 
         approvedBtn.setOnAction(e -> {
@@ -762,7 +768,6 @@ public class StaffDashboardController {
                     if (s.contains("APPROVED")) return true;
                     if (s.contains("PAID")) return true;
                     if (s.contains("COMPLETED")) return true;
-                    if (s.contains("REPLACED")) return true;
                     // Also include reservations that are marked paid even if status text differs
                     if (r.isPaid()) return true;
                     return false;
@@ -775,7 +780,25 @@ public class StaffDashboardController {
             // Hide actions column for approved view
             actionsCol.setVisible(false);
             updateTable.run();
-            activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+            activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+        });
+
+        replacedBtn.setOnAction(e -> {
+            currentFilter[0] = "REPLACED";
+            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+                .filter(r -> {
+                    String s = r.getStatus();
+                    return s != null && s.toUpperCase().contains("REPLACED");
+                })
+                .collect(java.util.stream.Collectors.toList());
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
+            searchField.clear();
+            // Hide actions column for replaced view
+            actionsCol.setVisible(false);
+            updateTable.run();
+            activateFilterButton(replacedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
 
         pickupApprovalsBtn.setOnAction(e -> {
@@ -788,7 +811,7 @@ public class StaffDashboardController {
             // Show actions for pickup approvals
             actionsCol.setVisible(true);
             updateTable.run();
-            activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+            activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
 
         returnRequestsBtn.setOnAction(e -> {
@@ -801,7 +824,7 @@ public class StaffDashboardController {
             // Show actions for return requests
             actionsCol.setVisible(true);
             updateTable.run();
-            activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+            activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
 
         refreshBtn.setOnAction(e -> {
@@ -819,9 +842,14 @@ public class StaffDashboardController {
                         if (s.contains("APPROVED")) return true;
                         if (s.contains("PAID")) return true;
                         if (s.contains("COMPLETED")) return true;
-                        if (s.contains("REPLACED")) return true;
                         if (r.isPaid()) return true;
                         return false;
+                    }).collect(java.util.stream.Collectors.toList());
+                    break;
+                case "REPLACED":
+                    refreshed = reservationManager.getAllReservations().stream().filter(r -> {
+                        String s = r.getStatus();
+                        return s != null && s.toUpperCase().contains("REPLACED");
                     }).collect(java.util.stream.Collectors.toList());
                     break;
                 case "PICKUP_APPROVALS":
@@ -851,20 +879,23 @@ public class StaffDashboardController {
             // Keep the currently selected filter highlighted after a refresh
             switch (currentFilter[0]) {
                 case "PENDING":
-                    activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
                     break;
                 case "APPROVED":
-                    activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    break;
+                case "REPLACED":
+                    activateFilterButton(replacedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
                     break;
                 case "PICKUP_APPROVALS":
-                    activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
                     break;
                 case "RETURN_REQUESTS":
-                    activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
                     break;
                 case "ALL":
                 default:
-                    activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
                     break;
             }
         });
@@ -1885,47 +1916,43 @@ public class StaffDashboardController {
         });
 
         // Create inventory table
-        TableView<Item> table = new TableView<>();
+        TableView<InventoryRow> table = new TableView<>();
         table.setStyle("-fx-background-color: -color-bg-subtle;");
 
-        TableColumn<Item, Integer> codeCol = new TableColumn<>("Code");
+        TableColumn<InventoryRow, Integer> codeCol = new TableColumn<>("Code");
         codeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getCode()));
         codeCol.setPrefWidth(80);
 
-        TableColumn<Item, String> nameCol = new TableColumn<>("Item Name");
+        TableColumn<InventoryRow, String> nameCol = new TableColumn<>("Item Name");
         nameCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getName()));
         nameCol.setPrefWidth(200);
 
-        TableColumn<Item, String> courseCol = new TableColumn<>("Course");
+        TableColumn<InventoryRow, String> courseCol = new TableColumn<>("Course");
         courseCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getCourse()));
         courseCol.setPrefWidth(100);
 
-        TableColumn<Item, String> sizeCol = new TableColumn<>("Size");
-        sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
-        sizeCol.setPrefWidth(80);
+        TableColumn<InventoryRow, String> sizesCol = new TableColumn<>("Sizes");
+        sizesCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSizesDisplay()));
+        sizesCol.setPrefWidth(160);
 
-        TableColumn<Item, Integer> qtyCol = new TableColumn<>("Quantity");
-        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getQuantity()));
-        qtyCol.setPrefWidth(100);
+        TableColumn<InventoryRow, Integer> qtyCol = new TableColumn<>("Total Qty");
+        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getTotalQuantity()));
+        qtyCol.setPrefWidth(120);
 
-        TableColumn<Item, Double> priceCol = new TableColumn<>("Price");
-        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getPrice()));
-        priceCol.setCellFactory(col -> new TableCell<Item, Double>() {
+        TableColumn<InventoryRow, String> priceCol = new TableColumn<>("Price");
+        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getPriceDisplay()));
+        priceCol.setPrefWidth(120);
+        priceCol.setCellFactory(col -> new TableCell<InventoryRow, String>() {
             @Override
-            protected void updateItem(Double price, boolean empty) {
-                super.updateItem(price, empty);
-                if (empty || price == null) {
-                    setText(null);
-                } else {
-                    setText(String.format("₱%.2f", price));
-                }
+            protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                setText(empty ? null : value);
             }
         });
-        priceCol.setPrefWidth(100);
         
         // Actions column - Adjust Stock and Change Price buttons
-        TableColumn<Item, Void> actionsCol = new TableColumn<>("Actions");
-        actionsCol.setCellFactory(col -> new TableCell<Item, Void>() {
+        TableColumn<InventoryRow, Void> actionsCol = new TableColumn<>("Actions");
+        actionsCol.setCellFactory(col -> new TableCell<InventoryRow, Void>() {
             private final Button adjustBtn = new Button("📝 Adjust Stock");
             private final Button priceBtn = new Button("₱ Change Price");
 
@@ -1935,12 +1962,12 @@ public class StaffDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Item currentItem = getTableView().getItems().get(getIndex());
+                    InventoryRow currentRow = getTableView().getItems().get(getIndex());
                     adjustBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
-                    adjustBtn.setOnAction(e -> handleStockAdjustment(currentItem, table));
+                    adjustBtn.setOnAction(e -> showVariantSelectionDialog(currentRow, "Adjust Stock", selected -> handleStockAdjustmentForItem(selected, refreshBtn::fire)));
 
                     priceBtn.setStyle("-fx-background-color: #0A84FF; -fx-text-fill: white; -fx-cursor: hand;");
-                    priceBtn.setOnAction(e -> handleChangePrice(currentItem, table));
+                    priceBtn.setOnAction(e -> showVariantSelectionDialog(currentRow, "Change Price", selected -> handleChangePriceForItem(selected, refreshBtn::fire)));
 
                     HBox btns = new HBox(8, adjustBtn, priceBtn);
                     btns.setAlignment(Pos.CENTER);
@@ -1949,8 +1976,8 @@ public class StaffDashboardController {
             }
         });
         actionsCol.setPrefWidth(220);
-
-        table.getColumns().addAll(codeCol, nameCol, courseCol, sizeCol, qtyCol, priceCol, actionsCol);
+        
+        table.getColumns().addAll(codeCol, nameCol, courseCol, sizesCol, qtyCol, priceCol, actionsCol);
 
         // Make columns resize to fill the available width of the container
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
@@ -1958,10 +1985,10 @@ public class StaffDashboardController {
 
         // Bind column widths as percentages of the table width so the table fills its box
         codeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.42));
-        courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.14));
-        sizeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.08));
+        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.36));
+        courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
+        sizesCol.prefWidthProperty().bind(table.widthProperty().multiply(0.18));
+        qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.10));
         priceCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
         actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
 
@@ -2037,7 +2064,7 @@ public class StaffDashboardController {
     /**
      * Update inventory table contents and rebuild pagination controls
      */
-    private void updateInventoryTable(TableView<Item> table, List<Item> allItems, String[] currentCourse,
+    private void updateInventoryTable(TableView<InventoryRow> table, List<Item> allItems, String[] currentCourse,
                                       int[] currentPage, int itemsPerPage, HBox pageControls, HBox statsBox,
                                       TextField searchField, int[] pageWindowStart) {
         String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
@@ -2052,12 +2079,14 @@ public class StaffDashboardController {
             })
             .collect(java.util.stream.Collectors.toList());
 
-        int totalPages = Math.max(1, (int) Math.ceil((double) filtered.size() / itemsPerPage));
+        List<InventoryRow> aggregated = buildInventoryRows(filtered);
+
+        int totalPages = Math.max(1, (int) Math.ceil((double) aggregated.size() / itemsPerPage));
         if (currentPage[0] > totalPages) currentPage[0] = totalPages;
 
         int start = (currentPage[0] - 1) * itemsPerPage;
-        int end = Math.min(start + itemsPerPage, filtered.size());
-        List<Item> pageItems = filtered.isEmpty() ? java.util.Collections.emptyList() : filtered.subList(start, end);
+        int end = Math.min(start + itemsPerPage, aggregated.size());
+        List<InventoryRow> pageItems = aggregated.isEmpty() ? java.util.Collections.emptyList() : aggregated.subList(start, end);
 
         table.setItems(FXCollections.observableArrayList(pageItems));
 
@@ -2127,6 +2156,107 @@ public class StaffDashboardController {
         } catch (Exception ex) {
             // ignore if layout differs
         }
+    }
+
+    private List<InventoryRow> buildInventoryRows(List<Item> source) {
+        Map<Integer, List<Item>> grouped = new LinkedHashMap<>();
+        for (Item item : source) {
+            grouped.computeIfAbsent(item.getCode(), k -> new ArrayList<>()).add(item);
+        }
+        return grouped.values().stream().map(InventoryRow::new).collect(Collectors.toList());
+    }
+
+    private void showVariantSelectionDialog(InventoryRow row, String title, Consumer<Item> onVariantSelected) {
+        List<Item> variants = row.getVariants();
+        if (variants.isEmpty()) return;
+
+        Dialog<Item> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText("Choose a size for " + row.getName());
+        ButtonType selectButtonType = new ButtonType("Select", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(selectButtonType, ButtonType.CANCEL);
+
+        ListView<Item> sizeList = new ListView<>(FXCollections.observableArrayList(variants));
+        sizeList.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Item variant, boolean empty) {
+                super.updateItem(variant, empty);
+                if (empty || variant == null) {
+                    setText(null);
+                } else {
+                    setText(variant.getSize() + "  |  Qty: " + variant.getQuantity());
+                }
+            }
+        });
+        sizeList.setPrefHeight(Math.min(variants.size() * 42 + 20, 220));
+        sizeList.getSelectionModel().selectFirst();
+
+        Button selectBtn = (Button) dialog.getDialogPane().lookupButton(selectButtonType);
+        if (selectBtn != null) {
+            selectBtn.setDisable(variants.isEmpty());
+        }
+        sizeList.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (selectBtn != null) {
+                selectBtn.setDisable(newVal == null);
+            }
+        });
+
+        dialog.getDialogPane().setContent(sizeList);
+        dialog.setResultConverter(btn -> btn == selectButtonType ? sizeList.getSelectionModel().getSelectedItem() : null);
+        dialog.showAndWait().ifPresent(onVariantSelected);
+    }
+
+    private static class InventoryRow {
+        private final int code;
+        private final String name;
+        private final String course;
+        private final List<Item> variants;
+        private final int totalQuantity;
+        private final String sizesDisplay;
+        private final String priceDisplay;
+
+        InventoryRow(List<Item> variants) {
+            Objects.requireNonNull(variants, "Variant list cannot be null");
+            if (variants.isEmpty()) {
+                throw new IllegalArgumentException("InventoryRow requires at least one variant");
+            }
+            this.variants = new ArrayList<>(variants);
+            this.code = variants.get(0).getCode();
+            this.name = variants.get(0).getName();
+            this.course = variants.get(0).getCourse();
+            this.totalQuantity = variants.stream().mapToInt(Item::getQuantity).sum();
+            this.sizesDisplay = buildSizesDisplay();
+            this.priceDisplay = buildPriceDisplay();
+        }
+
+        private String buildSizesDisplay() {
+            Set<String> uniqueSizes = new LinkedHashSet<>();
+            for (Item variant : variants) {
+                String size = variant.getSize() == null ? "" : variant.getSize().trim();
+                if (!size.isEmpty()) {
+                    uniqueSizes.add(size);
+                }
+            }
+            return uniqueSizes.isEmpty() ? "N/A" : String.join(" | ", uniqueSizes);
+        }
+
+        private String buildPriceDisplay() {
+            Set<Double> uniquePrices = variants.stream()
+                .map(Item::getPrice)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (uniquePrices.size() == 1) {
+                return String.format("₱%.2f", uniquePrices.iterator().next());
+            }
+            return "Varies";
+        }
+
+        public int getCode() { return code; }
+        public String getName() { return name; }
+        public String getCourse() { return course; }
+        public List<Item> getVariants() { return java.util.Collections.unmodifiableList(variants); }
+        public int getTotalQuantity() { return totalQuantity; }
+        public String getSizesDisplay() { return sizesDisplay; }
+        public String getPriceDisplay() { return priceDisplay; }
     }
 
     /**
@@ -2330,7 +2460,7 @@ public class StaffDashboardController {
     /**
      * Handle stock adjustment request for an item
      */
-    private void handleStockAdjustment(Item item, TableView<Item> table) {
+    private void handleStockAdjustmentForItem(Item item, Runnable refreshAction) {
         TextInputDialog newQtyDialog = new TextInputDialog(String.valueOf(item.getQuantity()));
         newQtyDialog.setTitle("Adjust Stock");
         newQtyDialog.setHeaderText("Adjust stock for: " + item.getName() + " (" + item.getSize() + ")");
@@ -2360,14 +2490,14 @@ public class StaffDashboardController {
                     item.getSize(),
                     newQuantity
                 );
-
+                
                 if (success) {
                     // Log the change into the legacy stock logs so Admin can see it in the Admin UI
                     String details = String.format("Adjusted by staff: %s → %s", oldQuantity, newQuantity);
                     StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), oldQuantity, newQuantity, details);
 
                     // Refresh the table to show updated stock
-                    table.refresh();
+                    refreshAction.run();
 
                     AlertHelper.showSuccess("Stock Updated",
                         "Stock updated successfully!\n\n" +
