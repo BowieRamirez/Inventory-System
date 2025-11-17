@@ -31,7 +31,6 @@ public class StaffDashboard {
     private StaffDashboardController controller;
     
     private Button reservationsBtn;
-    private Button pickupApprovalsBtn;
     private Button completedBtn;
     private Button returnedBtn;
     private Button cancelledBtn;
@@ -195,7 +194,6 @@ public class StaffDashboard {
         
         dashboardBtn = createNavButton("📊 Dashboard", true);
         reservationsBtn = createNavButton("📋 Reservations", false);
-        pickupApprovalsBtn = createNavButton("📦 Pickup Approvals", false);
         completedBtn = createNavButton("✅ Completed", false);
         returnedBtn = createNavButton("↩️ Returned", false);
         cancelledBtn = createNavButton("❌ Cancelled", false);
@@ -229,10 +227,6 @@ public class StaffDashboard {
             showReservations();
         });
         
-        pickupApprovalsBtn.setOnAction(e -> {
-            setActiveButton(pickupApprovalsBtn);
-            showPickupApprovals();
-        });
         
         completedBtn.setOnAction(e -> {
             setActiveButton(completedBtn);
@@ -266,7 +260,6 @@ public class StaffDashboard {
             new Separator(),
             dashboardBtn,
             reservationsBtn,
-            pickupApprovalsBtn,
             completedBtn,
             returnedBtn,
             cancelledBtn,
@@ -309,7 +302,7 @@ public class StaffDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {dashboardBtn, reservationsBtn, pickupApprovalsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
+        Button[] buttons = {dashboardBtn, reservationsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -346,12 +339,6 @@ public class StaffDashboard {
         titleLabel.setText("Reservations");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createReservationsView());
-    }
-    
-    private void showPickupApprovals() {
-        titleLabel.setText("Pickup Approvals");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createPickupApprovalsView());
     }
     
     private void showInventory() {

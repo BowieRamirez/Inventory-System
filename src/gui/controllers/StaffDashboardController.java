@@ -32,6 +32,8 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.animation.ScaleTransition;
+import javafx.util.Duration;
  
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
@@ -55,8 +57,10 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.Region;
 import javafx.scene.control.Tab;
+import java.util.logging.Logger;
 import javafx.scene.control.TabPane;
 
 /**
@@ -64,6 +68,8 @@ import javafx.scene.control.TabPane;
  */
 @SuppressWarnings("unchecked")
 public class StaffDashboardController {
+
+    private static final Logger LOGGER = Logger.getLogger(StaffDashboardController.class.getName());
 
     private InventoryManager inventoryManager;
     private ReservationManager reservationManager;
@@ -146,12 +152,13 @@ public class StaffDashboardController {
         searchField.setPromptText("Search by Student Name, ID, Order ID, or Item...");
         searchField.setPrefWidth(400);
         searchField.setStyle(
-            "-fx-background-color: white;" +
-            "-fx-border-color: #d0d7de;" +
+            "-fx-background-color: -color-bg-default;" +
+            "-fx-border-color: -color-border-default;" +
             "-fx-border-radius: 6px;" +
             "-fx-background-radius: 6px;" +
             "-fx-padding: 8px;" +
-            "-fx-font-size: 13px;"
+            "-fx-font-size: 13px;" +
+            "-fx-text-fill: -color-fg-default;"
         );
         
         Button clearSearchBtn = new Button("✖ Clear");
@@ -211,7 +218,61 @@ public class StaffDashboardController {
         styleActionButton(returnRequestsBtn);
         styleActionButton(refreshBtn);
 
-        filterBar.getChildren().addAll(allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+        // Create small red badge labels for pickup and replacement counts
+        int initialPickupCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval()).size();
+        int initialReplacementCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests()).size();
+        int initialPendingCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPendingReservations()).size();
+
+        final Label pickupBadge = new Label(String.valueOf(initialPickupCount));
+        pickupBadge.setVisible(initialPickupCount > 0);
+        pickupBadge.setStyle(
+            "-fx-background-color: #CF222E; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-size: 11px; " +
+            "-fx-padding: 2 6; " +
+            "-fx-background-radius: 999px; " +
+            "-fx-min-width: 20px; " +
+            "-fx-alignment: center;"
+        );
+
+        final Label returnBadge = new Label(String.valueOf(initialReplacementCount));
+        returnBadge.setVisible(initialReplacementCount > 0);
+
+        final Label pendingBadge = new Label(String.valueOf(initialPendingCount));
+        pendingBadge.setVisible(initialPendingCount > 0);
+        pendingBadge.setStyle(
+            "-fx-background-color: #CF222E; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-size: 11px; " +
+            "-fx-padding: 2 6; " +
+            "-fx-background-radius: 999px; " +
+            "-fx-min-width: 20px; " +
+            "-fx-alignment: center;"
+        );
+        returnBadge.setStyle(
+            "-fx-background-color: #CF222E; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-size: 11px; " +
+            "-fx-padding: 2 6; " +
+            "-fx-background-radius: 999px; " +
+            "-fx-min-width: 20px; " +
+            "-fx-alignment: center;"
+        );
+
+        // Stack the badge on top-right of the button
+        StackPane pickupStack = new StackPane(pickupApprovalsBtn, pickupBadge);
+        StackPane.setAlignment(pickupBadge, Pos.TOP_RIGHT);
+        StackPane.setMargin(pickupBadge, new Insets(0, -6, 20, 0));
+
+        StackPane returnStack = new StackPane(returnRequestsBtn, returnBadge);
+        StackPane.setAlignment(returnBadge, Pos.TOP_RIGHT);
+        StackPane.setMargin(returnBadge, new Insets(0, -6, 20, 0));
+
+        StackPane pendingStack = new StackPane(pendingBtn, pendingBadge);
+        StackPane.setAlignment(pendingBadge, Pos.TOP_RIGHT);
+        StackPane.setMargin(pendingBadge, new Insets(0, -6, 20, 0));
+
+        filterBar.getChildren().addAll(allBtn, pendingStack, approvedBtn, pickupStack, returnStack, refreshBtn);
 
         // Create reservations table
         TableView<Reservation> table = new TableView<>();
@@ -316,6 +377,72 @@ public class StaffDashboardController {
         TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
         statusCol.setPrefWidth(180);
+        // Render a colored badge so approved/completed/replaced/pending states are obvious
+        statusCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String status, boolean empty) {
+                super.updateItem(status, empty);
+                if (empty || status == null) {
+                    setGraphic(null);
+                    setText(null);
+                    return;
+                }
+                Reservation r = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                if (r == null) {
+                    setGraphic(null);
+                    setText(null);
+                    return;
+                }
+                String s = status.toUpperCase();
+
+                javafx.scene.control.Label badge = new javafx.scene.control.Label();
+                badge.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 6 10; -fx-background-radius: 6;");
+
+                if (s.contains("REPLACED")) {
+                    badge.setText("REPLACED");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #656D76; -fx-text-fill: white;");
+                } else if (s.contains("COMPLETED")) {
+                    badge.setText("COMPLETED");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #1A7F37; -fx-text-fill: white;");
+                } else if (s.contains("PICKUP") || s.contains("REQUESTED") && s.contains("PICKUP")) {
+                    // Any pickup-related status (student requested pickup / awaiting staff approval)
+                    badge.setText("PICKUP REQUESTED");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #0969DA; -fx-text-fill: white;");
+                } else if (s.contains("PAID") || r.isPaid()) {
+                    // Paid reservations - indicate approved+paid (ready for pickup / awaiting pickup approval)
+                    if (s.contains("AWAITING") || s.contains("PICKUP") || s.contains("AWAITING PICKUP")) {
+                        badge.setText("APPROVED (PAID) - AWAITING PICKUP");
+                    } else {
+                        badge.setText("APPROVED (PAID)");
+                    }
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #1A7F37; -fx-text-fill: white;");
+                } else if (s.contains("APPROVED")) {
+                    // Approved but not yet paid
+                    if (s.contains("WAITING FOR PAYMENT") || s.contains("WAITING")) {
+                        badge.setText("WAITING FOR PAYMENT");
+                    } else {
+                        badge.setText("APPROVED");
+                    }
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #BF8700; -fx-text-fill: white;");
+                } else if (s.contains("REPLACEMENT")) {
+                    badge.setText("REPLACEMENT REQUESTED");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #BF8700; -fx-text-fill: white;");
+                } else if (s.contains("PENDING")) {
+                    badge.setText("PENDING");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #BF8700; -fx-text-fill: white;");
+                } else if (s.contains("CANCEL")) {
+                    badge.setText("CANCELLED");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #CF222E; -fx-text-fill: white;");
+                } else {
+                    // Fallback: show raw status
+                    badge.setText(status);
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #E6E6E6; -fx-text-fill: #222;");
+                }
+
+                setGraphic(badge);
+                setText(null);
+            }
+        });
 
         TableColumn<Reservation, Void> bundleCol = new TableColumn<>("Bundle");
         bundleCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
@@ -339,7 +466,11 @@ public class StaffDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    if (reservation == null) {
+                        setGraphic(null);
+                        return;
+                    }
                     if (reservation.isPartOfBundle()) {
                         bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
                         setGraphic(bundleBtn);
@@ -351,11 +482,18 @@ public class StaffDashboardController {
         });
         bundleCol.setPrefWidth(130);
 
+        
+
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
             private final Button approveBtn = new Button("✓");
             private final Button rejectBtn = new Button("✗");
             private final HBox buttons = new HBox(5, approveBtn, rejectBtn);
+
+            private final javafx.beans.value.ChangeListener<Reservation> rowItemListener = (obs, oldItem, newItem) -> {
+                // When the row's item changes (due to virtualization or setItems), refresh UI
+                updateForReservation(newItem);
+            };
 
             {
                 approveBtn.setStyle("-fx-background-color: #1A7F37; -fx-text-fill: white; -fx-cursor: hand;");
@@ -366,163 +504,390 @@ public class StaffDashboardController {
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
+
+                // Ensure we listen to row item changes so the cell updates when the row is recycled
+                TableRow<Reservation> row = getTableRow();
+                if (row != null) {
+                    // Remove previous listener (defensive)
+                    try { row.itemProperty().removeListener(rowItemListener); } catch (Exception ex) { }
+                    row.itemProperty().addListener(rowItemListener);
+                }
+
                 if (empty) {
                     setGraphic(null);
-                } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
-                    if ("PENDING".equals(reservation.getStatus())) {
-                        approveBtn.setText("✓ Approve");
-                        rejectBtn.setText("✗ Reject");
-                        approveBtn.setOnAction(e -> handleApproveReservation(reservation, table));
-                        rejectBtn.setOnAction(e -> handleRejectReservation(reservation, table));
-                        setGraphic(buttons);
-                    } else if ("REPLACEMENT REQUESTED".equals(reservation.getStatus())) {
-                        approveBtn.setText("✓ Approve Replacement");
-                        rejectBtn.setText("✗ Reject Return");
-                        approveBtn.setOnAction(e -> handleApproveReturn(reservation, table));
-                        rejectBtn.setOnAction(e -> handleRejectReturn(reservation, table));
-                        setGraphic(buttons);
-                    } else if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(reservation.getStatus())) {
-                        approveBtn.setText("✓ Approve Pickup");
-                        rejectBtn.setText("✗ Reject");
-                        approveBtn.setOnAction(e -> handleApprovePickup(reservation, table));
-                        rejectBtn.setOnAction(e -> handleRejectPickup(reservation, table));
-                        setGraphic(buttons);
-                    } else {
-                        setGraphic(null);
+                    return;
+                }
+
+                Reservation current = (row != null) ? row.getItem() : null;
+                updateForReservation(current);
+            }
+
+            private void updateForReservation(Reservation reservation) {
+                if (reservation == null) {
+                    setGraphic(null);
+                    return;
+                }
+
+                // Make a final reference for use inside lambda handlers
+                final Reservation res = reservation;
+
+                String status = res.getStatus() != null ? res.getStatus().toUpperCase() : "";
+
+                boolean isBundle = res.isPartOfBundle();
+                boolean bundleHasPending = false, bundleHasReplacement = false, bundleHasPickup = false;
+                if (isBundle) {
+                    String bundleId = res.getBundleId();
+                    java.util.List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                        .filter(r -> bundleId != null && bundleId.equals(r.getBundleId()))
+                        .collect(java.util.stream.Collectors.toList());
+                    for (Reservation bi : bundleItems) {
+                        String s = bi.getStatus() != null ? bi.getStatus().toUpperCase() : "";
+                        if (s.contains("PENDING")) bundleHasPending = true;
+                        if (s.contains("REPLACEMENT")) bundleHasReplacement = true;
+                        if (s.contains("PICKUP")) bundleHasPickup = true;
                     }
+                }
+
+                // If the representative status indicates a final/approved state, do not show actions
+                boolean isFinalState = status.contains("APPROVED") || status.contains("PAID") || status.contains("COMPLETED") || status.contains("REPLACED");
+                if (isFinalState) {
+                    setGraphic(null);
+                    return;
+                }
+
+                boolean showPending = status.contains("PENDING") || (isBundle && bundleHasPending);
+                boolean showReplacement = status.contains("REPLACEMENT") || (isBundle && bundleHasReplacement);
+                boolean showPickup = status.contains("PICKUP") || (isBundle && bundleHasPickup);
+
+                LOGGER.fine("[StaffDashboard] actions.updateForReservation resId=" + res.getReservationId() + " status='" + res.getStatus() + "' isBundle=" + isBundle);
+
+                if (showPending) {
+                    approveBtn.setText("✓ Approve");
+                    rejectBtn.setText("✗ Reject");
+                    approveBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleApproveReservation(current, table);
+                    });
+                    rejectBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleRejectReservation(current, table);
+                    });
+                    setGraphic(buttons);
+                } else if (showReplacement) {
+                    approveBtn.setText("✓ Approve Replacement");
+                    rejectBtn.setText("✗ Reject Return");
+                    approveBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleApproveReturn(current, table);
+                    });
+                    rejectBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleRejectReturn(current, table);
+                    });
+                    setGraphic(buttons);
+                } else if (showPickup) {
+                    approveBtn.setText("✓ Approve Pickup");
+                    rejectBtn.setText("✗ Reject");
+                    approveBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleApprovePickup(current, table);
+                    });
+                    rejectBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleRejectPickup(current, table);
+                    });
+                    setGraphic(buttons);
+                } else {
+                    setGraphic(null);
                 }
             }
         });
         actionsCol.setPrefWidth(150);
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, bundleCol, actionsCol);
-
-        // Load ONLY PENDING reservations (deduplicated for bundles)
-        List<Reservation> pendingReservations = reservationManager.getAllReservations().stream()
-            .filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus()))
-            .collect(java.util.stream.Collectors.toList());
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(pendingReservations));
-        ObservableList<Reservation> filteredReservations = FXCollections.observableArrayList(allReservations);
-        table.setItems(filteredReservations);
         
-        // Track current filter for search
-        final String[] currentFilter = {"ALL"}; // ALL, PENDING, APPROVED, RETURN_REQUESTS
 
-        // Search functionality
-        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            String searchText = newValue.toLowerCase().trim();
-            
-            if (searchText.isEmpty()) {
-                filteredReservations.setAll(allReservations);
-            } else {
-                List<Reservation> filtered = allReservations.stream()
+        // Pagination + search setup (10 items per page, prev/next, page label visible when pages > 2)
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+
+        // Default to showing PENDING reservations on view load
+        List<Reservation> pendingReservations = new ArrayList<>(reservationManager.getPendingReservations());
+
+        List<Reservation> allReservations = new ArrayList<>(ControllerUtils.getDeduplicatedReservations(pendingReservations));
+        List<Reservation> workingFiltered = new ArrayList<>(allReservations); // current filtered set from status buttons
+
+        // Track current filter for refresh logic (default to PENDING)
+        final String[] currentFilter = {"PENDING"}; // ALL, PENDING, APPROVED, PICKUP_APPROVALS, RETURN_REQUESTS
+
+        // Pagination controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        
+
+        // Function to update table with current page and applied search
+        Runnable updateTable = () -> {
+            List<Reservation> display = new ArrayList<>(workingFiltered);
+
+            // Apply search
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.trim().isEmpty()) {
+                String st = searchText.toLowerCase().trim();
+                display = display.stream()
                     .filter(r -> {
-                        // Search by Order ID
                         String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
-                        if (orderId.toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Student Name
-                        if (r.getStudentName().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Student ID
-                        if (r.getStudentId().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Item Name
-                        if (r.getItemName().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Status
-                        if (r.getStatus().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // For bundle orders, search in all bundle items
-                        if (r.isPartOfBundle()) {
-                            String bundleId = r.getBundleId();
+                        if (orderId != null && orderId.toLowerCase().contains(st)) return true;
+                        if (r.getStudentName() != null && r.getStudentName().toLowerCase().contains(st)) return true;
+                        if (r.getStudentId() != null && r.getStudentId().toLowerCase().contains(st)) return true;
+                        if (r.getItemName() != null && r.getItemName().toLowerCase().contains(st)) return true;
+                        if (r.getStatus() != null && r.getStatus().toLowerCase().contains(st)) return true;
+                        if (r.isPartOfBundle() && r.getBundleId() != null) {
                             boolean matchInBundle = reservationManager.getAllReservations().stream()
-                                .filter(res -> bundleId.equals(res.getBundleId()))
-                                .anyMatch(res -> res.getItemName().toLowerCase().contains(searchText));
-                            if (matchInBundle) {
-                                return true;
-                            }
+                                .filter(res -> r.getBundleId().equals(res.getBundleId()))
+                                .anyMatch(res -> res.getItemName() != null && res.getItemName().toLowerCase().contains(st));
+                            if (matchInBundle) return true;
                         }
-                        
                         return false;
                     })
                     .collect(java.util.stream.Collectors.toList());
-                
-                filteredReservations.setAll(filtered);
+            }
+
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+
+            
+
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            pageLabel.setVisible(totalPages > 2);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        // Prev/Next actions
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
+                updateTable.run();
             }
         });
-        
-        // Clear search button action
-        clearSearchBtn.setOnAction(e -> {
-            searchField.clear();
-            filteredReservations.setAll(allReservations);
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateTable.run();
+            }
         });
 
-        // Filter actions
+        // Search listener
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            currentPage[0] = 1;
+            updateTable.run();
+        });
+
+        // Clear search
+        clearSearchBtn.setOnAction(e -> {
+            searchField.clear();
+            currentPage[0] = 1;
+            updateTable.run();
+        });
+
+        // Filter actions - update workingFiltered and reset page
         allBtn.setOnAction(e -> {
             currentFilter[0] = "ALL";
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                .filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus()))
-                .collect(java.util.stream.Collectors.toList());
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            List<Reservation> filtered = reservationManager.getAllReservations();
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
             searchField.clear();
-            filteredReservations.setAll(allReservations);
+            // Ensure actions column is visible for non-approved filters
+            actionsCol.setVisible(true);
+            updateTable.run();
+            activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
+
         pendingBtn.setOnAction(e -> {
             currentFilter[0] = "PENDING";
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
                 .filter(r -> "PENDING".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
             searchField.clear();
-            filteredReservations.setAll(allReservations);
+            // Show actions for pending
+            actionsCol.setVisible(true);
+            updateTable.run();
+            activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
+
         approvedBtn.setOnAction(e -> {
             currentFilter[0] = "APPROVED";
             List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                .filter(r -> r.getStatus().contains("APPROVED"))
+                .filter(r -> {
+                    String s = r.getStatus();
+                    if (s == null) return false;
+                    s = s.toUpperCase();
+                    // Accept any of these that represent approved/completed/paid flows
+                    if (s.contains("APPROVED")) return true;
+                    if (s.contains("PAID")) return true;
+                    if (s.contains("COMPLETED")) return true;
+                    if (s.contains("REPLACED")) return true;
+                    // Also include reservations that are marked paid even if status text differs
+                    if (r.isPaid()) return true;
+                    return false;
+                })
                 .collect(java.util.stream.Collectors.toList());
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
             searchField.clear();
-            filteredReservations.setAll(allReservations);
+            // Hide actions column for approved view
+            actionsCol.setVisible(false);
+            updateTable.run();
+            activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
+
         pickupApprovalsBtn.setOnAction(e -> {
             currentFilter[0] = "PICKUP_APPROVALS";
             List<Reservation> filtered = reservationManager.getPickupRequestsAwaitingApproval();
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
             searchField.clear();
-            filteredReservations.setAll(allReservations);
+            // Show actions for pickup approvals
+            actionsCol.setVisible(true);
+            updateTable.run();
+            activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
+
         returnRequestsBtn.setOnAction(e -> {
             currentFilter[0] = "RETURN_REQUESTS";
             List<Reservation> filtered = reservationManager.getReturnRequests();
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
             searchField.clear();
-            filteredReservations.setAll(allReservations);
+            // Show actions for return requests
+            actionsCol.setVisible(true);
+            updateTable.run();
+            activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
         });
+
         refreshBtn.setOnAction(e -> {
-            performTableRefresh(allReservations, filteredReservations, searchField, table, statsBox, currentFilter);
+            // Rebuild based on currentFilter
+            List<Reservation> refreshed;
+            switch (currentFilter[0]) {
+                case "PENDING":
+                    refreshed = reservationManager.getAllReservations().stream().filter(r -> "PENDING".equals(r.getStatus())).collect(java.util.stream.Collectors.toList());
+                    break;
+                case "APPROVED":
+                    refreshed = reservationManager.getAllReservations().stream().filter(r -> {
+                        String s = r.getStatus();
+                        if (s == null) return false;
+                        s = s.toUpperCase();
+                        if (s.contains("APPROVED")) return true;
+                        if (s.contains("PAID")) return true;
+                        if (s.contains("COMPLETED")) return true;
+                        if (s.contains("REPLACED")) return true;
+                        if (r.isPaid()) return true;
+                        return false;
+                    }).collect(java.util.stream.Collectors.toList());
+                    break;
+                case "PICKUP_APPROVALS":
+                    refreshed = reservationManager.getPickupRequestsAwaitingApproval();
+                    break;
+                case "RETURN_REQUESTS":
+                    refreshed = reservationManager.getReturnRequests();
+                    break;
+                default:
+                    refreshed = reservationManager.getAllReservations().stream().filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus())).collect(java.util.stream.Collectors.toList());
+            }
+            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(refreshed));
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
+            searchField.clear();
+            updateTable.run();
+            // Refresh badge counts after table update
+            int updatedPickupCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval()).size();
+            pickupBadge.setText(String.valueOf(updatedPickupCount));
+            pickupBadge.setVisible(updatedPickupCount > 0);
+            int updatedReturnCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests()).size();
+            returnBadge.setText(String.valueOf(updatedReturnCount));
+            returnBadge.setVisible(updatedReturnCount > 0);
+            int updatedPendingCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPendingReservations()).size();
+            pendingBadge.setText(String.valueOf(updatedPendingCount));
+            pendingBadge.setVisible(updatedPendingCount > 0);
+            // Keep the currently selected filter highlighted after a refresh
+            switch (currentFilter[0]) {
+                case "PENDING":
+                    activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    break;
+                case "APPROVED":
+                    activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    break;
+                case "PICKUP_APPROVALS":
+                    activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    break;
+                case "RETURN_REQUESTS":
+                    activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    break;
+                case "ALL":
+                default:
+                    activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
+                    break;
+            }
         });
-        
+
         // Set the refresh callback for when items are approved/rejected
         this.refreshCallback = () -> {
-            performTableRefresh(allReservations, filteredReservations, searchField, table, statsBox, currentFilter);
+            // trigger a refresh equivalent to clicking refresh
+            refreshBtn.fire();
         };
+
+        // Initially load pending reservations into the table (so view shows Pending by default)
+        // This mirrors clicking the Pending button on open
+        pendingBtn.fire();
+
+        // Set fixed row height to match stock logs
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
 
         VBox.setVgrow(table, Priority.ALWAYS);
         // Do not add the statsBox to the UI (hide the top summary boxes)
-        container.getChildren().addAll(searchBar, filterBar, table);
+        container.getChildren().addAll(searchBar, filterBar, table, pageControls);
 
         // Make the container resize-friendly and wrap it in a ScrollPane so
         // the dashboard can be scrolled on smaller screens instead of overflowing.
@@ -549,6 +914,8 @@ public class StaffDashboardController {
 
         return scroll;
     }
+
+    
 
     /**
      * Show detailed order information dialog
@@ -1885,7 +2252,7 @@ public class StaffDashboardController {
         // Helper to create a small card
         java.util.function.BiFunction<String, String, VBox> makeCard = (title, value) -> {
             VBox card = new VBox(6);
-            card.setStyle("-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 6; -fx-border-radius:6; -fx-border-color: rgba(0,0,0,0.04);");
+            card.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 10; -fx-background-radius: 6; -fx-border-radius:6; -fx-border-color: -color-border-default;");
             javafx.scene.control.Label t = new javafx.scene.control.Label(title);
             t.setStyle("-fx-font-size: 12px; -fx-text-fill: -color-fg-muted;");
             javafx.scene.control.Label v = new javafx.scene.control.Label(value);
@@ -2612,6 +2979,42 @@ public class StaffDashboardController {
     }
 
     /**
+     * Activate a filter button visually and animate it briefly. Resets other buttons.
+     */
+    private void activateFilterButton(Button active, Button... allButtons) {
+        for (Button b : allButtons) {
+            if (b == active) {
+                // Slightly darker blue for the active state
+                b.setStyle(
+                    "-fx-background-color: #002c6eff;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 13px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-background-radius: 6px;" +
+                    "-fx-cursor: hand;" +
+                    "-fx-pref-height: 36px;"
+                );
+
+                try {
+                    ScaleTransition st = new ScaleTransition(Duration.millis(140), b);
+                    st.setFromX(1.0);
+                    st.setFromY(1.0);
+                    st.setToX(1.03);
+                    st.setToY(1.03);
+                    st.setCycleCount(2);
+                    st.setAutoReverse(true);
+                    st.play();
+                } catch (Exception ex) {
+                    // If animation fails for any reason, ignore and keep the active style
+                }
+            } else {
+                // Reset style for non-active buttons
+                styleActionButton(b);
+            }
+        }
+    }
+
+    /**
      * Return a style string for course filter buttons honoring dark mode and selection
      */
     private String getCourseButtonStyle(boolean selected) {
@@ -3120,7 +3523,11 @@ public class StaffDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    if (reservation == null) {
+                        setGraphic(null);
+                        return;
+                    }
                     if (reservation.isPartOfBundle()) {
                         bundleBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px; -fx-padding: 5px 10px;");
                         bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
@@ -3151,7 +3558,11 @@ public class StaffDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    if (reservation == null) {
+                        setGraphic(null);
+                        return;
+                    }
                     approveBtn.setOnAction(e -> handleApprovePickup(reservation, table));
                     rejectBtn.setOnAction(e -> handleRejectPickup(reservation, table));
                     setGraphic(buttons);
@@ -3162,15 +3573,30 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, bundleCol, actionsCol);
 
-        // Load pickup requests awaiting approval
-        List<Reservation> pickupRequests = reservationManager.getPickupRequestsAwaitingApproval();
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(
-            ControllerUtils.getDeduplicatedReservations(pickupRequests)
-        );
-        ObservableList<Reservation> filteredReservations = FXCollections.observableArrayList(allReservations);
-        table.setItems(filteredReservations);
+        // Pagination + search setup for pickup approvals (10 items per page)
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
 
-        // Add row click handler to show order details
+        List<Reservation> sourceList = ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval());
+        List<Reservation> workingFiltered = new ArrayList<>(sourceList);
+
+        // Pagination controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Row click handler
         table.setRowFactory(tv -> {
             javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
             row.setOnMouseClicked(event -> {
@@ -3182,58 +3608,89 @@ public class StaffDashboardController {
             return row;
         });
 
-        // Search functionality
-        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            String searchText = newValue.toLowerCase().trim();
-            
-            if (searchText.isEmpty()) {
-                filteredReservations.setAll(allReservations);
-            } else {
-                List<Reservation> filtered = allReservations.stream()
+        // Function to update table with pagination and search
+        Runnable updateTable = () -> {
+            List<Reservation> display = new ArrayList<>(workingFiltered);
+
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.trim().isEmpty()) {
+                String st = searchText.toLowerCase().trim();
+                display = display.stream()
                     .filter(r -> {
                         String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
-                        if (orderId.toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        if (r.getStudentName().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        if (r.getStudentId().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        if (r.getItemName().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
+                        if (orderId != null && orderId.toLowerCase().contains(st)) return true;
+                        if (r.getStudentName() != null && r.getStudentName().toLowerCase().contains(st)) return true;
+                        if (r.getStudentId() != null && r.getStudentId().toLowerCase().contains(st)) return true;
+                        if (r.getItemName() != null && r.getItemName().toLowerCase().contains(st)) return true;
                         return false;
                     })
                     .collect(java.util.stream.Collectors.toList());
-                filteredReservations.setAll(filtered);
             }
-        });
 
-        // Set up refresh callback for action handlers
-        this.refreshCallback = () -> {
-            List<Reservation> refreshed = reservationManager.getPickupRequestsAwaitingApproval();
-            allReservations.setAll(ControllerUtils.getDeduplicatedReservations(refreshed));
-            searchField.clear();
-            filteredReservations.setAll(allReservations);
-            
-            // Update stats card
-            int updatedCount = (int) ControllerUtils.getDeduplicatedReservations(
-                reservationManager.getPickupRequestsAwaitingApproval()
-            ).size();
-            ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
-                .setText(String.valueOf(updatedCount));
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            pageLabel.setVisible(totalPages > 2);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
         };
 
-        // Refresh button
-        refreshBtn.setOnAction(e -> {
-            refreshCallback.run();
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) { currentPage[0]--; updateTable.run(); }
         });
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) { currentPage[0]++; updateTable.run(); }
+        });
+
+        // Search listener
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            currentPage[0] = 1; updateTable.run();
+        });
+
+        // Refresh callback and button
+        Runnable doRefresh = () -> {
+            sourceList.clear();
+            sourceList.addAll(ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval()));
+            workingFiltered.clear(); workingFiltered.addAll(sourceList);
+            currentPage[0] = 1;
+            searchField.clear();
+            updateTable.run();
+
+            // update stats
+            int updatedCount = (int) ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getPickupRequestsAwaitingApproval()).size();
+            try {
+                ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
+                    .setText(String.valueOf(updatedCount));
+            } catch (Exception ex) {
+                // ignore layout differences
+            }
+        };
+
+        refreshBtn.setOnAction(e -> doRefresh.run());
+        this.refreshCallback = () -> doRefresh.run();
+
+        // Fixed row height to match stock logs
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
+        // Initial load
+        workingFiltered.clear(); workingFiltered.addAll(sourceList);
+        updateTable.run();
 
         VBox.setVgrow(table, Priority.ALWAYS);
         // Hide the pickup-approvals summary card from the layout
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, pageControls);
 
         return container;
     }
@@ -3357,42 +3814,98 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
 
-        // Load COMPLETED orders only
-        List<Reservation> completedOrders = reservationManager.getAllReservations().stream()
-            .filter(r -> "COMPLETED".equals(r.getStatus()))
-            .collect(java.util.stream.Collectors.toList());
-        ObservableList<Reservation> completedList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(completedOrders));
-        table.setItems(completedList);
+        // Pagination + search setup for completed orders (10 items per page)
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
 
-        // Search functionality
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                List<Reservation> refreshedCompleted = reservationManager.getAllReservations().stream()
-                    .filter(r -> "COMPLETED".equals(r.getStatus()))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCompleted)));
-            } else {
-                List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                    .filter(r -> "COMPLETED".equals(r.getStatus()))
-                    .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
-                               String.valueOf(r.getReservationId()).contains(newVal) ||
-                               (r.getBundleId() != null && r.getBundleId().contains(newVal)))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+        List<Reservation> sourceList = ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getAllReservations().stream().filter(r -> "COMPLETED".equals(r.getStatus())).collect(java.util.stream.Collectors.toList())
+        );
+        List<Reservation> workingFiltered = new ArrayList<>(sourceList);
+
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12,0,0,0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Row click handler
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
+        // Update table func
+        Runnable updateTable = () -> {
+            List<Reservation> display = new ArrayList<>(workingFiltered);
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.trim().isEmpty()) {
+                String st = searchText.toLowerCase().trim();
+                display = display.stream().filter(r -> {
+                    String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
+                    if (orderId != null && orderId.toLowerCase().contains(st)) return true;
+                    if (r.getStudentName() != null && r.getStudentName().toLowerCase().contains(st)) return true;
+                    if (r.getBundleId() != null && r.getBundleId().toLowerCase().contains(st)) return true;
+                    return false;
+                }).collect(java.util.stream.Collectors.toList());
             }
-        });
 
-        // Refresh button
-        refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshedCompleted = reservationManager.getAllReservations().stream()
-                .filter(r -> "COMPLETED".equals(r.getStatus()))
-                .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCompleted)));
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            pageLabel.setVisible(totalPages > 2);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        prevBtn.setOnAction(e -> { if (currentPage[0] > 1) { currentPage[0]--; updateTable.run(); } });
+        nextBtn.setOnAction(e -> { int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage)); if (currentPage[0] < totalPages) { currentPage[0]++; updateTable.run(); } });
+
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> { currentPage[0] = 1; updateTable.run(); });
+
+        // Refresh button behavior
+        Runnable doRefresh = () -> {
+            sourceList.clear();
+            sourceList.addAll(ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getAllReservations().stream().filter(r -> "COMPLETED".equals(r.getStatus())).collect(java.util.stream.Collectors.toList())
+            ));
+            workingFiltered.clear(); workingFiltered.addAll(sourceList);
+            currentPage[0] = 1;
             searchField.clear();
-        });
+            updateTable.run();
+        };
+
+        refreshBtn.setOnAction(e -> doRefresh.run());
+
+        // Fixed row height
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
+        // Initial load
+        workingFiltered.clear(); workingFiltered.addAll(sourceList);
+        updateTable.run();
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, pageControls);
 
         // Add row click handler
         table.setRowFactory(tv -> {
@@ -3528,42 +4041,97 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
 
-        // Load REPLACED orders only (items that have been replaced)
-        List<Reservation> returnedOrders = reservationManager.getAllReservations().stream()
-            .filter(r -> r.getStatus().contains("REPLACED"))
-            .collect(java.util.stream.Collectors.toList());
-        ObservableList<Reservation> returnedList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(returnedOrders));
-        table.setItems(returnedList);
+        // Pagination + search setup for returned/replaced orders (10 items per page)
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
 
-        // Search functionality
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                List<Reservation> refreshedReturned = reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("REPLACED"))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedReturned)));
-            } else {
-                List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("REPLACED"))
-                    .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
-                               String.valueOf(r.getReservationId()).contains(newVal) ||
-                               (r.getBundleId() != null && r.getBundleId().contains(newVal)))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+        List<Reservation> sourceList = ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getAllReservations().stream().filter(r -> r.getStatus().contains("REPLACED")).collect(java.util.stream.Collectors.toList())
+        );
+        List<Reservation> workingFiltered = new ArrayList<>(sourceList);
+
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12,0,0,0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Row click handler
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
+        // Update table with pagination and search
+        Runnable updateTable = () -> {
+            List<Reservation> display = new ArrayList<>(workingFiltered);
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.trim().isEmpty()) {
+                String st = searchText.toLowerCase().trim();
+                display = display.stream().filter(r -> {
+                    String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
+                    if (orderId != null && orderId.toLowerCase().contains(st)) return true;
+                    if (r.getStudentName() != null && r.getStudentName().toLowerCase().contains(st)) return true;
+                    if (r.getBundleId() != null && r.getBundleId().toLowerCase().contains(st)) return true;
+                    return false;
+                }).collect(java.util.stream.Collectors.toList());
             }
-        });
 
-        // Refresh button
-        refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshedReturned = reservationManager.getAllReservations().stream()
-                .filter(r -> r.getStatus().contains("REPLACED"))
-                .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedReturned)));
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            pageLabel.setVisible(totalPages > 2);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        prevBtn.setOnAction(e -> { if (currentPage[0] > 1) { currentPage[0]--; updateTable.run(); } });
+        nextBtn.setOnAction(e -> { int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage)); if (currentPage[0] < totalPages) { currentPage[0]++; updateTable.run(); } });
+
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> { currentPage[0] = 1; updateTable.run(); });
+
+        Runnable doRefresh = () -> {
+            sourceList.clear();
+            sourceList.addAll(ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getAllReservations().stream().filter(r -> r.getStatus().contains("REPLACED")).collect(java.util.stream.Collectors.toList())
+            ));
+            workingFiltered.clear(); workingFiltered.addAll(sourceList);
+            currentPage[0] = 1;
             searchField.clear();
-        });
+            updateTable.run();
+        };
+
+        refreshBtn.setOnAction(e -> doRefresh.run());
+
+        // Fixed row height to match stock logs
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
+        // Initial load
+        workingFiltered.clear(); workingFiltered.addAll(sourceList);
+        updateTable.run();
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, pageControls);
 
         // Add row click handler
         table.setRowFactory(tv -> {
@@ -3699,42 +4267,97 @@ public class StaffDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol);
 
-        // Load CANCELLED orders only
-        List<Reservation> cancelledOrders = reservationManager.getAllReservations().stream()
-            .filter(r -> "CANCELLED".equals(r.getStatus()))
-            .collect(java.util.stream.Collectors.toList());
-        ObservableList<Reservation> cancelledList = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(cancelledOrders));
-        table.setItems(cancelledList);
+        // Pagination + search setup for cancelled orders (10 items per page)
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
 
-        // Search functionality
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                List<Reservation> refreshedCancelled = reservationManager.getAllReservations().stream()
-                    .filter(r -> "CANCELLED".equals(r.getStatus()))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCancelled)));
-            } else {
-                List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                    .filter(r -> "CANCELLED".equals(r.getStatus()))
-                    .filter(r -> r.getStudentName().toLowerCase().contains(newVal.toLowerCase()) ||
-                               String.valueOf(r.getReservationId()).contains(newVal) ||
-                               (r.getBundleId() != null && r.getBundleId().contains(newVal)))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+        List<Reservation> sourceList = ControllerUtils.getDeduplicatedReservations(
+            reservationManager.getAllReservations().stream().filter(r -> "CANCELLED".equals(r.getStatus())).collect(java.util.stream.Collectors.toList())
+        );
+        List<Reservation> workingFiltered = new ArrayList<>(sourceList);
+
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12,0,0,0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Row click handler
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Reservation> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    Reservation clickedReservation = row.getItem();
+                    showOrderDetailsDialog(clickedReservation);
+                }
+            });
+            return row;
+        });
+
+        // Update function
+        Runnable updateTable = () -> {
+            List<Reservation> display = new ArrayList<>(workingFiltered);
+            String searchText = searchField.getText();
+            if (searchText != null && !searchText.trim().isEmpty()) {
+                String st = searchText.toLowerCase().trim();
+                display = display.stream().filter(r -> {
+                    String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
+                    if (orderId != null && orderId.toLowerCase().contains(st)) return true;
+                    if (r.getStudentName() != null && r.getStudentName().toLowerCase().contains(st)) return true;
+                    if (r.getBundleId() != null && r.getBundleId().toLowerCase().contains(st)) return true;
+                    return false;
+                }).collect(java.util.stream.Collectors.toList());
             }
-        });
 
-        // Refresh button
-        refreshBtn.setOnAction(e -> {
-            List<Reservation> refreshedCancelled = reservationManager.getAllReservations().stream()
-                .filter(r -> "CANCELLED".equals(r.getStatus()))
-                .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(refreshedCancelled)));
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            pageLabel.setVisible(totalPages > 2);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        prevBtn.setOnAction(e -> { if (currentPage[0] > 1) { currentPage[0]--; updateTable.run(); } });
+        nextBtn.setOnAction(e -> { int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage)); if (currentPage[0] < totalPages) { currentPage[0]++; updateTable.run(); } });
+
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> { currentPage[0] = 1; updateTable.run(); });
+
+        Runnable doRefresh = () -> {
+            sourceList.clear();
+            sourceList.addAll(ControllerUtils.getDeduplicatedReservations(
+                reservationManager.getAllReservations().stream().filter(r -> "CANCELLED".equals(r.getStatus())).collect(java.util.stream.Collectors.toList())
+            ));
+            workingFiltered.clear(); workingFiltered.addAll(sourceList);
+            currentPage[0] = 1;
             searchField.clear();
-        });
+            updateTable.run();
+        };
+
+        refreshBtn.setOnAction(e -> doRefresh.run());
+
+        // Fixed row height
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
+        // Initial load
+        workingFiltered.clear(); workingFiltered.addAll(sourceList);
+        updateTable.run();
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, pageControls);
 
         // Add row click handler
         table.setRowFactory(tv -> {
@@ -3776,14 +4399,19 @@ public class StaffDashboardController {
         
         dialog.getDialogPane().setPrefSize(dialogWidth, dialogHeight);
 
-        // Get only items with the same name and course as the original item
+        // Get only items with the same name. Include 'STI Special' variants or cross-course variants when needed
         List<Item> allItems = inventoryManager.getAllItems();
         List<Item> sameItemVariants = allItems.stream()
-            .filter(item -> item.getName().equals(originalItem.getItemName()) && 
-                           item.getCourse().equals(originalItem.getCourse()))
+            .filter(item -> item.getName().equals(originalItem.getItemName()) && (
+                originalItem.getCourse().equals("STI Special") ||
+                item.getCourse().equals(originalItem.getCourse()) ||
+                item.getCourse().equals("STI Special")
+            ))
             .collect(Collectors.toList());
         ObservableList<Item> itemList = FXCollections.observableArrayList(sameItemVariants);
-        ObservableList<Item> filteredList = FXCollections.observableArrayList(sameItemVariants);
+        // Initialize filtered list with only in-stock variants
+        ObservableList<Item> filteredList = FXCollections.observableArrayList();
+        for (Item it : sameItemVariants) if (it.getQuantity() > 0) filteredList.add(it);
 
         // Create search and filter controls
         HBox searchBox = new HBox(10);
@@ -3842,9 +4470,18 @@ public class StaffDashboardController {
             sizeFilter.setValue("All");
         });
 
-        // Create container with search box and table
+        // Header showing original return details (item being replaced and reason)
+        VBox headerBox = new VBox(6);
+        headerBox.setPadding(new Insets(6, 10, 6, 10));
+        Label replacingLabel = new Label("Replacing: " + originalItem.getItemName() + " (" + originalItem.getSize() + ")");
+        replacingLabel.setStyle("-fx-font-weight: bold;");
+        Label reasonLabel = new Label("Reason: " + (originalItem.getReason() != null ? originalItem.getReason() : "N/A"));
+        reasonLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        headerBox.getChildren().addAll(replacingLabel, reasonLabel);
+
+        // Create container with header, search box and table
         VBox container = new VBox();
-        container.getChildren().addAll(searchBox, itemTable);
+        container.getChildren().addAll(headerBox, searchBox, itemTable);
         VBox.setVgrow(itemTable, Priority.ALWAYS);
 
         dialog.getDialogPane().setContent(container);
@@ -3871,6 +4508,7 @@ public class StaffDashboardController {
     /**
      * Update the filtered item list based on search and size filter
      */
+    @SuppressWarnings("unused")
     private void updateItemFilter(ObservableList<Item> filteredList, 
                                   ObservableList<Item> itemList,
                                   TextField searchField,
@@ -3908,6 +4546,7 @@ public class StaffDashboardController {
     /**
      * Refresh the reservations table based on current filter
      */
+    @SuppressWarnings("unused")
     private void performTableRefresh(ObservableList<Reservation> allReservations, 
                                      ObservableList<Reservation> filteredReservations,
                                      TextField searchField,

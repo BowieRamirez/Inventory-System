@@ -8,3 +8,8 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-15 21:59:37|Ramirez, Bowie|1095|PE White Shirt|XL|-1/79|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
 2025-11-15 22:00:25|Ramirez, Bowie|1095|PE White Shirt|XL|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: PE White Shirt (Size: L)
 2025-11-15 22:01:46|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: M)
+2025-11-17 23:12:50|Ramirez, Bowie|1095|PE White Shirt|L|-1/96|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-18 00:27:47|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: L)
+2025-11-18 00:28:06|Ramirez, Bowie|1095|PE White Shirt|L|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: PE White Shirt (Size: L)
+2025-11-18 00:30:28|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-1/97|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-18 00:31:46|staff|1103|STI Tumbler|One Size|-30/30|ITEM_ADDED|New item added - Price: ₱600.00

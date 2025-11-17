@@ -225,7 +225,11 @@ public class CashierDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    if (reservation == null) {
+                        setGraphic(null);
+                        return;
+                    }
                     if (reservation.isPartOfBundle()) {
                         bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
                         setGraphic(bundleBtn);
@@ -251,7 +255,11 @@ public class CashierDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    if (reservation == null) {
+                        setGraphic(null);
+                        return;
+                    }
                     processBtn.setOnAction(e -> handleProcessPayment(reservation, table));
                     setGraphic(processBtn);
                 }
@@ -268,63 +276,100 @@ public class CashierDashboardController {
                 .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
                 .collect(java.util.stream.Collectors.toList())
         );
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(pendingPaymentReservations);
-        ObservableList<Reservation> filteredReservations = FXCollections.observableArrayList(allReservations);
-        table.setItems(filteredReservations);
 
-        // Search functionality
+        // Pagination setup (10 items per page, prev/next, page label visible when pages > 2)
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+
+        List<Reservation> allReservations = new java.util.ArrayList<>(pendingPaymentReservations);
+        List<Reservation> workingFiltered = new java.util.ArrayList<>(allReservations);
+
+        // Controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        Label pageLabel = new Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Function to update table with current page and applied search
+        Runnable updateTable = () -> {
+            List<Reservation> display = new java.util.ArrayList<>(workingFiltered);
+
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            pageLabel.setVisible(totalPages > 2);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
+                updateTable.run();
+            }
+        });
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateTable.run();
+            }
+        });
+
+        // Init workingFiltered and table
+        workingFiltered.clear(); workingFiltered.addAll(allReservations);
+
+        // Search functionality (updates workingFiltered then refreshes table)
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            String searchText = newValue.toLowerCase().trim();
-            
+            String searchText = newValue == null ? "" : newValue.toLowerCase().trim();
+            currentPage[0] = 1;
             if (searchText.isEmpty()) {
-                filteredReservations.setAll(allReservations);
+                workingFiltered.clear(); workingFiltered.addAll(allReservations);
             } else {
                 List<Reservation> filtered = allReservations.stream()
                     .filter(r -> {
-                        // Search by Order ID
                         String orderId = r.isPartOfBundle() ? r.getBundleId() : String.valueOf(r.getReservationId());
-                        if (orderId.toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Student Name
-                        if (r.getStudentName().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Student ID
-                        if (r.getStudentId().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // Search by Item Name
-                        if (r.getItemName().toLowerCase().contains(searchText)) {
-                            return true;
-                        }
-                        
-                        // For bundle orders, search in all bundle items
-                        if (r.isPartOfBundle()) {
-                            String bundleId = r.getBundleId();
+                        if (orderId != null && orderId.toLowerCase().contains(searchText)) return true;
+                        if (r.getStudentName() != null && r.getStudentName().toLowerCase().contains(searchText)) return true;
+                        if (r.getStudentId() != null && r.getStudentId().toLowerCase().contains(searchText)) return true;
+                        if (r.getItemName() != null && r.getItemName().toLowerCase().contains(searchText)) return true;
+                        if (r.isPartOfBundle() && r.getBundleId() != null) {
                             boolean matchInBundle = reservationManager.getAllReservations().stream()
-                                .filter(res -> bundleId.equals(res.getBundleId()))
-                                .anyMatch(res -> res.getItemName().toLowerCase().contains(searchText));
-                            if (matchInBundle) {
-                                return true;
-                            }
+                                .filter(res -> r.getBundleId().equals(res.getBundleId()))
+                                .anyMatch(res -> res.getItemName() != null && res.getItemName().toLowerCase().contains(searchText));
+                            if (matchInBundle) return true;
                         }
-                        
                         return false;
                     })
                     .collect(java.util.stream.Collectors.toList());
-                
-                filteredReservations.setAll(filtered);
+                workingFiltered.clear(); workingFiltered.addAll(filtered);
             }
+            updateTable.run();
         });
-        
+
         // Clear search button action
         clearSearchBtn.setOnAction(e -> {
             searchField.clear();
-            filteredReservations.setAll(allReservations);
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
+            updateTable.run();
         });
 
         // Refresh button action - reload only approved unpaid reservations
@@ -334,13 +379,24 @@ public class CashierDashboardController {
                     .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
                     .collect(java.util.stream.Collectors.toList())
             );
-            allReservations.setAll(refreshed);
+            allReservations.clear(); allReservations.addAll(refreshed);
+            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            currentPage[0] = 1;
             searchField.clear(); // Clear search when refreshing
-            filteredReservations.setAll(allReservations);
+            updateTable.run();
         });
 
+        // Set fixed row height to 65 and pref height
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
+        // Initially populate page
+        updateTable.run();
+
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(searchBar, actionBar, table);
+        container.getChildren().addAll(searchBar, actionBar, table, pageControls);
 
         // Add row click handler to show order details
         table.setRowFactory(tv -> {
@@ -1000,7 +1056,11 @@ public class CashierDashboardController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    Reservation reservation = getTableView().getItems().get(getIndex());
+                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    if (reservation == null) {
+                        setGraphic(null);
+                        return;
+                    }
                     if (reservation.isPartOfBundle()) {
                         bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
                         setGraphic(bundleBtn);
@@ -1171,30 +1231,88 @@ public class CashierDashboardController {
 
         // Load all receipts and deduplicate bundles
         List<Receipt> allReceipts = deduplicateBundleReceipts(receiptManager.getAllReceipts());
-        ObservableList<Receipt> receiptsList = FXCollections.observableArrayList(allReceipts);
-        table.setItems(receiptsList);
 
-        // Search functionality
+        // Pagination setup (10 items per page, prev/next, page label visible when pages > 2)
+        final int itemsPerPageR = 10;
+        final int[] currentPageR = new int[] { 1 };
+
+        List<Receipt> workingReceipts = new java.util.ArrayList<>(allReceipts);
+
+        HBox pageControlsR = new HBox(12);
+        pageControlsR.setAlignment(Pos.CENTER);
+        pageControlsR.setPadding(new Insets(12, 0, 0, 0));
+
+        Button prevBtnR = new Button("← Previous");
+        prevBtnR.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        Label pageLabelR = new Label();
+        pageLabelR.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+
+        Button nextBtnR = new Button("Next →");
+        nextBtnR.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        pageControlsR.getChildren().addAll(prevBtnR, pageLabelR, nextBtnR);
+
+        Runnable updateReceiptsTable = () -> {
+            List<Receipt> display = new java.util.ArrayList<>(workingReceipts);
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPageR));
+            if (currentPageR[0] > totalPages) currentPageR[0] = totalPages;
+
+            int start = (currentPageR[0] - 1) * itemsPerPageR;
+            int end = Math.min(start + itemsPerPageR, display.size());
+            List<Receipt> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabelR.setText("Page " + currentPageR[0] + " of " + totalPages);
+            pageLabelR.setVisible(totalPages > 2);
+            prevBtnR.setDisable(currentPageR[0] <= 1);
+            nextBtnR.setDisable(currentPageR[0] >= totalPages);
+        };
+
+        prevBtnR.setOnAction(e -> {
+            if (currentPageR[0] > 1) { currentPageR[0]--; updateReceiptsTable.run(); }
+        });
+        nextBtnR.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) workingReceipts.size() / itemsPerPageR));
+            if (currentPageR[0] < totalPages) { currentPageR[0]++; updateReceiptsTable.run(); }
+        });
+
+        // Search functionality (by buyer name)
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            currentPageR[0] = 1;
             if (newVal == null || newVal.isEmpty()) {
-                table.setItems(FXCollections.observableArrayList(allReceipts));
+                workingReceipts.clear(); workingReceipts.addAll(allReceipts);
             } else {
                 List<Receipt> filtered = allReceipts.stream()
                     .filter(r -> r.getBuyerName().toLowerCase().contains(newVal.toLowerCase()))
                     .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(filtered));
+                workingReceipts.clear(); workingReceipts.addAll(filtered);
             }
+            updateReceiptsTable.run();
         });
 
         // Refresh button action
         refreshBtn.setOnAction(e -> {
             List<Receipt> refreshed = deduplicateBundleReceipts(receiptManager.getAllReceipts());
-            table.setItems(FXCollections.observableArrayList(refreshed));
+            allReceipts.clear(); allReceipts.addAll(refreshed);
+            workingReceipts.clear(); workingReceipts.addAll(allReceipts);
             searchField.clear();
+            currentPageR[0] = 1;
+            updateReceiptsTable.run();
         });
 
+        // Set fixed row height to 65 and pref height for receipts table
+        final double rowHeightR = 65;
+        table.setFixedCellSize(rowHeightR);
+        final double headerReserveR = 56;
+        table.setPrefHeight(itemsPerPageR * rowHeightR + headerReserveR);
+
+        // Initially populate receipts page
+        updateReceiptsTable.run();
+
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, pageControlsR);
 
         // Add row click handler to show receipt details
         table.setRowFactory(tv -> {

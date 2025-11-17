@@ -50,15 +50,37 @@ public class FileStorage {
                 String[] parts = line.split(",");
                 if (parts.length >= 6) {
                     try {
+                        // Support two formats:
+                        // Old format: code,name,course,size,quantity,price
+                        // New consolidated format: code,name,course,size1,qty1,size2,qty2,...,price
                         int itemCode = Integer.parseInt(parts[0].trim());
                         String itemName = parts[1].trim();
                         String course = parts[2].trim();
-                        String size = parts[3].trim();
-                        int quantity = Integer.parseInt(parts[4].trim());
-                        double price = Double.parseDouble(parts[5].trim());
 
-                        Item item = new Item(itemCode, itemName, course, size, quantity, price);
-                        items.add(item);
+                        // If parts length == 6 -> old single-size line
+                        if (parts.length == 6) {
+                            String size = parts[3].trim();
+                            int quantity = Integer.parseInt(parts[4].trim());
+                            double price = Double.parseDouble(parts[5].trim());
+                            Item item = new Item(itemCode, itemName, course, size, quantity, price);
+                            items.add(item);
+                        } else {
+                            // Consolidated line: parse size/qty pairs from index 3..n-2, last token is price
+                            double price = Double.parseDouble(parts[parts.length - 1].trim());
+                            // tokens between 3 and parts.length-2 (inclusive) should be size,qty pairs
+                            for (int i = 3; i < parts.length - 1; i += 2) {
+                                String size = parts[i].trim();
+                                if (i + 1 >= parts.length - 1) break; // malformed
+                                String qtyStr = parts[i + 1].trim();
+                                try {
+                                    int quantity = Integer.parseInt(qtyStr);
+                                    Item item = new Item(itemCode, itemName, course, size, quantity, price);
+                                    items.add(item);
+                                } catch (NumberFormatException nfe) {
+                                    // skip this pair if qty invalid
+                                }
+                            }
+                        }
                     } catch (NumberFormatException e) {
                         // Skip invalid lines silently
                     }
@@ -86,17 +108,32 @@ public class FileStorage {
                 // Write header
                 bw.write("ItemCode,ItemName,Course,Size,Quantity,Price");
                 bw.newLine();
-                
-                // Write each item
-                for (Item item : items) {
-                    String line = String.format("%d,%s,%s,%s,%d,%.2f",
-                        item.getCode(),
-                        safe(item.getName()),
-                        safe(item.getCourse()),
-                        safe(item.getSize()),
-                        item.getQuantity(),
-                        item.getPrice());
-                    bw.write(line);
+
+                // Consolidate items by code so we write one line per item code with multiple size/qty pairs
+                java.util.Map<Integer, java.util.List<Item>> grouped = new java.util.HashMap<>();
+                for (Item it : items) {
+                    grouped.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+                }
+
+                for (java.util.Map.Entry<Integer, java.util.List<Item>> entry : grouped.entrySet()) {
+                    java.util.List<Item> group = entry.getValue();
+                    if (group.isEmpty()) continue;
+                    // Use first item's name/course as canonical
+                    Item first = group.get(0);
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(first.getCode()).append(",");
+                    sb.append(safe(first.getName())).append(",");
+                    sb.append(safe(first.getCourse())).append(",");
+
+                    // Append size,quantity pairs
+                    for (Item v : group) {
+                        sb.append(safe(v.getSize())).append(",");
+                        sb.append(v.getQuantity()).append(",");
+                    }
+
+                    // Append price at end. If sizes have different prices, prefer first
+                    sb.append(String.format("%.2f", first.getPrice()));
+                    bw.write(sb.toString());
                     bw.newLine();
                 }
                 
@@ -359,6 +396,139 @@ public class FileStorage {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    // ==================== CART PERSISTENCE ====================
+
+    // Single carts storage file for all users
+    private static final File CARTS_FILE = resolveCartsFile();
+
+    private static File resolveCartsFile() {
+        File srcData = new File("src/database/data");
+        File altData = new File("database/data");
+        File useDir = null;
+        if (srcData.exists() && srcData.isDirectory()) {
+            useDir = srcData;
+        } else if (altData.exists() && altData.isDirectory()) {
+            useDir = altData;
+        } else {
+            // Prefer creating src/database/data so files live under project structure
+            if (!srcData.exists()) srcData.mkdirs();
+            useDir = srcData;
+        }
+        return new File(useDir, "carts.txt");
+    }
+
+    /**
+     * Save cart lines for a student. Each line format: itemCode|size|quantity|selected
+     */
+    /**
+     * Save cart lines for a student into a single `carts.txt` file.
+     * Each stored line format in `carts.txt`: studentId|itemCode|size|quantity|selected
+     */
+    public static boolean saveCart(String studentId, List<String> cartLines) {
+        try {
+            File parentDir = CARTS_FILE.getParentFile();
+            if (!parentDir.exists()) parentDir.mkdirs();
+
+            // Read existing cart entries (if any)
+            List<String> existing = new ArrayList<>();
+            if (CARTS_FILE.exists()) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(CARTS_FILE))) {
+                    String l;
+                    while ((l = reader.readLine()) != null) {
+                        if (l.trim().isEmpty()) continue;
+                        existing.add(l);
+                    }
+                } catch (IOException e) {
+                    // ignore read errors and continue with empty list
+                }
+            }
+
+            // Migrate any legacy per-user cart files (cart_{id}.txt) into carts.txt
+            File dataDir = CARTS_FILE.getParentFile();
+            if (dataDir != null && dataDir.exists()) {
+                File[] files = dataDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        String name = f.getName();
+                        if (name.startsWith("cart_") && name.endsWith(".txt") && !f.equals(CARTS_FILE)) {
+                            String sid = name.substring(5, name.length() - 4); // between 'cart_' and '.txt'
+                            if (sid == null || sid.trim().isEmpty()) sid = "guest";
+                            try (BufferedReader r = new BufferedReader(new FileReader(f))) {
+                                String ln;
+                                while ((ln = r.readLine()) != null) {
+                                    if (ln.trim().isEmpty()) continue;
+                                    String combined = sid + "|" + ln.trim();
+                                    if (!existing.contains(combined)) existing.add(combined);
+                                }
+                            } catch (IOException ex) {
+                                // ignore
+                            }
+                            // Delete legacy file after migration
+                            try { f.delete(); } catch (Exception ex) { }
+                        }
+                    }
+                }
+            }
+
+            // Filter out previous lines for this student
+            String prefix = (studentId == null ? "guest" : studentId) + "|";
+            List<String> filtered = new ArrayList<>();
+            for (String l : existing) {
+                if (!l.startsWith(prefix)) filtered.add(l);
+            }
+
+            // Add new lines for this student, prefixing each with studentId|
+            for (String line : cartLines) {
+                if (line == null || line.trim().isEmpty()) continue;
+                filtered.add(prefix + line.trim());
+            }
+
+            // Write back all carts
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(CARTS_FILE, false))) {
+                for (String l : filtered) {
+                    writer.write(l == null ? "" : l);
+                    writer.newLine();
+                }
+                writer.flush();
+            }
+
+            CARTS_FILE.setLastModified(System.currentTimeMillis());
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Load raw cart lines for a student. Returns list of String[] (split by '|').
+     */
+    /**
+     * Load raw cart lines for a student from the single `carts.txt` file.
+     * Returns list of String[] (split by '|') where returned parts exclude the leading studentId.
+     */
+    public static List<String[]> loadCart(String studentId) {
+        List<String[]> result = new ArrayList<>();
+        if (!CARTS_FILE.exists()) return result;
+
+        String prefix = (studentId == null ? "guest" : studentId) + "|";
+        try (BufferedReader reader = new BufferedReader(new FileReader(CARTS_FILE))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                if (!line.startsWith(prefix)) continue;
+                // remove prefix
+                String payload = line.substring(prefix.length());
+                String[] parts = payload.split("\\|");
+                result.add(parts);
+            }
+        } catch (IOException e) {
+            // ignore on load failure
+        }
+
+        return result;
     }
     
     /**

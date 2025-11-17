@@ -65,6 +65,17 @@ public class InventoryManager {
     public List<Item> getAllItems() {
         return new ArrayList<>(inventory);
     }
+
+    /**
+     * Find all size variants of an item by item code
+     */
+    public List<Item> findItemsByCode(int code) {
+        List<Item> variants = new ArrayList<>();
+        for (Item item : inventory) {
+            if (item.getCode() == code) variants.add(item);
+        }
+        return variants;
+    }
     
     public List<Item> getItemsByCourse(String course) {
         List<Item> result = new ArrayList<>();

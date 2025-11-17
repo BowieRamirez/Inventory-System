@@ -1,5 +1,6 @@
 package gui.controllers;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
@@ -30,6 +32,9 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -88,8 +93,48 @@ public class StudentDashboardController {
         receiptManager = new ReceiptManager();
         cart = new java.util.ArrayList<>();
 
+        // Load saved cart for this student (if any)
+        try {
+            List<String[]> saved = FileStorage.loadCart(student.getStudentId());
+            for (String[] parts : saved) {
+                try {
+                    if (parts.length >= 3) {
+                        int code = Integer.parseInt(parts[0]);
+                        String size = parts[1];
+                        int qty = Integer.parseInt(parts[2]);
+                        boolean selected = true;
+                        if (parts.length >= 4) selected = Boolean.parseBoolean(parts[3]);
+
+                        Item it = inventoryManager.findItemByCodeAndSize(code, size);
+                        if (it != null && qty > 0) {
+                            CartItem ci = new CartItem(it, qty);
+                            ci.setSelected(selected);
+                            cart.add(ci);
+                        }
+                    }
+                } catch (Exception ex) {
+                    // ignore malformed lines
+                }
+            }
+        } catch (Exception ex) {
+            // ignore load errors
+        }
+
         // Link receipt manager to reservation manager for synchronization
         reservationManager.setReceiptManager(receiptManager);
+    }
+
+    // Determine if an item variant should be visible to the logged-in student
+    private boolean variantAvailableToStudent(Item v) {
+        if (v == null || v.getCourse() == null || student == null || student.getCourse() == null) return false;
+        String itemCourse = v.getCourse().trim();
+        String studentCourse = student.getCourse().trim();
+        if (itemCourse.equalsIgnoreCase(studentCourse)) return true;
+        // Treat STI Special items as available to all students (special offer)
+        if (itemCourse.equalsIgnoreCase("STI Special")) return true;
+        // Fallback: if the itemCourse contains the student course code (rare), allow it
+        if (itemCourse.toLowerCase().contains(studentCourse.toLowerCase())) return true;
+        return false;
     }
 
     /**
@@ -214,7 +259,6 @@ public class StudentDashboardController {
         List<Item> specialItems = inventoryManager.getItemsByCourse("STI Special");
         List<Item> bestSellers = courseItems.stream()
             .filter(item -> item.getQuantity() < 50)  // Simulate best sellers (low stock/high demand)
-            .limit(6)
             .collect(Collectors.toList());
         
         // Featured Items Title
@@ -235,13 +279,13 @@ public class StudentDashboardController {
         
         // Your Course Items Section
         if (!courseItems.isEmpty()) {
-            VBox courseSection = createHomeSection("👕 Items for " + student.getCourse(), courseItems.stream().limit(6).collect(Collectors.toList()));
+            VBox courseSection = createHomeSection("👕 Items for " + student.getCourse(), courseItems);
             homeContainer.getChildren().add(courseSection);
         }
         
         // Special Items Section
         if (!specialItems.isEmpty()) {
-            VBox specialSection = createHomeSection("✨ Special Items", specialItems.stream().limit(6).collect(Collectors.toList()));
+            VBox specialSection = createHomeSection("✨ Special Items", specialItems);
             homeContainer.getChildren().add(specialSection);
         }
         
@@ -309,13 +353,24 @@ public class StudentDashboardController {
         sectionTitle.setFont(Font.font("System", FontWeight.BOLD, 20));
         sectionTitle.setStyle("-fx-text-fill: -color-fg-default;");
         
-        // Configure so 6 cards fit in a single row on desktop widths
+        // Configure so up to 6 product cards fit in a row and center them
         FlowPane itemsGrid = new FlowPane(20, 0);
         itemsGrid.setPadding(new Insets(0, 0, 0, 0)); // more side padding, no vertical gap
-        itemsGrid.setPrefWrapLength(1920); // effectively one row at common desktop width
+        itemsGrid.setPrefWrapLength(1200); // match section max width so children can be centered
+        itemsGrid.setAlignment(Pos.CENTER);
         
-        for (Item item : items) {
-            itemsGrid.getChildren().add(createHomeItemCard(item));
+        // Group items by code so we show a single card per merchandise (sizes combined)
+        java.util.Map<Integer, java.util.List<Item>> grouped = new java.util.LinkedHashMap<>();
+        for (Item it : items) {
+            grouped.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+        }
+        // Only show up to 6 merchandise groups (each group is one product code with all sizes)
+        int added = 0;
+        int MAX_GROUPS = 5;
+        for (java.util.List<Item> group : grouped.values()) {
+            if (added >= MAX_GROUPS) break;
+            itemsGrid.getChildren().add(createGroupedHomeCard(group));
+            added++;
         }
         
         section.getChildren().addAll(sectionTitle, itemsGrid);
@@ -559,21 +614,28 @@ public class StudentDashboardController {
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         
-        FlowPane itemsGrid = new FlowPane(20, 20);
-        itemsGrid.setPadding(new Insets(10));
+        FlowPane itemsGrid = new FlowPane(24, 24);
+        itemsGrid.setPadding(new Insets(12));
+        // Make the grid wrap at a reasonable desktop width so cards flow into rows
+        itemsGrid.setPrefWrapLength(1200);
+        itemsGrid.setAlignment(Pos.TOP_LEFT);
         
         // Display items with available stock initially
         List<Item> initialDisplayItems = allItems.stream()
             .filter(item -> item.getQuantity() > 0)
             .collect(Collectors.toList());
-        
-        if (initialDisplayItems.isEmpty()) {
+
+        // Group by code and only include groups that have stock
+        java.util.Map<Integer, java.util.List<Item>> groupedAll = new java.util.LinkedHashMap<>();
+        for (Item it : initialDisplayItems) groupedAll.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+
+        if (groupedAll.isEmpty()) {
             Label noItems = new Label("No items available for your course yet.");
             noItems.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
             itemsGrid.getChildren().add(noItems);
         } else {
-            for (Item item : initialDisplayItems) {
-                VBox itemCard = createItemCard(item);
+            for (java.util.List<Item> group : groupedAll.values()) {
+                VBox itemCard = createGroupedItemCard(group);
                 itemsGrid.getChildren().add(itemCard);
             }
         }
@@ -652,15 +714,17 @@ public class StudentDashboardController {
                 })
                 .collect(Collectors.toList());
             
-            // Update grid
+            // Update grid - group filtered items by code
             itemsGrid.getChildren().clear();
-            if (filteredItems.isEmpty()) {
+            java.util.Map<Integer, java.util.List<Item>> groupedFiltered = new java.util.LinkedHashMap<>();
+            for (Item it : filteredItems) groupedFiltered.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+            if (groupedFiltered.isEmpty()) {
                 Label noItems = new Label("No items found matching your filters.");
                 noItems.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
                 itemsGrid.getChildren().add(noItems);
             } else {
-                for (Item item : filteredItems) {
-                    VBox itemCard = createItemCard(item);
+                for (java.util.List<Item> group : groupedFiltered.values()) {
+                    VBox itemCard = createGroupedItemCard(group);
                     itemsGrid.getChildren().add(itemCard);
                 }
             }
@@ -876,6 +940,346 @@ public class StudentDashboardController {
 
         return card;
     }
+
+    /**
+     * Create a grouped card for home (compact) view showing multiple sizes for same item code
+     */
+    private VBox createGroupedHomeCard(java.util.List<Item> variants) {
+        // Only show sizes for the logged-in student's course
+        java.util.List<Item> courseVariants = new java.util.ArrayList<>();
+        for (Item v : variants) if (variantAvailableToStudent(v)) courseVariants.add(v);
+
+        Item rep = courseVariants.isEmpty() ? variants.get(0) : courseVariants.get(0);
+        VBox card = new VBox(8);
+        card.setPrefWidth(190);
+        card.setMaxWidth(190);
+        card.setMinHeight(220);
+        card.setStyle(
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1;" +
+            "-fx-padding: 12;" +
+            "-fx-border-radius: 6;" +
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 6;"
+        );
+
+        Label name = new Label(rep.getName());
+        name.setFont(Font.font("System", FontWeight.BOLD, 13));
+        name.setWrapText(true);
+
+        Label code = new Label("Code: " + rep.getCode());
+        code.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
+
+        // Sizes display as small chips (wrap if too many)
+        FlowPane sizesBox = new FlowPane(6, 6);
+        sizesBox.setPrefWrapLength(160);
+        sizesBox.setPadding(new Insets(6, 0, 6, 0));
+        if (courseVariants.isEmpty()) {
+            Label noSizes = new Label("No sizes available for your course");
+            noSizes.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+            sizesBox.getChildren().add(noSizes);
+        } else {
+            // Aggregate by size to avoid duplicates (sum quantities if duplicates exist)
+            java.util.Map<String, Integer> sizeMap = new java.util.LinkedHashMap<>();
+            for (Item v : courseVariants) {
+                String sz = v.getSize();
+                int q = v.getQuantity();
+                sizeMap.put(sz, sizeMap.getOrDefault(sz, 0) + q);
+            }
+            for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
+                Label s = new Label(e.getKey());
+                s.setStyle("-fx-background-color: -color-bg-tertiary; -fx-text-fill: -color-fg-default; -fx-padding: 4 8 4 8; -fx-background-radius: 6px; -fx-font-size: 11px;");
+                sizesBox.getChildren().add(s);
+            }
+        }
+
+        Label price = new Label("₱" + String.format("%.2f", rep.getPrice()));
+        price.setFont(Font.font("System", FontWeight.BOLD, 14));
+        price.setStyle("-fx-text-fill: #1A7F37;");
+
+        // Flexible spacer so price + buttons align at bottom across cards
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        Button addBtn = new Button("Add");
+        addBtn.setPrefWidth(82);
+        addBtn.setPrefHeight(36);
+        addBtn.setStyle(
+            "-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"
+        );
+        addBtn.setOnMouseEntered(e -> addBtn.setStyle("-fx-background-color: #2D3A7A; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"));
+        addBtn.setOnMouseExited(e -> addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"));
+        Button reserveBtn = new Button("Reserve");
+        reserveBtn.setPrefWidth(82);
+        reserveBtn.setPrefHeight(36);
+        reserveBtn.setStyle(
+            "-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-font-weight: bold;"
+        );
+        reserveBtn.setOnMouseEntered(e -> reserveBtn.setStyle("-fx-background-color: #F6F8FA; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold;"));
+        reserveBtn.setOnMouseExited(e -> reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold;"));
+
+        if (courseVariants.isEmpty()) {
+            addBtn.setDisable(true);
+            reserveBtn.setDisable(true);
+            addBtn.setStyle(
+                "-fx-background-color: #D0D7DE; -fx-text-fill: #57606A; -fx-font-size: 12px; -fx-background-radius: 4px;"
+            );
+            reserveBtn.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: #57606A; -fx-font-size: 12px; -fx-background-radius: 4px; -fx-border-color: #D0D7DE; -fx-border-width: 1px; -fx-border-radius: 4px;"
+            );
+        } else {
+            addBtn.setOnAction(e -> handleGroupedAddToCart(courseVariants));
+            reserveBtn.setOnAction(e -> handleGroupedReserve(courseVariants));
+        }
+
+        HBox btns = new HBox(8, addBtn, reserveBtn);
+        btns.setAlignment(Pos.CENTER);
+
+        card.getChildren().addAll(name, code, sizesBox, spacer, price, btns);
+        return card;
+    }
+
+    /**
+     * Create a grouped item card for shop listing showing sizes and allowing size selection
+     */
+    private VBox createGroupedItemCard(java.util.List<Item> variants) {
+        // Only show sizes for the logged-in student's course
+        java.util.List<Item> courseVariants = new java.util.ArrayList<>();
+        for (Item v : variants) if (variantAvailableToStudent(v)) courseVariants.add(v);
+
+        Item rep = courseVariants.isEmpty() ? variants.get(0) : courseVariants.get(0);
+        VBox card = new VBox(10);
+        card.setPrefWidth(240);
+        card.setPadding(new Insets(15));
+        card.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-radius: 8px;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 8px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);"
+        );
+
+        HBox titleRow = new HBox(8);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        Label nameLabel = new Label(rep.getName());
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 15));
+        nameLabel.setWrapText(true);
+        HBox.setHgrow(nameLabel, Priority.ALWAYS);
+        titleRow.getChildren().add(nameLabel);
+
+        Label categoryBadge = new Label(rep.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
+        categoryBadge.setStyle(
+            "-fx-background-color: " + (rep.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
+            "-fx-text-fill: " + (rep.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
+            "-fx-padding: 3 8 3 8; -fx-background-radius: 10px; -fx-font-size: 11px; -fx-font-weight: bold;"
+        );
+
+        Label codeLabel = new Label("Code: " + rep.getCode());
+        codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+
+        // Build sizes info as chips with wrap
+        FlowPane sizesBox = new FlowPane(8, 8);
+        sizesBox.setPrefWrapLength(200);
+        if (courseVariants.isEmpty()) {
+            Label noSizes = new Label("No sizes available for your course");
+            noSizes.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+            sizesBox.getChildren().add(noSizes);
+        } else {
+            // Aggregate sizes to avoid duplicate chips and show combined quantities
+            java.util.Map<String, Integer> sizeMap = new java.util.LinkedHashMap<>();
+            for (Item v : courseVariants) {
+                String sz = v.getSize();
+                int q = v.getQuantity();
+                sizeMap.put(sz, sizeMap.getOrDefault(sz, 0) + q);
+            }
+            for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
+                String text = e.getKey() + " (" + e.getValue() + ")";
+                Label lbl = new Label(text);
+                lbl.setStyle("-fx-background-color: -color-bg-tertiary; -fx-text-fill: -color-fg-default; -fx-padding: 6 8 6 8; -fx-background-radius: 6px; -fx-font-size: 12px;");
+                sizesBox.getChildren().add(lbl);
+            }
+        }
+
+        Label priceLabel = new Label("₱" + String.format("%.2f", rep.getPrice()));
+        priceLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        priceLabel.setStyle("-fx-text-fill: #1A7F37;");
+
+        Label stockLabel = new Label();
+        int totalQty = courseVariants.isEmpty() ? 0 : courseVariants.stream().mapToInt(Item::getQuantity).sum();
+        if (totalQty > 10) {
+            stockLabel.setText("✓ In Stock (" + totalQty + ")");
+            stockLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 11px;");
+        } else if (totalQty > 0) {
+            stockLabel.setText("✓ In Stock (" + totalQty + ")");
+            stockLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 11px;");
+        } else {
+            stockLabel.setText("Out of Stock");
+            stockLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 11px;");
+        }
+
+        // Flexible spacer so price + buttons align at bottom across cards
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER);
+        Button addBtn = new Button("Add");
+        addBtn.setPrefWidth(110);
+        addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;");
+        addBtn.setOnMouseEntered(e -> addBtn.setStyle("-fx-background-color: #2D3A7A; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"));
+        addBtn.setOnMouseExited(e -> addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"));
+        Button reserveBtn = new Button("Reserve");
+        reserveBtn.setPrefWidth(110);
+        // Ensure consistent heights so buttons line up across cards with different content
+        addBtn.setPrefHeight(36);
+        reserveBtn.setPrefHeight(36);
+        reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-font-weight: bold;");
+        reserveBtn.setOnMouseEntered(e -> reserveBtn.setStyle("-fx-background-color: #F6F8FA; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold;"));
+        reserveBtn.setOnMouseExited(e -> reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold;"));
+
+        if (courseVariants.isEmpty()) {
+            addBtn.setDisable(true);
+            reserveBtn.setDisable(true);
+            addBtn.setStyle("-fx-background-color: #D0D7DE; -fx-text-fill: #57606A; -fx-font-size: 12px; -fx-background-radius: 4px;");
+            reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #57606A; -fx-font-size: 12px; -fx-background-radius: 4px; -fx-border-color: #D0D7DE; -fx-border-width: 1px; -fx-border-radius: 4px;");
+        } else {
+            addBtn.setOnAction(e -> handleGroupedAddToCart(courseVariants));
+            reserveBtn.setOnAction(e -> handleGroupedReserve(courseVariants));
+        }
+        buttonBox.getChildren().addAll(addBtn, reserveBtn);
+
+        card.getChildren().addAll(titleRow, categoryBadge, codeLabel, sizesBox, spacer, priceLabel, stockLabel, buttonBox);
+        return card;
+    }
+
+    /**
+     * Show a dialog to select a size from the available variants then call existing handlers
+     */
+    private void handleGroupedAddToCart(java.util.List<Item> variants) {
+        // Filter only sizes with stock
+        java.util.List<Item> available = new java.util.ArrayList<>();
+        for (Item v : variants) if (v.getQuantity() > 0) available.add(v);
+        if (available.isEmpty()) {
+            AlertHelper.showError("Out of Stock", "No sizes available for this item.");
+            return;
+        }
+
+        Dialog<Item> dialog = new Dialog<>();
+        dialog.setTitle("Select Size");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        // Aggregate sizes to avoid duplicates in the choice box (sum quantities for same size)
+        java.util.Map<String, Integer> sizeMap = new java.util.LinkedHashMap<>();
+        java.util.List<Item> representative = new java.util.ArrayList<>();
+        for (Item v : available) {
+            String sz = v.getSize();
+            if (!sizeMap.containsKey(sz)) {
+                sizeMap.put(sz, v.getQuantity());
+                representative.add(v);
+            } else {
+                sizeMap.put(sz, sizeMap.get(sz) + v.getQuantity());
+            }
+        }
+
+        javafx.scene.control.ChoiceBox<String> sizeChoice = new javafx.scene.control.ChoiceBox<>();
+        for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
+            sizeChoice.getItems().add(e.getKey() + " (" + e.getValue() + ")");
+        }
+        sizeChoice.getSelectionModel().selectFirst();
+
+        // Spinner uses the summed quantity for the selected size
+        int firstMax = sizeMap.values().iterator().next();
+        Spinner<Integer> qty = new Spinner<>(1, Math.max(1, firstMax), 1);
+        sizeChoice.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
+            int idx = newV.intValue();
+            if (idx >= 0 && idx < representative.size()) {
+                // lookup max quantity by size
+                String sz = representative.get(idx).getSize();
+                int max = sizeMap.getOrDefault(sz, representative.get(idx).getQuantity());
+                qty.setValueFactory(new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(1, Math.max(1, max), 1));
+            }
+        });
+
+        grid.add(new Label("Size:"), 0, 0);
+        grid.add(sizeChoice, 1, 0);
+        grid.add(new Label("Quantity:"), 0, 1);
+        grid.add(qty, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.setResultConverter(btn -> {
+            if (btn == ButtonType.OK) {
+                int idx = sizeChoice.getSelectionModel().getSelectedIndex();
+                if (idx >= 0 && idx < representative.size()) {
+                    Item chosen = representative.get(idx);
+                    return chosen;
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(chosen -> {
+            // After selecting size, show quantity dialog via existing handler using the selected variant
+            handleAddToCart(chosen);
+        });
+    }
+
+    private void handleGroupedReserve(java.util.List<Item> variants) {
+        java.util.List<Item> available = new java.util.ArrayList<>();
+        for (Item v : variants) if (v.getQuantity() > 0) available.add(v);
+        if (available.isEmpty()) {
+            AlertHelper.showError("Out of Stock", "No sizes available for this item.");
+            return;
+        }
+
+        Dialog<Item> dialog = new Dialog<>();
+        dialog.setTitle("Select Size to Reserve");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        // Aggregate duplicate sizes so choice list shows each size once with summed quantity
+        java.util.Map<String, Integer> sizeMapR = new java.util.LinkedHashMap<>();
+        java.util.List<Item> representativeR = new java.util.ArrayList<>();
+        for (Item v : available) {
+            String sz = v.getSize();
+            if (!sizeMapR.containsKey(sz)) {
+                sizeMapR.put(sz, v.getQuantity());
+                representativeR.add(v);
+            } else {
+                sizeMapR.put(sz, sizeMapR.get(sz) + v.getQuantity());
+            }
+        }
+        javafx.scene.control.ChoiceBox<String> sizeChoice = new javafx.scene.control.ChoiceBox<>();
+        for (java.util.Map.Entry<String, Integer> e : sizeMapR.entrySet()) {
+            sizeChoice.getItems().add(e.getKey() + " (" + e.getValue() + ")");
+        }
+        sizeChoice.getSelectionModel().selectFirst();
+
+        grid.add(new Label("Size:"), 0, 0);
+        grid.add(sizeChoice, 1, 0);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.setResultConverter(btn -> {
+            if (btn == ButtonType.OK) {
+                int idx = sizeChoice.getSelectionModel().getSelectedIndex();
+                if (idx >= 0 && idx < representativeR.size()) return representativeR.get(idx);
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(chosen -> {
+            handleReserveItem(chosen);
+        });
+    }
     
     /**
      * Handle add to cart
@@ -974,6 +1378,8 @@ public class StudentDashboardController {
             if (refreshCallback != null) {
                 refreshCallback.run();
             }
+            // Persist cart
+            persistCart();
         });
     }
     
@@ -999,6 +1405,8 @@ public class StudentDashboardController {
         if (cartUpdateCallback != null) {
             cartUpdateCallback.run();
         }
+        // Persist empty cart
+        try { persistCart(); } catch (Exception ex) { }
     }
     
     /**
@@ -1360,6 +1768,8 @@ public class StudentDashboardController {
                 if (refreshCallback != null) {
                     refreshCallback.run();
                 }
+                // Persist cart change
+                persistCart();
             }
         });
         
@@ -1379,6 +1789,8 @@ public class StudentDashboardController {
                 if (refreshCallback != null) {
                     refreshCallback.run();
                 }
+                // Persist cart change
+                persistCart();
             } else {
                 AlertHelper.showWarning("Stock Limit", 
                     "Cannot add more. Available stock: " + item.getQuantity());
@@ -1405,6 +1817,8 @@ public class StudentDashboardController {
             if (refreshCallback != null) {
                 refreshCallback.run();
             }
+            // Persist cart change
+            persistCart();
         });
         
         row.getChildren().addAll(selectCheckbox, itemInfo, priceBox, removeBtn);
@@ -1548,9 +1962,33 @@ public class StudentDashboardController {
             if (refreshCallback != null) {
                 refreshCallback.run();
             }
+            // Persist cart after removal
+            try { persistCart(); } catch (Exception ex) { }
         } else {
             AlertHelper.showError("Reservation Failed", 
                 "Failed to reserve any items. Please try again.");
+        }
+    }
+
+    /**
+     * Persist the current in-memory cart to storage for this student
+     */
+    private void persistCart() {
+        try {
+            List<String> lines = new java.util.ArrayList<>();
+            for (CartItem ci : cart) {
+                Item it = ci.getItem();
+                if (it == null) continue;
+                StringBuilder b = new StringBuilder();
+                b.append(it.getCode()).append("|")
+                 .append(it.getSize() == null ? "" : it.getSize()).append("|")
+                 .append(ci.getQuantity()).append("|")
+                 .append(ci.isSelected());
+                lines.add(b.toString());
+            }
+            FileStorage.saveCart(student.getStudentId(), lines);
+        } catch (Exception e) {
+            // ignore persistence errors
         }
     }
     
@@ -1594,22 +2032,239 @@ public class StudentDashboardController {
             emptyBox.getChildren().addAll(emptyLabel, hintLabel);
             container.getChildren().addAll(titleLabel, emptyBox);
         } else {
+            // Create scrollable reservations list (container for displayed reservations)
             VBox reservationsList = new VBox(15);
-            
-            for (Reservation r : deduplicatedReservations) {
-                VBox reservationCard = createReservationCard(r);
-                reservationsList.getChildren().add(reservationCard);
-            }
-            
             ScrollPane scrollPane = new ScrollPane(reservationsList);
             scrollPane.setFitToWidth(true);
             scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
             VBox.setVgrow(scrollPane, Priority.ALWAYS);
             
-            container.getChildren().addAll(titleLabel, scrollPane);
+            // Create filter and search controls
+            VBox controlsBox = createReservationFilterControls(deduplicatedReservations, reservationsList);
+            
+            // Display all reservations initially (filtered by "COMPLETED" as default)
+            displayFilteredReservations(deduplicatedReservations, reservationsList, "COMPLETED", "", null, null);
+            
+            container.getChildren().addAll(titleLabel, controlsBox, scrollPane);
         }
         
         return container;
+    }
+    
+    /**
+     * Create filter controls for reservations
+     */
+    private VBox createReservationFilterControls(List<Reservation> allReservations, VBox reservationsList) {
+        VBox mainControlsBox = new VBox(10);
+        mainControlsBox.setPadding(new Insets(10));
+        mainControlsBox.setStyle("-fx-border-color: -color-bg-tertiary; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: -color-bg-secondary;");
+        
+        // Search TextField
+        HBox searchBox = new HBox(10);
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍 Search by ID, item name, or student...");
+        searchField.setPrefWidth(300);
+        searchField.setStyle("-fx-font-size: 12px; -fx-padding: 8px;");
+        HBox.setHgrow(searchField, Priority.NEVER);
+        searchBox.getChildren().add(searchField);
+        
+        // Date filter section
+        HBox dateFilterBox = new HBox(10);
+        Label dateLabel = new Label("Date Range:");
+        dateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        
+        DatePicker startDatePicker = new DatePicker();
+        startDatePicker.setPromptText("From");
+        startDatePicker.setPrefWidth(130);
+        startDatePicker.setStyle("-fx-font-size: 11px;");
+        
+        DatePicker endDatePicker = new DatePicker();
+        endDatePicker.setPromptText("To");
+        endDatePicker.setPrefWidth(130);
+        endDatePicker.setStyle("-fx-font-size: 11px;");
+        
+        Button clearDateBtn = new Button("Clear Dates");
+        clearDateBtn.setStyle("-fx-font-size: 11px; -fx-padding: 6px;");
+        clearDateBtn.setOnAction(e -> {
+            startDatePicker.setValue(null);
+            endDatePicker.setValue(null);
+        });
+        
+        dateFilterBox.getChildren().addAll(dateLabel, startDatePicker, endDatePicker, clearDateBtn);
+        searchBox.getChildren().addAll(new Separator(), dateFilterBox);
+        HBox.setHgrow(dateFilterBox, Priority.ALWAYS);
+        
+        // Status filter section
+        HBox statusFilterBox = new HBox(8);
+        statusFilterBox.setStyle("-fx-alignment: center-left;");
+        
+        Label filterLabel = new Label("Filter by Status:");
+        filterLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        statusFilterBox.getChildren().add(filterLabel);
+        
+        // Filter buttons (status filters)
+        String[] statuses = {
+            "ALL",
+            "BUNDLE",
+            "COMPLETED",
+            "REPLACED", 
+            "REPLACEMENT REQUESTED",
+            "APPROVED - WAITING FOR PAYMENT",
+            "CANCELLED",
+            "PENDING"
+        };
+        
+        // Create ToggleGroup for status filters (only one can be selected at a time)
+        ToggleGroup statusToggleGroup = new ToggleGroup();
+        
+        // Map to track button status mapping
+        Map<ToggleButton, String> buttonStatusMap = new HashMap<>();
+        
+        // Runnable to update filters
+        Runnable updateFilters = () -> {
+            // Find the currently selected filter
+            String selectedStatus = "COMPLETED";
+            ToggleButton selectedBtn = (ToggleButton) statusToggleGroup.getSelectedToggle();
+            if (selectedBtn != null) {
+                selectedStatus = buttonStatusMap.get(selectedBtn);
+            }
+            
+            displayFilteredReservations(allReservations, reservationsList, selectedStatus, searchField.getText(), 
+                startDatePicker.getValue(), endDatePicker.getValue());
+        };
+        
+        // Create toggle buttons for status filters
+        for (String status : statuses) {
+            ToggleButton btn = new ToggleButton(getStatusLabel(status));
+            btn.setPrefWidth(120);
+            btn.setStyle("-fx-font-size: 11px; -fx-padding: 6px;");
+            btn.setToggleGroup(statusToggleGroup);
+            
+            // Store the mapping
+            buttonStatusMap.put(btn, status);
+            
+            // Set COMPLETED as default selected
+            if ("COMPLETED".equals(status)) {
+                btn.setSelected(true);
+                btn.setStyle(btn.getStyle() + "; -fx-base: #10b981;");
+            }
+            
+            btn.setOnAction(e -> updateFilters.run());
+            
+            statusFilterBox.getChildren().add(btn);
+        }
+        
+        // Wrap status filter buttons in scrollable container
+        ScrollPane filterScroll = new ScrollPane(statusFilterBox);
+        filterScroll.setFitToHeight(true);
+        filterScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+        HBox.setHgrow(filterScroll, Priority.ALWAYS);
+        
+        // Search field listener
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> updateFilters.run());
+        
+        // Date filter listeners
+        startDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> updateFilters.run());
+        
+        endDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> updateFilters.run());
+        
+        mainControlsBox.getChildren().addAll(searchBox, filterScroll);
+        return mainControlsBox;
+    }
+    
+    /**
+     * Display filtered reservations based on status, search query, and date range
+     */
+    private void displayFilteredReservations(List<Reservation> allReservations, VBox reservationsList, String statusFilter, String searchQuery, LocalDate startDate, LocalDate endDate) {
+        reservationsList.getChildren().clear();
+        
+        List<Reservation> filtered = allReservations.stream()
+            .filter(r -> {
+                // Filter by status or bundle
+                if ("BUNDLE".equalsIgnoreCase(statusFilter)) {
+                    // Show only bundled orders
+                    return r.isPartOfBundle();
+                } else if (!"ALL".equalsIgnoreCase(statusFilter)) {
+                    // Filter by specific status
+                    return r.getStatus().equalsIgnoreCase(statusFilter);
+                }
+                return true;
+            })
+            .filter(r -> {
+                // Search in reservation ID, item name, or student name
+                if (searchQuery == null || searchQuery.isEmpty()) {
+                    return true;
+                }
+                String query = searchQuery.toLowerCase();
+                return String.valueOf(r.getReservationId()).contains(query) ||
+                       r.getItemName().toLowerCase().contains(query) ||
+                       r.getStudentName().toLowerCase().contains(query) ||
+                       r.getStatus().toLowerCase().contains(query);
+            })
+            .filter(r -> {
+                // Filter by date range
+                if (startDate != null && r.getReservationTime() != null) {
+                    LocalDate reservationDate = r.getReservationTime().toLocalDate();
+                    if (reservationDate.isBefore(startDate)) {
+                        return false;
+                    }
+                }
+                if (endDate != null && r.getReservationTime() != null) {
+                    LocalDate reservationDate = r.getReservationTime().toLocalDate();
+                    if (reservationDate.isAfter(endDate)) {
+                        return false;
+                    }
+                }
+                return true;
+            })
+            .collect(Collectors.toList());
+        
+        if (filtered.isEmpty()) {
+            VBox emptyBox = new VBox(20);
+            emptyBox.setAlignment(Pos.CENTER);
+            emptyBox.setPadding(new Insets(50));
+            
+            Label emptyLabel = new Label("📋 No reservations found");
+            emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+            emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+            
+            Label hintLabel = new Label("Try adjusting your filters or search terms.");
+            hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+            
+            emptyBox.getChildren().addAll(emptyLabel, hintLabel);
+            reservationsList.getChildren().add(emptyBox);
+        } else {
+            for (Reservation r : filtered) {
+                VBox reservationCard = createReservationCard(r);
+                reservationsList.getChildren().add(reservationCard);
+            }
+        }
+    }
+    
+    /**
+     * Get display label for reservation status
+     */
+    private String getStatusLabel(String status) {
+        switch (status) {
+            case "ALL":
+                return "📋 All";
+            case "BUNDLE":
+                return "📦 Bundle";
+            case "COMPLETED":
+                return "✓ Completed";
+            case "REPLACED":
+                return "🔄 Replaced";
+            case "REPLACEMENT REQUESTED":
+                return "🔃 Replacement Request";
+            case "APPROVED - WAITING FOR PAYMENT":
+                return "💳 Waiting for Payment";
+            case "CANCELLED":
+                return "✗ Cancelled";
+            case "PENDING":
+                return "⏳ Pending";
+            default:
+                return status;
+        }
     }
     
     /**
@@ -1649,14 +2304,36 @@ public class StudentDashboardController {
             })
             .collect(Collectors.toList());
         
-        // Sort by reservation time (most recent first) BEFORE deduplicating
-        pickupItems.sort((r1, r2) -> r2.getReservationTime().compareTo(r1.getReservationTime()));
+        // Sort by reservation time (most recent first) BEFORE deduplicating — null-safe and fallback to reservationId
+        pickupItems.sort((r1, r2) -> {
+            if (r1.getReservationTime() == null && r2.getReservationTime() == null) {
+                return Integer.compare(r2.getReservationId(), r1.getReservationId());
+            } else if (r1.getReservationTime() == null) {
+                return 1; // r2 (with time) is newer
+            } else if (r2.getReservationTime() == null) {
+                return -1;
+            } else {
+                int cmp = r2.getReservationTime().compareTo(r1.getReservationTime());
+                return cmp != 0 ? cmp : Integer.compare(r2.getReservationId(), r1.getReservationId());
+            }
+        });
         
         // Deduplicate bundles - show only one card per bundle (will keep first, which is newest due to sort above)
         List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(pickupItems);
         
-        // Sort by reservation time (most recent first)
-        deduplicatedReservations.sort((r1, r2) -> r2.getReservationTime().compareTo(r1.getReservationTime()));
+        // Sort by reservation time (most recent first) — null-safe with ID fallback
+        deduplicatedReservations.sort((r1, r2) -> {
+            if (r1.getReservationTime() == null && r2.getReservationTime() == null) {
+                return Integer.compare(r2.getReservationId(), r1.getReservationId());
+            } else if (r1.getReservationTime() == null) {
+                return 1;
+            } else if (r2.getReservationTime() == null) {
+                return -1;
+            } else {
+                int cmp = r2.getReservationTime().compareTo(r1.getReservationTime());
+                return cmp != 0 ? cmp : Integer.compare(r2.getReservationId(), r1.getReservationId());
+            }
+        });
         
         if (deduplicatedReservations.isEmpty()) {
             VBox emptyBox = new VBox(20);
