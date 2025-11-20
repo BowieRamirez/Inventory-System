@@ -54,7 +54,15 @@ public class SystemConfigManager {
     public void setMaintenanceMode(boolean active) {
         config.setProperty("maintenanceMode", String.valueOf(active));
         saveConfig();
+        String action = active ? "MAINTENANCE_ACTIVATED" : "MAINTENANCE_DEACTIVATED";
         SystemLogger.logActivity("Maintenance mode " + (active ? "ACTIVATED" : "DEACTIVATED"));
+        // Also write to admin activity log so Admin Dashboard shows the change
+        try {
+            StockReturnLogger.logAdminAction("Admin", action, "Maintenance mode " + (active ? "enabled" : "disabled"));
+        } catch (Exception ex) {
+            // best-effort logging; don't fail when logging
+            System.err.println("Failed to write maintenance log: " + ex.getMessage());
+        }
     }
     
     /**

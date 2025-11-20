@@ -29,6 +29,8 @@ public class DBManager {
         password = System.getenv("DB_PASSWORD");
 
         if (url != null && !url.isBlank()) {
+            System.out.println("[DBManager] Using DB config from environment variables.");
+            System.out.println("[DBManager] URL=" + url + " user=" + user + " password=" + (password==null?"<null>":"****"));
             return;
         }
         // 2) properties file
@@ -38,8 +40,11 @@ public class DBManager {
             url = p.getProperty("url", url);
             user = p.getProperty("user", user);
             password = p.getProperty("password", password);
+            System.out.println("[DBManager] Loaded DB config from src/database/data/db.properties");
+            System.out.println("[DBManager] URL=" + url + " user=" + user + " password=" + (password==null?"<null>":"****"));
         } catch (IOException ignored) {
             // No properties file; remain null
+            System.out.println("[DBManager] No db.properties found at src/database/data/db.properties; DB not configured via file or env.");
         }
     }
 

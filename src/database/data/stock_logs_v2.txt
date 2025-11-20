@@ -15,3 +15,10 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-18 00:31:46|staff|1103|STI Tumbler|One Size|-30/30|ITEM_ADDED|New item added - Price: ₱600.00
 2025-11-18 01:34:13|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: XL)
 2025-11-18 01:37:02|staff|1073|SHS White Blouse (Female)|XL|+25/75|ITEM_UPDATED|Adjusted by staff: 50 → 75
+2025-11-20 21:05:44|staff|1024|Business Blazer|M|-44/1|ITEM_UPDATED|Adjusted by staff: 45 → 1
+2025-11-20 21:13:48|staff|1024|Business Blazer|M|+4/5|ITEM_UPDATED|Adjusted by staff: 1 → 5
+2025-11-20 21:14:08|staff|1024|Business Blazer|M|+30/35|ITEM_UPDATED|Adjusted by staff: 5 → 35
+2025-11-21 01:28:23|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled
+2025-11-21 01:28:27|Admin|0||||MAINTENANCE_ACTIVATED|Maintenance mode enabled
+2025-11-21 01:33:46|Admin|0||||STUDENT_DEACTIVATED|Student: 020002100000 - Junela, Frigger
+2025-11-21 02:05:06|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled

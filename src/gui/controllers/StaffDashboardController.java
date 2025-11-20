@@ -1747,50 +1747,68 @@ public class StaffDashboardController {
         
         statsBox.getChildren().addAll(itemsCard, lowStockCard);
 
-        // Course filter buttons (All + per-course)
+        // Course filter dropdown (All + per-course)
         HBox courseBar = new HBox(8);
         courseBar.setAlignment(Pos.CENTER_LEFT);
         courseBar.setPadding(new Insets(0, 0, 8, 0));
 
-        // Build course buttons
+        // Build course ComboBox
         List<String> availableCourses = inventoryManager.getAvailableCourses();
         availableCourses.removeIf(s -> s == null || s.trim().isEmpty());
         if (!availableCourses.contains("STI Special")) availableCourses.add(0, "STI Special");
-        // Ensure stable ordering and include 'All'
         java.util.Collections.sort(availableCourses);
-        javafx.scene.control.ToggleGroup courseToggle = new javafx.scene.control.ToggleGroup();
-        javafx.scene.control.ToggleButton allBtnCourse = new javafx.scene.control.ToggleButton("All");
-        allBtnCourse.setToggleGroup(courseToggle);
-        allBtnCourse.setSelected(true);
-        allBtnCourse.setStyle(getCourseButtonStyle(true));
-        courseBar.getChildren().add(allBtnCourse);
-        for (String c : availableCourses) {
-            javafx.scene.control.ToggleButton tb = new javafx.scene.control.ToggleButton(c);
-            tb.setToggleGroup(courseToggle);
-            tb.setStyle(getCourseButtonStyle(false));
-            courseBar.getChildren().add(tb);
-        }
 
-        // Ensure toggle button styles update when selection changes
-        courseToggle.selectedToggleProperty().addListener((obs, oldT, newT) -> {
-            for (javafx.scene.control.Toggle t : courseToggle.getToggles()) {
-                javafx.scene.control.ToggleButton b = (javafx.scene.control.ToggleButton) t;
-                b.setStyle(getCourseButtonStyle(b.isSelected()));
-            }
-        });
+        ObservableList<String> courseItems = FXCollections.observableArrayList();
+        courseItems.add("All");
+        courseItems.addAll(availableCourses);
 
-        // Also update course button styles when the application theme changes
-        // (ThemeManager notifies registered listeners on setTheme)
+        javafx.scene.control.ComboBox<String> courseCombo = new javafx.scene.control.ComboBox<>(courseItems);
+        courseCombo.setValue("All");
+        courseCombo.setPromptText("Select course");
+        courseCombo.setPrefWidth(240);
+        courseCombo.setPrefHeight(45);
+        // Theme-aware styling: slightly darker white for light theme to reduce plainness
+        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+        String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
+        String comboStyle =
+            "-fx-font-size: 14px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-control-inner-background: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: " + fieldBorder + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 10px;" +
+            "-fx-background-radius: 10px;" +
+            "-fx-padding: 0px 8px;" +
+            "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+        courseCombo.setStyle(comboStyle);
+
+        courseBar.getChildren().add(courseCombo);
+
+        // Update ComboBox style when the application theme changes
         Runnable courseThemeRefresher = () -> {
             try {
-                for (javafx.scene.control.Toggle t : courseToggle.getToggles()) {
-                    javafx.scene.control.ToggleButton b = (javafx.scene.control.ToggleButton) t;
-                    // run on FX thread if needed
-                    if (javafx.application.Platform.isFxApplicationThread()) {
-                        b.setStyle(getCourseButtonStyle(b.isSelected()));
-                    } else {
-                        javafx.application.Platform.runLater(() -> b.setStyle(getCourseButtonStyle(b.isSelected())));
-                    }
+                String fieldBg2 = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+                String fieldBorder2 = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+                String fieldText2 = ThemeManager.isDarkMode() ? "white" : "#111827";
+                String comboStyle2 =
+                    "-fx-font-size: 14px;" +
+                    "-fx-background-color: " + fieldBg2 + ";" +
+                    "-fx-control-inner-background: " + fieldBg2 + ";" +
+                    "-fx-text-fill: " + fieldText2 + ";" +
+                    "-fx-border-color: " + fieldBorder2 + ";" +
+                    "-fx-border-width: 1px;" +
+                    "-fx-border-radius: 10px;" +
+                    "-fx-background-radius: 10px;" +
+                    "-fx-padding: 0px 8px;" +
+                    "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+                    "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+                if (javafx.application.Platform.isFxApplicationThread()) {
+                    courseCombo.setStyle(comboStyle2);
+                } else {
+                    javafx.application.Platform.runLater(() -> courseCombo.setStyle(comboStyle2));
                 }
             } catch (Exception ex) {
                 // ignore
@@ -1838,15 +1856,15 @@ public class StaffDashboardController {
             nameField.setPromptText("Item Name");
 
             // Course selection - include existing courses and an "STI Special" option
-            javafx.scene.control.ComboBox<String> courseCombo = new javafx.scene.control.ComboBox<>();
+            javafx.scene.control.ComboBox<String> courseComboDialog = new javafx.scene.control.ComboBox<>();
             List<String> courses = inventoryManager.getAvailableCourses();
             courses.removeIf(s -> s == null || s.trim().isEmpty());
             if (!courses.contains("STI Special")) {
                 courses.add(0, "STI Special");
             }
-            courseCombo.setItems(FXCollections.observableArrayList(courses));
-            courseCombo.setEditable(true);
-            courseCombo.setPromptText("Course or 'STI Special'");
+            courseComboDialog.setItems(FXCollections.observableArrayList(courses));
+            courseComboDialog.setEditable(true);
+            courseComboDialog.setPromptText("Course or 'STI Special'");
 
             javafx.scene.control.ComboBox<String> sizeCombo = new javafx.scene.control.ComboBox<>();
             sizeCombo.setItems(FXCollections.observableArrayList("S", "M", "L", "XL", "One Size"));
@@ -1858,7 +1876,7 @@ public class StaffDashboardController {
             TextField priceField = new TextField();
             priceField.setPromptText("Price (e.g. 450.00)");
 
-            content.getChildren().addAll(codeLabel, nameField, courseCombo, sizeCombo, qtyField, priceField);
+            content.getChildren().addAll(codeLabel, nameField, courseComboDialog, sizeCombo, qtyField, priceField);
 
             dialog.getDialogPane().setContent(content);
 
@@ -1869,7 +1887,7 @@ public class StaffDashboardController {
             // Simple validation listener
             Runnable validate = () -> {
                 boolean ok = !nameField.getText().trim().isEmpty()
-                         && courseCombo.getValue() != null && !courseCombo.getValue().trim().isEmpty()
+                         && courseComboDialog.getValue() != null && !courseComboDialog.getValue().trim().isEmpty()
                          && sizeCombo.getValue() != null && !sizeCombo.getValue().trim().isEmpty();
                 try {
                     int q = Integer.parseInt(qtyField.getText().trim());
@@ -1882,7 +1900,7 @@ public class StaffDashboardController {
             };
 
             nameField.textProperty().addListener((obs, o, n) -> validate.run());
-            courseCombo.valueProperty().addListener((obs, o, n) -> validate.run());
+            courseComboDialog.valueProperty().addListener((obs, o, n) -> validate.run());
             sizeCombo.valueProperty().addListener((obs, o, n) -> validate.run());
             qtyField.textProperty().addListener((obs, o, n) -> validate.run());
             priceField.textProperty().addListener((obs, o, n) -> validate.run());
@@ -1891,7 +1909,7 @@ public class StaffDashboardController {
                 if (button == addBtnType) {
                     try {
                         String name = nameField.getText().trim();
-                        String course = courseCombo.getValue().trim();
+                        String course = courseComboDialog.getValue().trim();
                         String size = sizeCombo.getValue().trim();
                         int qty = Integer.parseInt(qtyField.getText().trim());
                         double price = Double.parseDouble(priceField.getText().trim());
@@ -2018,14 +2036,13 @@ public class StaffDashboardController {
             updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
         });
 
-        // Course toggle action -> update via helper
-        courseToggle.selectedToggleProperty().addListener((obs, oldT, newT) -> {
-            if (newT == null) {
-                courseToggle.selectToggle((javafx.scene.control.Toggle) courseToggle.getToggles().get(0));
+        // Course combo action -> update via helper
+        courseCombo.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV == null) {
+                courseCombo.setValue("All");
                 currentCourse[0] = "All";
             } else {
-                javafx.scene.control.ToggleButton tb = (javafx.scene.control.ToggleButton) newT;
-                currentCourse[0] = tb.getText();
+                currentCourse[0] = newV;
             }
             currentPage[0] = 1;
             pageWindowStart[0] = 1;
@@ -2968,9 +2985,11 @@ public class StaffDashboardController {
     private List<String[]> loadStockLogs() {
         List<String[]> logs = new ArrayList<>();
         
-        // Only student/user-relevant actions (customer activities only - NOT staff updates)
+        // Only student/user-relevant actions (customer activities only - NOT staff/admin updates)
+        // 'STAFF_RETURN' is an administrative/staff-level action and must not be shown
+        // in the general student/user activity view for regular staff users.
         List<String> studentOnlyActions = java.util.Arrays.asList(
-            "USER_PICKUP", "USER_RETURN", "STAFF_RETURN"
+            "USER_PICKUP", "USER_RETURN"
         );
         
         try {

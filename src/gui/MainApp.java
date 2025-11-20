@@ -32,6 +32,17 @@ public class MainApp extends Application {
         
         // Ensure database table for stock logs exists
         StockReturnLogger.ensureTableExists();
+
+        // Sync students from DB into students.txt on startup so the file reflects DB
+        try {
+            if (utils.DBManager.isConfigured()) {
+                java.util.List<student.Student> students = dao.StudentDAO.findAll();
+                utils.FileStorage.saveStudents(students);
+                System.out.println("[MainApp] Synced students.txt from database on startup.");
+            }
+        } catch (Exception e) {
+            System.err.println("[MainApp] Failed to sync students from DB: " + e.getMessage());
+        }
         
         // Configure primary stage
         stage.setTitle("STI ProWear System - Modern Inventory Management");

@@ -262,6 +262,46 @@ public class StockReturnLogger {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Log administrative actions (non-stock) into the same stock logs file so
+     * Admin Dashboard can display recent admin activities such as account
+     * activation/deactivation, staff creation, maintenance toggles, etc.
+     *
+     * The log format follows the file schema: Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
+     * We'll use itemCode=0 and leave itemName/size/stockChange empty for admin actions.
+     */
+    public static void logAdminAction(String performedBy, String action, String details) {
+        try {
+            java.nio.file.Path file = java.nio.file.Paths.get(getLogFilePath());
+            writeHeaderIfMissing(file);
+
+            String timestamp = LocalDateTime.now().format(formatter);
+            int itemCode = 0;
+            String itemName = "";
+            String size = "";
+            String stockChange = "";
+            String logEntry = String.format("%s|%s|%d|%s|%s|%s|%s|%s",
+                timestamp, performedBy, itemCode, itemName, size, stockChange, action, details == null ? "" : details);
+
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file.toFile(), true);
+                 java.nio.channels.FileChannel ch = fos.getChannel();
+                 java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(fos, java.nio.charset.StandardCharsets.UTF_8);
+                 java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
+                bw.write(logEntry);
+                bw.newLine();
+                bw.flush();
+                ch.force(true);
+            }
+
+            // Also persist to DB when available
+            writeToDatabase(timestamp, performedBy, itemCode, itemName, size, stockChange, action, details == null ? "" : details);
+
+        } catch (IOException e) {
+            System.err.println("[StockReturnLogger] Error logging admin action: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
     
     // Generic log method
     private static void logStockChange(String performedBy, int itemCode, String itemName,

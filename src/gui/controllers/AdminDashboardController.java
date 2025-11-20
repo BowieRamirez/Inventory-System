@@ -38,6 +38,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -136,10 +137,45 @@ public class AdminDashboardController {
             "-fx-border-radius: 8px;"
         );
         
-        // Show placeholder for admin activities
-        Label noActivity = new Label("No recent admin activities");
-        noActivity.setStyle("-fx-text-fill: -color-fg-muted;");
-        activityBox.getChildren().add(noActivity);
+        // Populate recent admin activity (show up to 5 latest entries)
+        List<String[]> recentLogs = loadStockLogs();
+        if (recentLogs == null || recentLogs.isEmpty()) {
+            Label noActivity = new Label("No recent admin activities");
+            noActivity.setStyle("-fx-text-fill: -color-fg-muted;");
+            activityBox.getChildren().add(noActivity);
+        } else {
+            int max = Math.min(5, recentLogs.size());
+            for (int i = 0; i < max; i++) {
+                String[] parts = recentLogs.get(i);
+                // parts: Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
+                String ts = parts.length > 0 ? parts[0] : "";
+                String by = parts.length > 1 ? parts[1] : "";
+                String itemName = parts.length > 3 ? parts[3] : "";
+                String stockChange = parts.length > 5 ? parts[5] : "";
+                String action = parts.length > 6 ? parts[6] : "";
+                String details = parts.length > 7 ? parts[7] : "";
+
+                HBox row = new HBox(12);
+                row.setAlignment(Pos.CENTER_LEFT);
+                Label timeLabel = new Label(ts);
+                timeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
+                Label msgLabel = new Label(String.format("%s — %s %s %s %s", by, action, itemName, stockChange, details));
+                msgLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
+                row.getChildren().addAll(timeLabel, msgLabel);
+                activityBox.getChildren().add(row);
+            }
+            // Add 'View All' button to open full stock logs view
+            Button viewAll = new Button("View All Activities");
+            viewAll.setOnAction(e -> {
+                Dialog<Void> dlg = new Dialog<>();
+                dlg.setTitle("All Activities");
+                dlg.getDialogPane().setContent(createStockLogsView());
+                dlg.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+                dlg.showAndWait();
+            });
+            viewAll.setStyle("-fx-background-color: -color-accent-emphasis; -fx-text-fill: white; -fx-cursor: hand;");
+            activityBox.getChildren().add(viewAll);
+        }
         
         container.getChildren().addAll(
             statsBoxRow1,
@@ -320,7 +356,7 @@ public class AdminDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, paginationBar);
 
         return container;
     }
@@ -1156,22 +1192,83 @@ public class AdminDashboardController {
 
         table.getColumns().addAll(idCol, nameCol, courseCol, genderCol, activeCol, actionsCol);
 
-        // Load data
-        ObservableList<Student> studentList = FXCollections.observableArrayList(students);
-        table.setItems(studentList);
+        // Pagination + search setup (10 items per page, prev/next, page label visible when pages > 2)
+        final List<Student> masterStudents = new ArrayList<>(students);
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[]{1};
 
-        // Search functionality
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                table.setItems(FXCollections.observableArrayList(students));
-            } else {
-                List<Student> filtered = students.stream()
-                    .filter(s -> s.getFullName().toLowerCase().contains(newVal.toLowerCase()) ||
-                               s.getStudentId().toLowerCase().contains(newVal.toLowerCase()))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(filtered));
-            }
+        Label pageLabel = new Label();
+        Button prevBtn = new Button("← Previous");
+        Button nextBtn = new Button("Next →");
+        // small page search (syncs to main search)
+        TextField pageSearch = new TextField();
+        pageSearch.setPromptText("Search in pages...");
+        pageSearch.setPrefWidth(180);
+
+        // When hidden, the pageSearch should not take up layout space
+        pageSearch.managedProperty().bind(pageSearch.visibleProperty());
+
+        HBox paginationBar = new HBox(12);
+        paginationBar.setAlignment(Pos.CENTER);
+        paginationBar.setPadding(new Insets(12, 0, 0, 0));
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        paginationBar.getChildren().addAll(prevBtn, pageLabel, pageSearch, nextBtn);
+        // Keep the pagination bar compact; don't stretch across the full width
+        paginationBar.setMaxWidth(Region.USE_PREF_SIZE);
+
+        // Set row height
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Student> row = new javafx.scene.control.TableRow<>();
+            row.setPrefHeight(65);
+            return row;
         });
+
+        // Update page contents based on search and current page
+        Runnable updateStudentPage = () -> {
+            String query = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+            List<Student> filtered = masterStudents.stream()
+                    .filter(s -> s.getFullName().toLowerCase().contains(query) || s.getStudentId().toLowerCase().contains(query))
+                    .collect(java.util.stream.Collectors.toList());
+
+            int totalPages = Math.max(1, (int) Math.ceil((double) filtered.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            int from = (currentPage[0] - 1) * itemsPerPage;
+            int to = Math.min(filtered.size(), from + itemsPerPage);
+            List<Student> pageData = filtered.subList(Math.max(0, from), Math.max(0, to));
+            table.setItems(FXCollections.observableArrayList(pageData));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+
+            // Show pageSearch only when there are more than 2 pages
+            pageSearch.setVisible(totalPages > 2);
+        };
+
+        // Wire controls
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) currentPage[0]--;
+            updateStudentPage.run();
+        });
+        nextBtn.setOnAction(e -> {
+            currentPage[0]++;
+            updateStudentPage.run();
+        });
+
+        // Top-level search affects pagination
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            currentPage[0] = 1;
+            updateStudentPage.run();
+        });
+
+        // Page-level search (visible when many pages) copies into main search to reuse filtering
+        pageSearch.textProperty().addListener((obs, oldVal, newVal) -> {
+            searchField.setText(newVal);
+        });
+
+        // Initial populate
+        updateStudentPage.run();
 
         // Button actions
         refreshBtn.setOnAction(e -> {
@@ -1181,7 +1278,7 @@ public class AdminDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, paginationBar);
 
         return container;
     }
@@ -1282,22 +1379,77 @@ public class AdminDashboardController {
 
         table.getColumns().addAll(idCol, nameCol, roleCol, activeCol, actionsCol);
 
-        // Load data
-        ObservableList<Staff> staffObsList = FXCollections.observableArrayList(staffList);
-        table.setItems(staffObsList);
+        // Pagination + search for staff (10 items per page + prev/next + page search when >2 pages)
+        final List<Staff> masterStaff = new ArrayList<>(staffList);
+        final int staffItemsPerPage = 10;
+        final int[] staffCurrentPage = new int[]{1};
 
-        // Search functionality
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                table.setItems(FXCollections.observableArrayList(staffList));
-            } else {
-                List<Staff> filtered = staffList.stream()
-                    .filter(s -> s.getFullName().toLowerCase().contains(newVal.toLowerCase()) ||
-                               s.getStaffId().toLowerCase().contains(newVal.toLowerCase()))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(filtered));
-            }
+        Label staffPageLabel = new Label();
+        Button staffPrevBtn = new Button("Previous");
+        Button staffNextBtn = new Button("Next");
+        TextField staffPageSearch = new TextField();
+        staffPageSearch.setPromptText("Search in pages...");
+        staffPageSearch.setPrefWidth(180);
+
+        // When hidden, the staffPageSearch should not take up layout space
+        staffPageSearch.managedProperty().bind(staffPageSearch.visibleProperty());
+
+        HBox staffPaginationBar = new HBox(12);
+        staffPaginationBar.setAlignment(Pos.CENTER);
+        staffPaginationBar.setPadding(new Insets(12, 0, 0, 0));
+        staffPageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        staffNextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+        staffPaginationBar.getChildren().addAll(staffPrevBtn, staffPageLabel, staffPageSearch, staffNextBtn);
+        // Keep the staff pagination bar compact; don't stretch across the full width
+        staffPaginationBar.setMaxWidth(Region.USE_PREF_SIZE);
+
+        // Set row height
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Staff> row = new javafx.scene.control.TableRow<>();
+            row.setPrefHeight(65);
+            return row;
         });
+
+        // Update page contents based on search and current page
+        Runnable updateStaffPage = () -> {
+            String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+            List<Staff> filtered = masterStaff.stream()
+                    .filter(s -> s.getFullName().toLowerCase().contains(q) || s.getStaffId().toLowerCase().contains(q))
+                    .collect(java.util.stream.Collectors.toList());
+
+            int totalPages = Math.max(1, (int) Math.ceil((double) filtered.size() / staffItemsPerPage));
+            if (staffCurrentPage[0] > totalPages) staffCurrentPage[0] = totalPages;
+            int from = (staffCurrentPage[0] - 1) * staffItemsPerPage;
+            int to = Math.min(filtered.size(), from + staffItemsPerPage);
+            List<Staff> pageData = filtered.subList(Math.max(0, from), Math.max(0, to));
+            table.setItems(FXCollections.observableArrayList(pageData));
+
+            staffPageLabel.setText("Page " + staffCurrentPage[0] + " of " + totalPages);
+            staffPrevBtn.setDisable(staffCurrentPage[0] <= 1);
+            staffNextBtn.setDisable(staffCurrentPage[0] >= totalPages);
+            staffPageSearch.setVisible(totalPages > 2);
+        };
+
+        staffPrevBtn.setOnAction(e -> {
+            if (staffCurrentPage[0] > 1) staffCurrentPage[0]--;
+            updateStaffPage.run();
+        });
+        staffNextBtn.setOnAction(e -> {
+            staffCurrentPage[0]++;
+            updateStaffPage.run();
+        });
+
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            staffCurrentPage[0] = 1;
+            updateStaffPage.run();
+        });
+
+        staffPageSearch.textProperty().addListener((obs, oldVal, newVal) -> {
+            searchField.setText(newVal);
+        });
+
+        // Initial populate
+        updateStaffPage.run();
 
         // Button actions
         addStaffBtn.setOnAction(e -> handleAddStaff(table));
@@ -1309,7 +1461,7 @@ public class AdminDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, staffPaginationBar);
 
         return container;
     }
@@ -1327,6 +1479,9 @@ public class AdminDashboardController {
             FileStorage.saveStudents(students);
             table.refresh();
             AlertHelper.showSuccess("Success", "Account " + action + "d successfully!");
+            // Log admin action for audit/Recent Activity
+            String adminAction = action.equals("deactivate") ? "STUDENT_DEACTIVATED" : "STUDENT_ACTIVATED";
+            StockReturnLogger.logAdminAction("Admin", adminAction, "Student: " + student.getStudentId() + " - " + student.getFullName());
         }
     }
     
@@ -1391,6 +1546,7 @@ public class AdminDashboardController {
                         "Student ID: " + student.getStudentId() + "\n" +
                         "New Password: " + newPassword);
                     SystemLogger.logActivity("Admin reset password for student: " + student.getStudentId());
+                    StockReturnLogger.logAdminAction("Admin", "STUDENT_PASSWORD_RESET", "Student: " + student.getStudentId() + " - " + student.getFullName());
                 }
             }
         });
@@ -1459,6 +1615,7 @@ public class AdminDashboardController {
                         "Role: " + staff.getRole() + "\n" +
                         "New Password: " + newPassword);
                     SystemLogger.logActivity("Admin reset password for staff: " + staff.getStaffId() + " (" + staff.getRole() + ")");
+                    StockReturnLogger.logAdminAction("Admin", "STAFF_PASSWORD_RESET", "Staff: " + staff.getStaffId() + " - " + staff.getFullName() + " (" + staff.getRole() + ")");
                 }
             }
         });
@@ -1535,6 +1692,7 @@ public class AdminDashboardController {
             if (FileStorage.addStaff(staffList, newStaff)) {
                 table.setItems(FXCollections.observableArrayList(staffList));
                 AlertHelper.showSuccess("Success", "Staff member added successfully!");
+                StockReturnLogger.logAdminAction("Admin", "STAFF_ADDED", "Staff: " + newStaff.getStaffId() + " - " + newStaff.getFullName() + " (" + newStaff.getRole() + ")");
             } else {
                 AlertHelper.showError("Error", "Failed to add staff member!");
             }
@@ -1628,6 +1786,8 @@ public class AdminDashboardController {
             FileStorage.saveStaff(staffList);
             table.refresh();
             AlertHelper.showSuccess("Success", "Account " + action + "d successfully!");
+            String adminAction = action.equals("deactivate") ? "STAFF_DEACTIVATED" : "STAFF_ACTIVATED";
+            StockReturnLogger.logAdminAction("Admin", adminAction, "Staff: " + staff.getStaffId() + " - " + staff.getFullName() + " (" + staff.getRole() + ")");
         }
     }
     
@@ -2318,9 +2478,21 @@ public class AdminDashboardController {
                     String[] parts = line.split("\\|", -1); // Use -1 to include trailing empty strings
                     if (parts.length >= 8) {
                         String action = parts[6].trim(); // Action column
-                        
-                        // Show admin-relevant actions
-                        if (adminRelevantActions.contains(action)) {
+
+                        // Show admin-relevant actions AND only those performed by an Admin actor.
+                        // PerformedBy (parts[1]) contains the actor label (e.g., "Admin", "staff", or a username).
+                        String performedBy = parts.length > 1 ? parts[1].trim() : "";
+                        boolean isAdminActor = performedBy.equalsIgnoreCase("admin") || performedBy.toLowerCase().contains("admin");
+
+                            // Show logs when performed by Admin and the action is relevant to admin activities.
+                            boolean actionIsAdminRelated = adminRelevantActions.contains(action)
+                                || action.startsWith("STAFF_")
+                                || action.startsWith("STUDENT_")
+                                || action.startsWith("MAINTENANCE")
+                                || action.startsWith("ITEM_")
+                                || "PRICE_UPDATED".equals(action);
+
+                            if (isAdminActor && actionIsAdminRelated) {
                             // Trim all parts for cleaner display
                             for (int i = 0; i < parts.length; i++) {
                                 parts[i] = parts[i].trim();

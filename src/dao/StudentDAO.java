@@ -6,6 +6,7 @@ import java.util.List;
 
 import student.Student;
 import utils.DBManager;
+import utils.FileStorage;
 
 public class StudentDAO {
 
@@ -48,6 +49,21 @@ public class StudentDAO {
             ps.setString(6, s.getGender());
             ps.setBoolean(7, s.isActive());
             ps.executeUpdate();
+            // Mirror to students.txt so file and DB stay in sync for environments using both
+            try {
+                List<Student> students = FileStorage.loadStudents();
+                // Prevent duplicate entries in the file: check if exists first
+                boolean existsInFile = false;
+                for (Student st : students) {
+                    if (st.getStudentId().equals(s.getStudentId())) { existsInFile = true; break; }
+                }
+                if (!existsInFile) {
+                    FileStorage.addStudent(students, s);
+                }
+            } catch (Exception ex) {
+                System.err.println("[StudentDAO] Failed to mirror student to file: " + ex.getMessage());
+                ex.printStackTrace();
+            }
         }
     }
 
@@ -69,5 +85,53 @@ public class StudentDAO {
             }
         }
         return list;
+    }
+
+    /**
+     * Update an existing student in the database and mirror to students.txt
+     */
+    public static boolean update(Student s) throws SQLException {
+        String sql = "UPDATE students SET password=?, course_code=?, first_name=?, last_name=?, gender=?, is_active=? WHERE student_id=?";
+        try (Connection con = DBManager.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, s.getPassword());
+            ps.setString(2, s.getCourse());
+            ps.setString(3, s.getFirstName());
+            ps.setString(4, s.getLastName());
+            ps.setString(5, s.getGender());
+            ps.setBoolean(6, s.isActive());
+            ps.setString(7, s.getStudentId());
+            int updated = ps.executeUpdate();
+
+            // Mirror full DB to file after update for consistency
+            try {
+                List<Student> students = findAll();
+                FileStorage.saveStudents(students);
+            } catch (Exception ex) {
+                System.err.println("[StudentDAO] Failed to mirror students to file after update: " + ex.getMessage());
+            }
+
+            return updated > 0;
+        }
+    }
+
+    /**
+     * Delete a student by ID and mirror to students.txt
+     */
+    public static boolean deleteById(String studentId) throws SQLException {
+        String sql = "DELETE FROM students WHERE student_id=?";
+        try (Connection con = DBManager.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, studentId);
+            int deleted = ps.executeUpdate();
+
+            // Mirror full DB to file after delete
+            try {
+                List<Student> students = findAll();
+                FileStorage.saveStudents(students);
+            } catch (Exception ex) {
+                System.err.println("[StudentDAO] Failed to mirror students to file after delete: " + ex.getMessage());
+            }
+
+            return deleted > 0;
+        }
     }
 }

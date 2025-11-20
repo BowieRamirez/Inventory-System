@@ -46,6 +46,7 @@ public class LoginView {
     private Label titleLabel;
     private TextField usernameField;
     private PasswordField passwordField;
+    private TextField visiblePasswordField;
     private Button loginButton;
     private Button signupButton;
     private StackPane toggleSwitch;
@@ -194,14 +195,43 @@ public class LoginView {
         );
         usernameBox.getChildren().addAll(usernameLabel, usernameField);
         
-        // Password field
+        // Password field with show/hide toggle
         VBox passwordBox = new VBox(10);
         Label passwordLabel = new Label("Password");
         passwordLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 13px;");
+
+        // Hidden (masked) password field
         passwordField = new PasswordField();
         passwordField.setPromptText("Type your password");
         passwordField.setPrefHeight(45);
-        passwordField.setStyle(
+
+        // Visible password text field (initially hidden)
+        visiblePasswordField = new TextField();
+        visiblePasswordField.setPromptText("Type your password");
+        visiblePasswordField.setPrefHeight(45);
+        visiblePasswordField.setVisible(false);
+        visiblePasswordField.setManaged(false);
+
+        // Keep both fields in sync
+        visiblePasswordField.textProperty().bindBidirectional(passwordField.textProperty());
+
+        // Show/hide toggle button (eye icon)
+        Button togglePassword = new Button("👁");
+        togglePassword.setFocusTraversable(false);
+        togglePassword.setPrefHeight(38);
+        togglePassword.setStyle(
+            "-fx-background-color: transparent; -fx-cursor: hand; -fx-font-size: 14px;"
+        );
+
+        // Stack to layer the password input and place the toggle inside the box
+        StackPane passStack = new StackPane();
+        passStack.setPrefHeight(45);
+        // Make the text fields fill available width
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+        HBox.setHgrow(visiblePasswordField, Priority.ALWAYS);
+
+        // Apply same base styling to both input fields
+        String pwdStyle =
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
@@ -211,9 +241,43 @@ public class LoginView {
             "-fx-background-radius: 10px;" +
             "-fx-padding: 12px;" +
             "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
-        );
-        passwordBox.getChildren().addAll(passwordLabel, passwordField);
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);";
+
+        // Increase right padding on fields so text doesn't overlap the toggle
+        String paddedPwdStyle = pwdStyle.replace("-fx-padding: 12px;", "-fx-padding: 12px 44px 12px 12px;");
+        passwordField.setStyle(paddedPwdStyle);
+        visiblePasswordField.setStyle(paddedPwdStyle);
+
+        passStack.getChildren().addAll(passwordField, visiblePasswordField, togglePassword);
+        StackPane.setAlignment(togglePassword, Pos.CENTER_RIGHT);
+        StackPane.setMargin(togglePassword, new Insets(0, 10, 0, 0));
+
+        // Toggle action: switch visibility between masked and visible fields
+        togglePassword.setOnAction(e -> {
+            boolean showing = visiblePasswordField.isVisible();
+            if (showing) {
+                // Hide visible, show masked
+                visiblePasswordField.setVisible(false);
+                visiblePasswordField.setManaged(false);
+                passwordField.setVisible(true);
+                passwordField.setManaged(true);
+                passwordField.requestFocus();
+                passwordField.positionCaret(passwordField.getText().length());
+            } else {
+                // Show visible, hide masked
+                visiblePasswordField.setVisible(true);
+                visiblePasswordField.setManaged(true);
+                passwordField.setVisible(false);
+                passwordField.setManaged(false);
+                visiblePasswordField.requestFocus();
+                visiblePasswordField.positionCaret(visiblePasswordField.getText().length());
+            }
+        });
+
+        // Enter key support for the visible field
+        visiblePasswordField.setOnAction(e -> handleLogin());
+
+        passwordBox.getChildren().addAll(passwordLabel, passStack);
 
         // Sign in button (full width, yellow theme with glass effect)
         loginButton = new Button("Sign in");
@@ -367,7 +431,6 @@ public class LoginView {
     private void handleSignup() {
         controller.handleSignup();
     }
-    
     /**
      * Toggle between light and dark theme
      */
@@ -462,7 +525,7 @@ public class LoginView {
             "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
         );
-        passwordField.setStyle(
+        String pwdStyle =
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
@@ -472,8 +535,12 @@ public class LoginView {
             "-fx-background-radius: 10px;" +
             "-fx-padding: 12px;" +
             "-fx-prompt-text-fill: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.5)" : "#999999") + ";" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
-        );
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);";
+        String paddedPwdStyle = pwdStyle.replace("-fx-padding: 12px;", "-fx-padding: 12px 44px 12px 12px;");
+        passwordField.setStyle(paddedPwdStyle);
+        if (visiblePasswordField != null) {
+            visiblePasswordField.setStyle(paddedPwdStyle);
+        }
         
         // Update signup prompt (index 5 - after login button)
         HBox signupPrompt = (HBox) loginCard.getChildren().get(5);

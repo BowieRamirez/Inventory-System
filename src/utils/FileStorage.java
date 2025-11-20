@@ -215,12 +215,14 @@ public class FileStorage {
      */
     public static boolean saveStudents(List<Student> students) {
         try {
-            // Ensure parent directory exists
+            System.out.println("[FileStorage] Saving " + students.size() + " students...");
+            // Write to primary students file (STUDENTS_FILE)
+            System.out.println("[FileStorage] Primary students file: " + STUDENTS_FILE.getAbsolutePath());
             File parentDir = STUDENTS_FILE.getParentFile();
-            if (!parentDir.exists()) {
+            if (parentDir != null && !parentDir.exists()) {
                 parentDir.mkdirs();
             }
-            
+
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(STUDENTS_FILE))) {
                 for (Student student : students) {
                     writer.write(studentToFileFormat(student));
@@ -228,12 +230,30 @@ public class FileStorage {
                 }
                 writer.flush(); // Ensure data is written to disk
             }
-            
+
+            // Also mirror to alternative runtime path so file updates are visible
+            File alt = new File("database/data/students.txt");
+            File altParent = alt.getParentFile();
+            if (altParent != null && !altParent.exists()) {
+                altParent.mkdirs();
+            }
+            System.out.println("[FileStorage] Mirroring to alt file: " + alt.getAbsolutePath());
+            try (BufferedWriter writer2 = new BufferedWriter(new FileWriter(alt))) {
+                for (Student student : students) {
+                    writer2.write(studentToFileFormat(student));
+                    writer2.newLine();
+                }
+                writer2.flush();
+            }
+
             // Force file timestamp update
-            STUDENTS_FILE.setLastModified(System.currentTimeMillis());
+            try { STUDENTS_FILE.setLastModified(System.currentTimeMillis()); } catch (Exception ignored) {}
+            try { alt.setLastModified(System.currentTimeMillis()); } catch (Exception ignored) {}
 
             return true;
         } catch (IOException e) {
+            System.err.println("[FileStorage] Failed to save students: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
