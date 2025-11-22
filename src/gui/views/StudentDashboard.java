@@ -58,13 +58,17 @@ public class StudentDashboard {
     private StackPane toggleCircle;
     private Label toggleIcon;
     private Button accountBtn;
+    private Button notificationBtn;
     
     // Track current view
     private Runnable currentViewRefresher;
+    // Track active tab name so recreating the top bar preserves selection
+    private String activeTabName;
     
     public StudentDashboard(Student student) {
         this.student = student;
         controller = new StudentDashboardController(student);
+        controller.setNotificationUpdateCallback(() -> updateNotificationBadge());
         controller.setRefreshCallback(() -> refreshCurrentView());
         controller.setNavigateToShopCallback(() -> {
             setActiveTab(shopBtn);
@@ -82,6 +86,9 @@ public class StudentDashboard {
         
         // Create top bar
         view.setTop(createTopBar());
+
+        // Initialize notification badge
+        updateNotificationBadge();
         
         // Create content area
         contentArea = new StackPane();
@@ -157,8 +164,10 @@ public class StudentDashboard {
         claimItemsBtn = createNavTab("Claim Items", false);
         myReservationsBtn = createNavTab("My Reservations", false);
         
-        // Set Home as initially active
-        setActiveTab(homeBtn);
+        // Preserve previously active tab if set, otherwise default to Home
+        if (activeTabName == null) {
+            activeTabName = "Home";
+        }
         
         // Button actions
         homeBtn.setOnAction(e -> {
@@ -194,6 +203,15 @@ public class StudentDashboard {
         navContainer.setAlignment(Pos.CENTER);
         navContainer.getChildren().addAll(homeBtn, shopBtn, cartBtn, claimItemsBtn, myReservationsBtn);
         HBox.setHgrow(navContainer, Priority.ALWAYS);
+
+        // Apply the active tab based on last selection
+        switch (activeTabName) {
+            case "Shop": setActiveTab(shopBtn); break;
+            case "Cart": setActiveTab(cartBtn); break;
+            case "Claim Items": setActiveTab(claimItemsBtn); break;
+            case "My Reservations": setActiveTab(myReservationsBtn); break;
+            default: setActiveTab(homeBtn); break;
+        }
         
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -312,7 +330,25 @@ public class StudentDashboard {
             accountMenu.show(accountBtn, Side.BOTTOM, 0, 5);
         });
         
-        headerRow.getChildren().addAll(logoBox, navContainer, toggleSwitch, accountBtn);
+        // Notification button (bell) - clickable to open notifications dialog
+        notificationBtn = new Button("🔔");
+        notificationBtn.setStyle(
+            "-fx-background-color: rgba(255,255,255,0.12);" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 16px;" +
+            "-fx-cursor: hand;" +
+            "-fx-border-width: 0;" +
+            "-fx-padding: 8 10;" +
+            "-fx-border-radius: 6;" +
+            "-fx-background-radius: 6;"
+        );
+        notificationBtn.setOnAction(e -> {
+            controller.showNotificationsDialog();
+            // update badge after user views
+            updateNotificationBadge();
+        });
+
+        headerRow.getChildren().addAll(logoBox, navContainer, toggleSwitch, notificationBtn, accountBtn);
         
         // Add thicker separator line under header for stronger visual weight
         Separator separator = new Separator();
@@ -359,6 +395,10 @@ public class StudentDashboard {
      * Set active navigation tab
      */
     private void setActiveTab(Button activeBtn) {
+        // remember active tab name so recreating top bar keeps selection
+        if (activeBtn != null) {
+            activeTabName = activeBtn.getText();
+        }
         Button[] buttons = {homeBtn, shopBtn, cartBtn, claimItemsBtn, myReservationsBtn};
         
         for (Button btn : buttons) {
@@ -421,6 +461,19 @@ public class StudentDashboard {
     private void updateCartBadge() {
         int cartSize = controller.getCartSize();
         cartBtn.setText("Cart (" + cartSize + ")");
+    }
+
+    /**
+     * Update notification badge with unread count
+     */
+    private void updateNotificationBadge() {
+        if (notificationBtn == null) return;
+        int count = controller.getUnreadNotificationCount();
+        if (count > 0) {
+            notificationBtn.setText("🔔 (" + count + ")");
+        } else {
+            notificationBtn.setText("🔔");
+        }
     }
     
     /**
@@ -521,6 +574,8 @@ public class StudentDashboard {
         
         // Recreate top bar to update all colors
         view.setTop(createTopBar());
+        // Re-apply notification badge after recreating top bar
+        updateNotificationBadge();
         
         // Re-apply active tab
         if (currentViewRefresher != null) {
