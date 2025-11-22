@@ -7,9 +7,16 @@ import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.util.Duration;
@@ -31,9 +38,6 @@ public class StaffDashboard {
     private StaffDashboardController controller;
     
     private Button reservationsBtn;
-    private Button completedBtn;
-    private Button returnedBtn;
-    private Button cancelledBtn;
     private Button inventoryBtn;
     private Button stockLogsBtn;
     private Button logoutBtn;
@@ -194,9 +198,6 @@ public class StaffDashboard {
         
         dashboardBtn = createNavButton("📊 Dashboard", true);
         reservationsBtn = createNavButton("📋 Reservations", false);
-        completedBtn = createNavButton("✅ Completed", false);
-        returnedBtn = createNavButton("↩️ Returned", false);
-        cancelledBtn = createNavButton("❌ Cancelled", false);
         inventoryBtn = createNavButton("📦 Inventory", false);
         stockLogsBtn = createNavButton("📝 Stock Logs", false);
         
@@ -227,22 +228,6 @@ public class StaffDashboard {
             showReservations();
         });
         
-        
-        completedBtn.setOnAction(e -> {
-            setActiveButton(completedBtn);
-            showCompleted();
-        });
-        
-        returnedBtn.setOnAction(e -> {
-            setActiveButton(returnedBtn);
-            showReturned();
-        });
-        
-        cancelledBtn.setOnAction(e -> {
-            setActiveButton(cancelledBtn);
-            showCancelled();
-        });
-        
         inventoryBtn.setOnAction(e -> {
             setActiveButton(inventoryBtn);
             showInventory();
@@ -260,9 +245,6 @@ public class StaffDashboard {
             new Separator(),
             dashboardBtn,
             reservationsBtn,
-            completedBtn,
-            returnedBtn,
-            cancelledBtn,
             inventoryBtn,
             stockLogsBtn,
             spacer,
@@ -302,7 +284,7 @@ public class StaffDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {dashboardBtn, reservationsBtn, completedBtn, returnedBtn, cancelledBtn, inventoryBtn, stockLogsBtn};
+        Button[] buttons = {dashboardBtn, reservationsBtn, inventoryBtn, stockLogsBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -351,24 +333,6 @@ public class StaffDashboard {
         titleLabel.setText("Stock Logs");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createStockLogsView());
-    }
-    
-    private void showCompleted() {
-        titleLabel.setText("Completed Orders");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createCompletedView());
-    }
-    
-    private void showReturned() {
-        titleLabel.setText("Returned Orders");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createReturnedView());
-    }
-    
-    private void showCancelled() {
-        titleLabel.setText("Cancelled Orders");
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(controller.createCancelledView());
     }
     
     /**

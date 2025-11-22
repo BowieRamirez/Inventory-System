@@ -17,13 +17,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import utils.StockReturnLogger;
 import gui.utils.AlertHelper;
-import gui.utils.ThemeManager;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
+import gui.utils.ThemeManager;
 import gui.views.LoginView;
 import inventory.InventoryManager;
 import inventory.Item;
@@ -35,9 +35,6 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.animation.ScaleTransition;
-import javafx.util.Duration;
- 
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
 import javafx.scene.chart.LineChart;
@@ -50,22 +47,21 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.Region;
-import javafx.scene.control.Tab;
-import java.util.logging.Logger;
-import javafx.scene.control.TabPane;
+import javafx.scene.layout.VBox;
+import utils.StockReturnLogger;
 
 /**
  * StaffDashboardController - Handles staff dashboard operations
@@ -204,81 +200,59 @@ public class StaffDashboardController {
         
         statsBox.getChildren().addAll(pendingCard, pickupApprovalsCard, completedCard);
 
-        // Filter buttons
+        // Filter Bar with Dropdowns
         HBox filterBar = new HBox(15);
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
-        Button allBtn = new Button("All");
-        Button pendingBtn = new Button("Pending");
-        Button approvedBtn = new Button("Approved");
-        Button replacedBtn = new Button("Replaced");
-        Button pickupApprovalsBtn = new Button("📦 Pickup Approvals");
-        Button returnRequestsBtn = new Button("Replacement Requests");
-        Button refreshBtn = new Button("🔄 Refresh");
+        // Status Filter
+        ComboBox<String> statusFilter = new ComboBox<>(FXCollections.observableArrayList(
+            "All Statuses", "Pending", "Approved", "Replaced", "Cancelled", "Pickup Approvals", "Replacement Requests"
+        ));
+        statusFilter.setValue("Pending");
+        statusFilter.setPrefWidth(180);
+        statusFilter.setPrefHeight(45);
+        // Theme-aware styling matching inventory tab
+        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+        String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
+        String baseComboStyle =
+            "-fx-font-size: 13px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-control-inner-background: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: " + fieldBorder + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 4px;" +
+            "-fx-background-radius: 4px;" +
+            "-fx-padding: 0px 8px;" +
+            "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+        statusFilter.setStyle(baseComboStyle);
 
-        styleActionButton(allBtn);
-        styleActionButton(pendingBtn);
-        styleActionButton(approvedBtn);
-        styleActionButton(replacedBtn);
-        styleActionButton(pickupApprovalsBtn);
-        styleActionButton(returnRequestsBtn);
+        Button clearFilterBtn = new Button("Clear Filters");
+        styleActionButton(clearFilterBtn);
+
+        Button refreshBtn = new Button("🔄 Refresh");
         styleActionButton(refreshBtn);
 
         // Create small red badge labels for pickup and replacement counts
         int initialPickupCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval()).size();
         int initialReplacementCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests()).size();
-        int initialPendingCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPendingReservations()).size();
-
-        final Label pickupBadge = new Label(String.valueOf(initialPickupCount));
+        
+        // Badges for the Type filter to indicate pending actions
+        Label pickupBadge = new Label(String.valueOf(initialPickupCount));
         pickupBadge.setVisible(initialPickupCount > 0);
-        pickupBadge.setStyle(
-            "-fx-background-color: #CF222E; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 11px; " +
-            "-fx-padding: 2 6; " +
-            "-fx-background-radius: 999px; " +
-            "-fx-min-width: 20px; " +
-            "-fx-alignment: center;"
-        );
-
-        final Label returnBadge = new Label(String.valueOf(initialReplacementCount));
+        pickupBadge.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; -fx-font-size: 10px; -fx-padding: 2 5; -fx-background-radius: 10;");
+        
+        Label returnBadge = new Label(String.valueOf(initialReplacementCount));
         returnBadge.setVisible(initialReplacementCount > 0);
+        returnBadge.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; -fx-font-size: 10px; -fx-padding: 2 5; -fx-background-radius: 10;");
 
-        final Label pendingBadge = new Label(String.valueOf(initialPendingCount));
-        pendingBadge.setVisible(initialPendingCount > 0);
-        pendingBadge.setStyle(
-            "-fx-background-color: #CF222E; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 11px; " +
-            "-fx-padding: 2 6; " +
-            "-fx-background-radius: 999px; " +
-            "-fx-min-width: 20px; " +
-            "-fx-alignment: center;"
-        );
-        returnBadge.setStyle(
-            "-fx-background-color: #CF222E; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 11px; " +
-            "-fx-padding: 2 6; " +
-            "-fx-background-radius: 999px; " +
-            "-fx-min-width: 20px; " +
-            "-fx-alignment: center;"
-        );
+        // We can't easily attach badges to ComboBox items directly in standard JavaFX without a custom cell factory.
+        // For now, we'll just show the counts in the stats cards at the top, which is already done.
+        // Or we can append the count to the text in the ComboBox items dynamically.
 
-        // Stack the badge on top-right of the button
-        StackPane pickupStack = new StackPane(pickupApprovalsBtn, pickupBadge);
-        StackPane.setAlignment(pickupBadge, Pos.TOP_RIGHT);
-        StackPane.setMargin(pickupBadge, new Insets(0, -6, 20, 0));
-
-        StackPane returnStack = new StackPane(returnRequestsBtn, returnBadge);
-        StackPane.setAlignment(returnBadge, Pos.TOP_RIGHT);
-        StackPane.setMargin(returnBadge, new Insets(0, -6, 20, 0));
-
-        StackPane pendingStack = new StackPane(pendingBtn, pendingBadge);
-        StackPane.setAlignment(pendingBadge, Pos.TOP_RIGHT);
-        StackPane.setMargin(pendingBadge, new Insets(0, -6, 20, 0));
-
-        filterBar.getChildren().addAll(allBtn, pendingStack, approvedBtn, replacedBtn, pickupStack, returnStack, refreshBtn);
+        filterBar.getChildren().addAll(new Label("Status:"), statusFilter, clearFilterBtn, refreshBtn);
 
         // Create reservations table
         TableView<Reservation> table = new TableView<>();
@@ -293,11 +267,37 @@ public class StaffDashboardController {
             }
             return new javafx.beans.property.SimpleStringProperty(String.valueOf(r.getReservationId()));
         });
-        idCol.setPrefWidth(180);
+        idCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String orderId, boolean empty) {
+                super.updateItem(orderId, empty);
+                if (empty || orderId == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText("📋 " + orderId);
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
+                }
+            }
+        });
+        idCol.setPrefWidth(220);
 
         TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
         studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
-        studentCol.setPrefWidth(150);
+        studentCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String studentName, boolean empty) {
+                super.updateItem(studentName, empty);
+                if (empty || studentName == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText("👤 " + studentName);
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
+                }
+            }
+        });
+        studentCol.setPrefWidth(200);
 
         TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
         itemCol.setCellValueFactory(data -> {
@@ -313,7 +313,25 @@ public class StaffDashboardController {
             }
             return new javafx.beans.property.SimpleStringProperty(r.getItemName());
         });
-        itemCol.setPrefWidth(200);
+        itemCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String itemName, boolean empty) {
+                super.updateItem(itemName, empty);
+                if (empty || itemName == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    Reservation r = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
+                    String icon = "👕";
+                    if (r != null && r.isPartOfBundle()) {
+                        icon = "📦";
+                    }
+                    setText(icon + " " + itemName);
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
+                }
+            }
+        });
+        itemCol.setPrefWidth(280);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
         sizeCol.setCellValueFactory(data -> {
@@ -335,7 +353,20 @@ public class StaffDashboardController {
             }
             return new javafx.beans.property.SimpleStringProperty(r.getSize());
         });
-        sizeCol.setPrefWidth(60);
+        sizeCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String size, boolean empty) {
+                super.updateItem(size, empty);
+                if (empty || size == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(size);
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center;");
+                }
+            }
+        });
+        sizeCol.setPrefWidth(80);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
         qtyCol.setCellValueFactory(data -> {
@@ -351,7 +382,20 @@ public class StaffDashboardController {
             }
             return new javafx.beans.property.SimpleObjectProperty<>(r.getQuantity());
         });
-        qtyCol.setPrefWidth(60);
+        qtyCol.setCellFactory(col -> new TableCell<Reservation, Integer>() {
+            @Override
+            protected void updateItem(Integer qty, boolean empty) {
+                super.updateItem(qty, empty);
+                if (empty || qty == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(String.valueOf(qty));
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center;");
+                }
+            }
+        });
+        qtyCol.setPrefWidth(80);
 
         TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total");
         priceCol.setCellValueFactory(data -> {
@@ -450,44 +494,6 @@ public class StaffDashboardController {
             }
         });
 
-        TableColumn<Reservation, Void> bundleCol = new TableColumn<>("Bundle");
-        bundleCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
-            private final Button bundleBtn = new Button("BUNDLE ORDER");
-            
-            {
-                bundleBtn.setStyle(
-                    "-fx-background-color: #0969DA; " +
-                    "-fx-text-fill: white; " +
-                    "-fx-font-weight: bold; " +
-                    "-fx-font-size: 10px; " +
-                    "-fx-padding: 5 10; " +
-                    "-fx-background-radius: 6; " +
-                    "-fx-cursor: hand;"
-                );
-            }
-
-            @Override
-            protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
-                    if (reservation == null) {
-                        setGraphic(null);
-                        return;
-                    }
-                    if (reservation.isPartOfBundle()) {
-                        bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
-                        setGraphic(bundleBtn);
-                    } else {
-                        setGraphic(null);
-                    }
-                }
-            }
-        });
-        bundleCol.setPrefWidth(130);
-
         
 
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
@@ -568,8 +574,10 @@ public class StaffDashboardController {
                 LOGGER.fine("[StaffDashboard] actions.updateForReservation resId=" + res.getReservationId() + " status='" + res.getStatus() + "' isBundle=" + isBundle);
 
                 if (showPending) {
-                    approveBtn.setText("✓ Approve");
-                    rejectBtn.setText("✗ Reject");
+                    approveBtn.setText("✓");
+                    approveBtn.setTooltip(new javafx.scene.control.Tooltip("Approve Reservation"));
+                    rejectBtn.setText("✗");
+                    rejectBtn.setTooltip(new javafx.scene.control.Tooltip("Reject Reservation"));
                     approveBtn.setOnAction(e -> {
                         Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
                             ? getTableView().getItems().get(getIndex())
@@ -584,8 +592,10 @@ public class StaffDashboardController {
                     });
                     setGraphic(buttons);
                 } else if (showReplacement) {
-                    approveBtn.setText("✓ Approve Replacement");
-                    rejectBtn.setText("✗ Reject Return");
+                    approveBtn.setText("✓");
+                    approveBtn.setTooltip(new javafx.scene.control.Tooltip("Approve Replacement"));
+                    rejectBtn.setText("✗");
+                    rejectBtn.setTooltip(new javafx.scene.control.Tooltip("Reject Return"));
                     approveBtn.setOnAction(e -> {
                         Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
                             ? getTableView().getItems().get(getIndex())
@@ -600,8 +610,10 @@ public class StaffDashboardController {
                     });
                     setGraphic(buttons);
                 } else if (showPickup) {
-                    approveBtn.setText("✓ Approve Pickup");
-                    rejectBtn.setText("✗ Reject");
+                    approveBtn.setText("✓");
+                    approveBtn.setTooltip(new javafx.scene.control.Tooltip("Approve Pickup"));
+                    rejectBtn.setText("✗");
+                    rejectBtn.setTooltip(new javafx.scene.control.Tooltip("Reject Pickup"));
                     approveBtn.setOnAction(e -> {
                         Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
                             ? getTableView().getItems().get(getIndex())
@@ -622,7 +634,7 @@ public class StaffDashboardController {
         });
         actionsCol.setPrefWidth(150);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, bundleCol, actionsCol);
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, actionsCol);
         
 
         // Pagination + search setup (10 items per page, prev/next, page label visible when pages > 2)
@@ -636,7 +648,7 @@ public class StaffDashboardController {
         List<Reservation> workingFiltered = new ArrayList<>(allReservations); // current filtered set from status buttons
 
         // Track current filter for refresh logic (default to PENDING)
-        final String[] currentFilter = {"PENDING"}; // ALL, PENDING, APPROVED, PICKUP_APPROVALS, RETURN_REQUESTS
+        // final String[] currentFilter = {"PENDING"}; // Removed as we use ComboBoxes now
 
         // Pagination controls
         HBox pageControls = new HBox(12);
@@ -729,175 +741,100 @@ public class StaffDashboardController {
         });
 
         // Filter actions - update workingFiltered and reset page
-        allBtn.setOnAction(e -> {
-            currentFilter[0] = "ALL";
-            List<Reservation> filtered = reservationManager.getAllReservations();
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
-            currentPage[0] = 1;
-            searchField.clear();
-            // Ensure actions column is visible for non-approved filters
-            actionsCol.setVisible(true);
-            updateTable.run();
-            activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-        });
+        Runnable applyFilters = () -> {
+            String status = statusFilter.getValue();
 
-        pendingBtn.setOnAction(e -> {
-            currentFilter[0] = "PENDING";
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                .filter(r -> "PENDING".equals(r.getStatus()))
-                .collect(java.util.stream.Collectors.toList());
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
-            currentPage[0] = 1;
-            searchField.clear();
-            // Show actions for pending
-            actionsCol.setVisible(true);
-            updateTable.run();
-            activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-        });
-
-        approvedBtn.setOnAction(e -> {
-            currentFilter[0] = "APPROVED";
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                .filter(r -> {
-                    String s = r.getStatus();
-                    if (s == null) return false;
-                    s = s.toUpperCase();
-                    // Accept any of these that represent approved/completed/paid flows
-                    if (s.contains("APPROVED")) return true;
-                    if (s.contains("PAID")) return true;
-                    if (s.contains("COMPLETED")) return true;
-                    // Also include reservations that are marked paid even if status text differs
-                    if (r.isPaid()) return true;
-                    return false;
-                })
-                .collect(java.util.stream.Collectors.toList());
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
-            currentPage[0] = 1;
-            searchField.clear();
-            // Hide actions column for approved view
-            actionsCol.setVisible(false);
-            updateTable.run();
-            activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-        });
-
-        replacedBtn.setOnAction(e -> {
-            currentFilter[0] = "REPLACED";
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
-                .filter(r -> {
-                    String s = r.getStatus();
-                    return s != null && s.toUpperCase().contains("REPLACED");
-                })
-                .collect(java.util.stream.Collectors.toList());
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
-            currentPage[0] = 1;
-            searchField.clear();
-            // Hide actions column for replaced view
-            actionsCol.setVisible(false);
-            updateTable.run();
-            activateFilterButton(replacedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-        });
-
-        pickupApprovalsBtn.setOnAction(e -> {
-            currentFilter[0] = "PICKUP_APPROVALS";
-            List<Reservation> filtered = reservationManager.getPickupRequestsAwaitingApproval();
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
-            currentPage[0] = 1;
-            searchField.clear();
-            // Show actions for pickup approvals
-            actionsCol.setVisible(true);
-            updateTable.run();
-            activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-        });
-
-        returnRequestsBtn.setOnAction(e -> {
-            currentFilter[0] = "RETURN_REQUESTS";
-            List<Reservation> filtered = reservationManager.getReturnRequests();
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
-            currentPage[0] = 1;
-            searchField.clear();
-            // Show actions for return requests
-            actionsCol.setVisible(true);
-            updateTable.run();
-            activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-        });
-
-        refreshBtn.setOnAction(e -> {
-            // Rebuild based on currentFilter
-            List<Reservation> refreshed;
-            switch (currentFilter[0]) {
-                case "PENDING":
-                    refreshed = reservationManager.getAllReservations().stream().filter(r -> "PENDING".equals(r.getStatus())).collect(java.util.stream.Collectors.toList());
-                    break;
-                case "APPROVED":
-                    refreshed = reservationManager.getAllReservations().stream().filter(r -> {
+            // Highlight active filters - blue border with consistent styling
+            String activeBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+            String activeText = ThemeManager.isDarkMode() ? "white" : "#111827";
+            String activeComboStyle =
+                "-fx-font-size: 13px;" +
+                "-fx-background-color: " + activeBg + ";" +
+                "-fx-control-inner-background: " + activeBg + ";" +
+                "-fx-text-fill: " + activeText + ";" +
+                "-fx-border-color: -color-accent-emphasis;" +
+                "-fx-border-width: 2px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-padding: 0px 8px;" +
+                "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+            statusFilter.setStyle(activeComboStyle);
+            
+            List<Reservation> filtered = new ArrayList<>();
+            
+            // Filter by Status (including the new "Type" options which are now part of status)
+            if ("All Statuses".equals(status)) {
+                filtered = reservationManager.getAllReservations();
+            } else if ("Pending".equals(status)) {
+                filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> "PENDING".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+            } else if ("Approved".equals(status)) {
+                filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> {
                         String s = r.getStatus();
                         if (s == null) return false;
                         s = s.toUpperCase();
-                        if (s.contains("APPROVED")) return true;
-                        if (s.contains("PAID")) return true;
-                        if (s.contains("COMPLETED")) return true;
-                        if (r.isPaid()) return true;
-                        return false;
-                    }).collect(java.util.stream.Collectors.toList());
-                    break;
-                case "REPLACED":
-                    refreshed = reservationManager.getAllReservations().stream().filter(r -> {
+                        return s.contains("APPROVED") || s.contains("PAID") || s.contains("COMPLETED") || r.isPaid();
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+            } else if ("Returned".equals(status)) {
+                filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> {
                         String s = r.getStatus();
                         return s != null && s.toUpperCase().contains("REPLACED");
-                    }).collect(java.util.stream.Collectors.toList());
-                    break;
-                case "PICKUP_APPROVALS":
-                    refreshed = reservationManager.getPickupRequestsAwaitingApproval();
-                    break;
-                case "RETURN_REQUESTS":
-                    refreshed = reservationManager.getReturnRequests();
-                    break;
-                default:
-                    refreshed = reservationManager.getAllReservations().stream().filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus())).collect(java.util.stream.Collectors.toList());
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+            } else if ("Cancelled".equals(status)) {
+                filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> "CANCELLED".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+            } else if ("Pickup Approvals".equals(status)) {
+                filtered = reservationManager.getPickupRequestsAwaitingApproval();
+            } else if ("Replacement Requests".equals(status)) {
+                filtered = reservationManager.getReturnRequests();
+            } else {
+                filtered = reservationManager.getAllReservations();
             }
-            allReservations.clear(); allReservations.addAll(ControllerUtils.getDeduplicatedReservations(refreshed));
-            workingFiltered.clear(); workingFiltered.addAll(allReservations);
+            
+            allReservations.clear(); 
+            allReservations.addAll(ControllerUtils.getDeduplicatedReservations(filtered));
+            workingFiltered.clear(); 
+            workingFiltered.addAll(allReservations);
+            
             currentPage[0] = 1;
             searchField.clear();
+            
+            // Show actions column only if we are in a state that allows actions
+            // (Pending, Pickup Approvals, Replacement Requests)
+            boolean actionsVisible = "Pending".equals(status) || 
+                                     "Pickup Approvals".equals(status) || 
+                                     "Replacement Requests".equals(status);
+            
+            actionsCol.setVisible(actionsVisible);
+            
             updateTable.run();
-            // Refresh badge counts after table update
+            
+            // Update badges
             int updatedPickupCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval()).size();
             pickupBadge.setText(String.valueOf(updatedPickupCount));
             pickupBadge.setVisible(updatedPickupCount > 0);
+            
             int updatedReturnCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests()).size();
             returnBadge.setText(String.valueOf(updatedReturnCount));
             returnBadge.setVisible(updatedReturnCount > 0);
-            int updatedPendingCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPendingReservations()).size();
-            pendingBadge.setText(String.valueOf(updatedPendingCount));
-            pendingBadge.setVisible(updatedPendingCount > 0);
-            // Keep the currently selected filter highlighted after a refresh
-            switch (currentFilter[0]) {
-                case "PENDING":
-                    activateFilterButton(pendingBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-                    break;
-                case "APPROVED":
-                    activateFilterButton(approvedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-                    break;
-                case "REPLACED":
-                    activateFilterButton(replacedBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-                    break;
-                case "PICKUP_APPROVALS":
-                    activateFilterButton(pickupApprovalsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-                    break;
-                case "RETURN_REQUESTS":
-                    activateFilterButton(returnRequestsBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-                    break;
-                case "ALL":
-                default:
-                    activateFilterButton(allBtn, allBtn, pendingBtn, approvedBtn, replacedBtn, pickupApprovalsBtn, returnRequestsBtn, refreshBtn);
-                    break;
-            }
+        };
+
+        statusFilter.setOnAction(e -> applyFilters.run());
+        
+        clearFilterBtn.setOnAction(e -> {
+            statusFilter.setValue("All Statuses");
+            applyFilters.run();
+        });
+
+        refreshBtn.setOnAction(e -> {
+            applyFilters.run();
         });
 
         // Set the refresh callback for when items are approved/rejected
@@ -907,8 +844,7 @@ public class StaffDashboardController {
         };
 
         // Initially load pending reservations into the table (so view shows Pending by default)
-        // This mirrors clicking the Pending button on open
-        pendingBtn.fire();
+        applyFilters.run();
 
         // Set fixed row height to match stock logs
         final double rowHeight = 65;
@@ -1771,15 +1707,16 @@ public class StaffDashboardController {
         String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
         String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
         String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
+        // Apply highlighted styling from the start (consistent with reservations filter)
         String comboStyle =
             "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-control-inner-background: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
-            "-fx-border-color: " + fieldBorder + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 10px;" +
-            "-fx-background-radius: 10px;" +
+            "-fx-border-color: -color-accent-emphasis;" +
+            "-fx-border-width: 2px;" +
+            "-fx-border-radius: 4px;" +
+            "-fx-background-radius: 4px;" +
             "-fx-padding: 0px 8px;" +
             "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
@@ -1791,17 +1728,16 @@ public class StaffDashboardController {
         Runnable courseThemeRefresher = () -> {
             try {
                 String fieldBg2 = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
-                String fieldBorder2 = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
                 String fieldText2 = ThemeManager.isDarkMode() ? "white" : "#111827";
                 String comboStyle2 =
                     "-fx-font-size: 14px;" +
                     "-fx-background-color: " + fieldBg2 + ";" +
                     "-fx-control-inner-background: " + fieldBg2 + ";" +
                     "-fx-text-fill: " + fieldText2 + ";" +
-                    "-fx-border-color: " + fieldBorder2 + ";" +
-                    "-fx-border-width: 1px;" +
-                    "-fx-border-radius: 10px;" +
-                    "-fx-background-radius: 10px;" +
+                    "-fx-border-color: -color-accent-emphasis;" +
+                    "-fx-border-width: 2px;" +
+                    "-fx-border-radius: 4px;" +
+                    "-fx-background-radius: 4px;" +
                     "-fx-padding: 0px 8px;" +
                     "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
@@ -2044,6 +1980,24 @@ public class StaffDashboardController {
             } else {
                 currentCourse[0] = newV;
             }
+            
+            // Add highlighting for all filter selections (consistent with reservations filter)
+            String activeBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+            String activeText = ThemeManager.isDarkMode() ? "white" : "#111827";
+            String highlightStyle =
+                "-fx-font-size: 14px;" +
+                "-fx-background-color: " + activeBg + ";" +
+                "-fx-control-inner-background: " + activeBg + ";" +
+                "-fx-text-fill: " + activeText + ";" +
+                "-fx-border-color: -color-accent-emphasis;" +
+                "-fx-border-width: 2px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-padding: 0px 8px;" +
+                "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+            courseCombo.setStyle(highlightStyle);
+            
             currentPage[0] = 1;
             pageWindowStart[0] = 1;
             updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
@@ -3127,41 +3081,7 @@ public class StaffDashboardController {
         );
     }
 
-    /**
-     * Activate a filter button visually and animate it briefly. Resets other buttons.
-     */
-    private void activateFilterButton(Button active, Button... allButtons) {
-        for (Button b : allButtons) {
-            if (b == active) {
-                // Slightly darker blue for the active state
-                b.setStyle(
-                    "-fx-background-color: #002c6eff;" +
-                    "-fx-text-fill: white;" +
-                    "-fx-font-size: 13px;" +
-                    "-fx-font-weight: bold;" +
-                    "-fx-background-radius: 6px;" +
-                    "-fx-cursor: hand;" +
-                    "-fx-pref-height: 36px;"
-                );
 
-                try {
-                    ScaleTransition st = new ScaleTransition(Duration.millis(140), b);
-                    st.setFromX(1.0);
-                    st.setFromY(1.0);
-                    st.setToX(1.03);
-                    st.setToY(1.03);
-                    st.setCycleCount(2);
-                    st.setAutoReverse(true);
-                    st.play();
-                } catch (Exception ex) {
-                    // If animation fails for any reason, ignore and keep the active style
-                }
-            } else {
-                // Reset style for non-active buttons
-                styleActionButton(b);
-            }
-        }
-    }
 
     /**
      * Return a style string for course filter buttons honoring dark mode and selection
@@ -3333,7 +3253,20 @@ public class StaffDashboardController {
 
         TableColumn<Item, String> itemCol = new TableColumn<>("Item");
         itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getName()));
-        itemCol.setPrefWidth(200);
+        itemCol.setCellFactory(col -> new TableCell<Item, String>() {
+            @Override
+            protected void updateItem(String itemName, boolean empty) {
+                super.updateItem(itemName, empty);
+                if (empty || itemName == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText("👕 " + itemName);
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
+                }
+            }
+        });
+        itemCol.setPrefWidth(280);
 
         TableColumn<Item, String> sizeCol = new TableColumn<>("Size");
         sizeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSize()));
@@ -3662,33 +3595,6 @@ public class StaffDashboardController {
         });
         priceCol.setPrefWidth(100);
 
-        TableColumn<Reservation, Void> bundleCol = new TableColumn<>("Bundle");
-        bundleCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
-            private final Button bundleBtn = new Button("📦 View Bundle");
-
-            @Override
-            protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
-                    if (reservation == null) {
-                        setGraphic(null);
-                        return;
-                    }
-                    if (reservation.isPartOfBundle()) {
-                        bundleBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px; -fx-padding: 5px 10px;");
-                        bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
-                        setGraphic(bundleBtn);
-                    } else {
-                        setGraphic(null);
-                    }
-                }
-            }
-        });
-        bundleCol.setPrefWidth(120);
-
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
             private final Button approveBtn = new Button("✓ Approve Pickup");
@@ -3720,7 +3626,7 @@ public class StaffDashboardController {
         });
         actionsCol.setPrefWidth(180);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, bundleCol, actionsCol);
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, actionsCol);
 
         // Pagination + search setup for pickup approvals (10 items per page)
         final int itemsPerPage = 10;
@@ -4692,64 +4598,6 @@ public class StaffDashboardController {
         }
     }
     
-    /**
-     * Refresh the reservations table based on current filter
-     */
-    @SuppressWarnings("unused")
-    private void performTableRefresh(ObservableList<Reservation> allReservations, 
-                                     ObservableList<Reservation> filteredReservations,
-                                     TextField searchField,
-                                     TableView<Reservation> table,
-                                     HBox statsBox,
-                                     String[] currentFilter) {
-        // Refresh based on current filter
-        List<Reservation> refreshed;
-        switch (currentFilter[0]) {
-            case "PENDING":
-                refreshed = reservationManager.getAllReservations().stream()
-                    .filter(r -> "PENDING".equals(r.getStatus()))
-                    .collect(java.util.stream.Collectors.toList());
-                break;
-            case "APPROVED":
-                refreshed = reservationManager.getAllReservations().stream()
-                    .filter(r -> r.getStatus().contains("APPROVED"))
-                    .collect(java.util.stream.Collectors.toList());
-                break;
-            case "PICKUP_APPROVALS":
-                refreshed = reservationManager.getPickupRequestsAwaitingApproval();
-                break;
-            case "RETURN_REQUESTS":
-                refreshed = reservationManager.getReturnRequests();
-                break;
-            default: // ALL
-                refreshed = reservationManager.getAllReservations().stream()
-                    .filter(r -> "PENDING".equals(r.getStatus()) || "REPLACEMENT REQUESTED".equals(r.getStatus()))
-                    .collect(java.util.stream.Collectors.toList());
-        }
-        allReservations.setAll(ControllerUtils.getDeduplicatedReservations(refreshed));
-        searchField.clear();
-        filteredReservations.setAll(allReservations);
-        
-        // Update stats cards (order: Pending, Pickup Approvals, Completed) - deduplicated for bundles
-        int updatedPending = (int) ControllerUtils.getDeduplicatedReservations(
-            reservationManager.getPendingReservations()
-        ).size();
-        ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(0)).getChildren().get(1))
-            .setText(String.valueOf(updatedPending));
-        
-        int updatedPickupApprovals = (int) ControllerUtils.getDeduplicatedReservations(
-            reservationManager.getPickupRequestsAwaitingApproval()
-        ).size();
-        ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(1)).getChildren().get(1))
-            .setText(String.valueOf(updatedPickupApprovals));
-        
-        int updatedCompleted = (int) ControllerUtils.getDeduplicatedReservations(
-            reservationManager.getAllReservations()
-        ).stream()
-            .filter(r -> "COMPLETED".equals(r.getStatus()))
-            .count();
-        ((javafx.scene.control.Label) ((VBox) statsBox.getChildren().get(2)).getChildren().get(1))
-            .setText(String.valueOf(updatedCompleted));
-    }
+
 }
 

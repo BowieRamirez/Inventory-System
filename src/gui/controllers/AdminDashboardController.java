@@ -8,6 +8,7 @@ import admin.Staff;
 import gui.utils.AlertHelper;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
+import gui.utils.TableViewUtils;
 import gui.views.LoginView;
 import inventory.InventoryManager;
 import inventory.Item;
@@ -265,7 +266,7 @@ public class AdminDashboardController {
 
         // Create inventory table
         TableView<Item> table = new TableView<>();
-        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        TableViewUtils.applyConsistentStyle(table);
 
         TableColumn<Item, Integer> codeCol = new TableColumn<>("Code");
         codeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getCode()));
@@ -356,7 +357,7 @@ public class AdminDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table, paginationBar);
+        container.getChildren().addAll(actionBar, table);
 
         return container;
     }

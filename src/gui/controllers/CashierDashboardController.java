@@ -5,6 +5,7 @@ import java.util.List;
 import gui.utils.AlertHelper;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
+import gui.utils.TableViewUtils;
 import gui.views.LoginView;
 import inventory.InventoryManager;
 import inventory.Receipt;
@@ -109,7 +110,7 @@ public class CashierDashboardController {
 
         // Create approved reservations table (waiting for payment)
         TableView<Reservation> table = new TableView<>();
-        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        TableViewUtils.applyConsistentStyle(table);
 
         TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
         idCol.setCellValueFactory(data -> {
@@ -395,8 +396,9 @@ public class CashierDashboardController {
         // Initially populate page
         updateTable.run();
 
+        VBox tableSection = TableViewUtils.wrapWithFooter(table, () -> allReservations.size(), pageControls);
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(searchBar, actionBar, table, pageControls);
+        container.getChildren().addAll(searchBar, actionBar, tableSection);
 
         // Add row click handler to show order details
         table.setRowFactory(tv -> {
@@ -936,7 +938,7 @@ public class CashierDashboardController {
 
         // Create all reservations table
         TableView<Reservation> table = new TableView<>();
-        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        TableViewUtils.applyConsistentStyle(table);
 
         TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
         idCol.setCellValueFactory(data -> {
@@ -1085,8 +1087,13 @@ public class CashierDashboardController {
             table.setItems(FXCollections.observableArrayList(refreshed));
         });
 
+        VBox tableSection = TableViewUtils.wrapWithFooter(
+            table,
+            () -> ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()).size(),
+            null
+        );
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, tableSection);
 
         return container;
     }
@@ -1118,7 +1125,7 @@ public class CashierDashboardController {
 
         // Create receipts table
         TableView<Receipt> table = new TableView<>();
-        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        TableViewUtils.applyConsistentStyle(table);
 
         TableColumn<Receipt, Integer> idCol = new TableColumn<>("Receipt ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getReceiptId()));
@@ -1311,8 +1318,13 @@ public class CashierDashboardController {
         // Initially populate receipts page
         updateReceiptsTable.run();
 
+        VBox tableSection = TableViewUtils.wrapWithFooter(
+            table,
+            () -> deduplicateBundleReceipts(receiptManager.getAllReceipts()).size(),
+            pageControlsR
+        );
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table, pageControlsR);
+        container.getChildren().addAll(actionBar, tableSection);
 
         // Add row click handler to show receipt details
         table.setRowFactory(tv -> {

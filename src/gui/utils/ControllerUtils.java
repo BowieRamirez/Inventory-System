@@ -1,9 +1,9 @@
 package gui.utils;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 import inventory.Reservation;
 
@@ -66,7 +66,8 @@ public class ControllerUtils {
             if (best != null) deduplicated.add(best);
         }
 
-        return deduplicated;
+            deduplicated.sort(Reservation.newestFirstComparator());
+            return deduplicated;
     }
     
     /**

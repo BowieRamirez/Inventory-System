@@ -1,7 +1,9 @@
 package gui.controllers;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,7 +20,6 @@ import inventory.ReservationManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
- 
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -2353,8 +2354,13 @@ public class StudentDashboardController {
         } else {
             VBox itemsList = new VBox(15);
             
+            Map<String, List<Reservation>> claimGroups = pickupItems.stream()
+                .collect(Collectors.groupingBy(res -> res.isPartOfBundle() ? res.getBundleId() : "SINGLE-" + res.getReservationId(), LinkedHashMap::new, Collectors.toList()));
+
             for (Reservation r : deduplicatedReservations) {
-                VBox claimCard = createClaimItemCard(r);
+                String key = r.isPartOfBundle() ? r.getBundleId() : "SINGLE-" + r.getReservationId();
+                List<Reservation> group = claimGroups.getOrDefault(key, Collections.singletonList(r));
+                VBox claimCard = createClaimItemCard(r, group);
                 itemsList.getChildren().add(claimCard);
             }
             
@@ -2372,7 +2378,7 @@ public class StudentDashboardController {
     /**
      * Create claim item card - simplified card for claiming items
      */
-    private VBox createClaimItemCard(Reservation r) {
+    private VBox createClaimItemCard(Reservation r, List<Reservation> group) {
         VBox card = new VBox(10);
         card.setPadding(new Insets(20));
         card.setStyle(
@@ -2407,45 +2413,44 @@ public class StudentDashboardController {
 
         header.getChildren().addAll(idLabel, spacer, statusLabel);
 
-        // Show bundle info or single item info
+        // Show bundle or single item data from the provided group
         VBox itemsBox = new VBox(5);
-        if (r.isPartOfBundle()) {
-            // For bundles, show all items in the bundle
-            String bundleId = r.getBundleId();
-            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
-                .filter(res -> bundleId.equals(res.getBundleId()))
-                .collect(Collectors.toList());
-            
-            Label bundleLabel = new Label("📦 Bundle Order (" + bundleItems.size() + " items)");
+        if (group.size() > 1 || r.isPartOfBundle()) {
+            Label bundleLabel = new Label("📦 Bundle Order (" + group.size() + " items)");
             bundleLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-weight: bold; -fx-font-size: 14px;");
             itemsBox.getChildren().add(bundleLabel);
             
-            for (Reservation item : bundleItems) {
-                Label itemLabel = new Label("• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x)");
-                itemLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
+            for (Reservation item : group) {
+                String displayText;
+                String statusColor = "-color-fg-default";
+
+                if (item.getStatus().contains("REPLACED")) {
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) → Replaced into: " + item.getReplacementItemName() + " (" + item.getReplacementSize() + ")";
+                    statusColor = "#656D76";
+                } else if ("COMPLETED".equals(item.getStatus())) {
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) (Completed)";
+                    statusColor = "#1A7F37";
+                } else if (item.getStatus().contains("REPLACEMENT REQUESTED")) {
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) (Replacement Requested)";
+                    statusColor = "#BF8700";
+                } else {
+                    displayText = "• " + item.getItemName() + " - " + item.getSize() + " (" + item.getQuantity() + "x) (" + item.getStatus() + ")";
+                }
+
+                Label itemLabel = new Label(displayText);
+                itemLabel.setStyle("-fx-text-fill: " + statusColor + "; -fx-font-size: 13px;");
                 itemsBox.getChildren().add(itemLabel);
             }
         } else {
-            Label itemLabel = new Label(r.getItemName() + " - " + r.getSize());
+            Reservation single = group.get(0);
+            Label itemLabel = new Label(single.getItemName() + " - " + single.getSize());
             itemLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
             itemsBox.getChildren().add(itemLabel);
         }
 
         // Calculate total quantity and price for bundles
-        int totalQty = r.getQuantity();
-        double totalPrice = r.getTotalPrice();
-        
-        if (r.isPartOfBundle()) {
-            String bundleId = r.getBundleId();
-            totalQty = reservationManager.getAllReservations().stream()
-                .filter(res -> bundleId.equals(res.getBundleId()))
-                .mapToInt(Reservation::getQuantity)
-                .sum();
-            totalPrice = reservationManager.getAllReservations().stream()
-                .filter(res -> bundleId.equals(res.getBundleId()))
-                .mapToDouble(Reservation::getTotalPrice)
-                .sum();
-        }
+        int totalQty = group.stream().mapToInt(Reservation::getQuantity).sum();
+        double totalPrice = group.stream().mapToDouble(Reservation::getTotalPrice).sum();
 
         Label qtyLabel = new Label("Total Quantity: " + totalQty + "x");
         qtyLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 13px;");
@@ -2474,7 +2479,7 @@ public class StudentDashboardController {
                 "-fx-background-radius: 6px;" +
                 "-fx-cursor: hand;"
             );
-            requestBtn.setOnAction(e -> handleRequestPickup(r));
+            requestBtn.setOnAction(e -> handleRequestPickup(r, group));
             
             Label awaitingNote = new Label("💡 Click to request Staff approval for pickup");
             awaitingNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
@@ -2522,7 +2527,7 @@ public class StudentDashboardController {
                 "-fx-background-radius: 6px;" +
                 "-fx-cursor: hand;"
             );
-            claimBtn.setOnAction(e -> handleClaimItem(r));
+            claimBtn.setOnAction(e -> handleClaimItem(r, group));
             
             Label approvedNote = new Label("💡 Confirm you've received the item from Staff");
             approvedNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
@@ -2539,43 +2544,32 @@ public class StudentDashboardController {
     /**
      * Handle pickup request (student requests staff approval)
      */
-    private void handleRequestPickup(Reservation r) {
-        String itemDescription = r.isPartOfBundle() ? 
-            "bundle order (" + r.getBundleId() + ")" : 
-            r.getItemName() + " - " + r.getSize();
-        
+    private void handleRequestPickup(Reservation representative, List<Reservation> group) {
+        String itemDescription = representative.isPartOfBundle() ? 
+            "bundle order (" + representative.getBundleId() + ")" : 
+            representative.getItemName() + " - " + representative.getSize();
+        double totalPaid = group.stream().mapToDouble(Reservation::getTotalPrice).sum();
+
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
         confirmAlert.setTitle("Request Pickup");
         confirmAlert.setHeaderText("Request Pickup Approval");
         confirmAlert.setContentText(
             "Request Staff approval to pickup this " + itemDescription + "?\n\n" +
             "After approval, you'll be able to claim your item.\n\n" +
-            "Total Paid: ₱" + String.format("%.2f", r.getTotalPrice())
+            "Total Paid: ₱" + String.format("%.2f", totalPaid)
         );
 
         confirmAlert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                boolean success;
-                if (r.isPartOfBundle()) {
-                    // Request pickup for all items in the bundle
-                    String bundleId = r.getBundleId();
-                    List<Reservation> bundleItems = FileStorage.loadReservations().stream()
-                        .filter(res -> bundleId.equals(res.getBundleId()))
-                        .collect(Collectors.toList());
-                    
-                    success = true;
-                    for (Reservation item : bundleItems) {
-                        if (!reservationManager.requestPickup(item.getReservationId())) {
-                            success = false;
-                            break;
-                        }
+                boolean success = true;
+                for (Reservation item : group) {
+                    if (!reservationManager.requestPickup(item.getReservationId())) {
+                        success = false;
+                        break;
                     }
-                } else {
-                    success = reservationManager.requestPickup(r.getReservationId());
                 }
                 
                 if (success) {
-                    // Refresh the claim items view
                     if (refreshCallback != null) {
                         refreshCallback.run();
                     }
@@ -2593,10 +2587,11 @@ public class StudentDashboardController {
     /**
      * Handle claiming an item (marking as picked up)
      */
-    private void handleClaimItem(Reservation r) {
-        String itemDescription = r.isPartOfBundle() ? 
-            "bundle order (" + r.getBundleId() + ")" : 
-            r.getItemName() + " - " + r.getSize();
+    private void handleClaimItem(Reservation representative, List<Reservation> group) {
+        String itemDescription = representative.isPartOfBundle() ? 
+            "bundle order (" + representative.getBundleId() + ")" : 
+            representative.getItemName() + " - " + representative.getSize();
+        double totalPaid = group.stream().mapToDouble(Reservation::getTotalPrice).sum();
         
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
         confirmAlert.setTitle("Claim Item");
@@ -2607,28 +2602,17 @@ public class StudentDashboardController {
             "• You have received the item(s)\n" +
             "• The item(s) are in good condition\n" +
             "• You have 10 days to request a return if there are any issues\n\n" +
-            "Total: ₱" + String.format("%.2f", r.getTotalPrice())
+            "Total: ₱" + String.format("%.2f", totalPaid)
         );
 
         confirmAlert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                // If it's a bundle, mark all items in the bundle as picked up
-                boolean success;
-                if (r.isPartOfBundle()) {
-                    String bundleId = r.getBundleId();
-                    List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
-                        .filter(res -> bundleId.equals(res.getBundleId()))
-                        .collect(Collectors.toList());
-                    
-                    success = true;
-                    for (Reservation item : bundleItems) {
-                        if (!reservationManager.markAsPickedUp(item.getReservationId())) {
-                            success = false;
-                            break;
-                        }
+                boolean success = true;
+                for (Reservation item : group) {
+                    if (!reservationManager.markAsPickedUp(item.getReservationId())) {
+                        success = false;
+                        break;
                     }
-                } else {
-                    success = reservationManager.markAsPickedUp(r.getReservationId());
                 }
                 
                 if (success) {
@@ -2637,7 +2621,6 @@ public class StudentDashboardController {
                         "The item has been marked as picked up.\n" +
                         "You have 10 days to request a return if there are any issues.\n\n" +
                         "Check 'My Reservations' to view status or request a return.");
-                    // Refresh the claim items view
                     if (refreshCallback != null) {
                         refreshCallback.run();
                     }

@@ -2,6 +2,7 @@ package inventory;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 
 public class Reservation {
     private int reservationId;
@@ -164,5 +165,31 @@ public class Reservation {
     
     public String getPaymentStatus() {
         return isPaid ? "PAID (" + paymentMethod + ")" : "UNPAID";
+    }
+
+    public static Comparator<Reservation> newestFirstComparator() {
+        return (r1, r2) -> {
+            if (r1 == r2) return 0;
+            if (r1 == null) return 1;
+            if (r2 == null) return -1;
+
+            LocalDateTime t1 = r1.getReservationTime();
+            LocalDateTime t2 = r2.getReservationTime();
+            if (t1 == null && t2 == null) {
+                return Integer.compare(r2.getReservationId(), r1.getReservationId());
+            }
+            if (t1 == null) {
+                return 1;
+            }
+            if (t2 == null) {
+                return -1;
+            }
+
+            int comparison = t2.compareTo(t1);
+            if (comparison != 0) {
+                return comparison;
+            }
+            return Integer.compare(r2.getReservationId(), r1.getReservationId());
+        };
     }
 }

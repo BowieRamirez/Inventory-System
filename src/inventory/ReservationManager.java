@@ -1,9 +1,14 @@
 package inventory;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
 import utils.FileStorage;
 import utils.StockReturnLogger;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ReservationManager {
     private List<Reservation> reservations = new ArrayList<>();
@@ -14,6 +19,19 @@ public class ReservationManager {
     public ReservationManager(InventoryManager inventoryManager) {
         this.inventoryManager = inventoryManager;
         loadReservations();
+    }
+
+    private List<Reservation> copySorted(Collection<Reservation> source) {
+        return source.stream()
+            .sorted(Reservation.newestFirstComparator())
+            .collect(Collectors.toList());
+    }
+
+    private List<Reservation> filterSorted(Predicate<Reservation> predicate) {
+        return reservations.stream()
+            .filter(predicate)
+            .sorted(Reservation.newestFirstComparator())
+            .collect(Collectors.toList());
     }
 
     /**
@@ -82,17 +100,14 @@ public class ReservationManager {
     }
     
     public List<Reservation> getAllReservations() {
-        return new ArrayList<>(reservations);
+        return copySorted(reservations);
     }
     
     public List<Reservation> getReservationsByStudent(String studentId) {
-        List<Reservation> result = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if (r.getStudentId().equals(studentId)) {
-                result.add(r);
-            }
+        if (studentId == null) {
+            return Collections.emptyList();
         }
-        return result;
+        return filterSorted(r -> studentId.equals(r.getStudentId()));
     }
     
     public Reservation findReservationById(int reservationId) {
@@ -131,13 +146,7 @@ public class ReservationManager {
 
     
     public List<Reservation> getPendingReservations() {
-        List<Reservation> pending = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if ("PENDING".equals(r.getStatus())) {
-                pending.add(r);
-            }
-        }
-        return pending;
+        return filterSorted(r -> "PENDING".equalsIgnoreCase(r.getStatus()));
     }
     
     public boolean markAsPaid(int reservationId, String paymentMethod) {
@@ -160,23 +169,11 @@ public class ReservationManager {
     }
     
     public List<Reservation> getUnpaidReservations() {
-        List<Reservation> unpaid = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if (!r.isPaid() && !"CANCELLED".equals(r.getStatus())) {
-                unpaid.add(r);
-            }
-        }
-        return unpaid;
+        return filterSorted(r -> !r.isPaid() && !"CANCELLED".equalsIgnoreCase(r.getStatus()));
     }
     
     public List<Reservation> getPaidPendingReservations() {
-        List<Reservation> paidPending = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if (r.isPaid() && "PENDING".equals(r.getStatus())) {
-                paidPending.add(r);
-            }
-        }
-        return paidPending;
+        return filterSorted(r -> r.isPaid() && "PENDING".equalsIgnoreCase(r.getStatus()));
     }
     
     // Save reservations when external modifications are made
@@ -221,13 +218,7 @@ public class ReservationManager {
      * Get all pickup requests awaiting staff approval
      */
     public List<Reservation> getPickupRequestsAwaitingApproval() {
-        List<Reservation> pickupRequests = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus())) {
-                pickupRequests.add(r);
-            }
-        }
-        return pickupRequests;
+        return filterSorted(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equalsIgnoreCase(r.getStatus()));
     }
 
     /**
@@ -453,13 +444,7 @@ public class ReservationManager {
      * Get all return requests (for admin/staff view)
      */
     public List<Reservation> getReturnRequests() {
-        List<Reservation> returnRequests = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if ("REPLACEMENT REQUESTED".equals(r.getStatus())) {
-                returnRequests.add(r);
-            }
-        }
-        return returnRequests;
+        return filterSorted(r -> "REPLACEMENT REQUESTED".equalsIgnoreCase(r.getStatus()));
     }
     
     /**
@@ -491,12 +476,6 @@ public class ReservationManager {
      * Get all overdue reservations (for admin/staff tracking)
      */
     public List<Reservation> getOverduePayments() {
-        List<Reservation> overdueList = new ArrayList<>();
-        for (Reservation r : reservations) {
-            if (r.isPaymentOverdue()) {
-                overdueList.add(r);
-            }
-        }
-        return overdueList;
+        return filterSorted(Reservation::isPaymentOverdue);
     }
 }
