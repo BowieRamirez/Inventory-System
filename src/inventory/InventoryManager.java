@@ -183,6 +183,31 @@ public class InventoryManager {
         }
         return false;
     }
+
+    /**
+     * Update item price for all size variants that share the same item code.
+     * This will set the price for every variant with matching code and persist once.
+     */
+    public boolean updateItemPriceByCode(int code, double newPrice) {
+        boolean changed = false;
+        for (Item item : inventory) {
+            if (item.getCode() == code) {
+                double oldPrice = item.getPrice();
+                if (Double.compare(oldPrice, newPrice) != 0) {
+                    item.setPrice(newPrice);
+                    // Log per-variant price update
+                    SystemLogger.logActivity("Price updated: " + item.getName() + " (" + item.getSize() + ") " + String.format("₱%.2f -> ₱%.2f", oldPrice, newPrice));
+                    // Also write to legacy stock logs per size for audit
+                    utils.StockReturnLogger.logPriceChange("staff", item.getCode(), item.getName(), item.getSize(), oldPrice, newPrice);
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            FileStorage.saveItems(inventory);
+        }
+        return changed;
+    }
     
     // ✅ Restock item (used for returns/refunds)
     public boolean restockItem(int code, String size, int quantity) {

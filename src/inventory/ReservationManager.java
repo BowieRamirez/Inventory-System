@@ -102,6 +102,14 @@ public class ReservationManager {
     public List<Reservation> getAllReservations() {
         return copySorted(reservations);
     }
+
+    /**
+     * Refresh in-memory reservations from persistent storage (FileStorage).
+     * Call this when external changes may have been made by other actors (e.g., staff).
+     */
+    public void refresh() {
+        loadReservations();
+    }
     
     public List<Reservation> getReservationsByStudent(String studentId) {
         if (studentId == null) {

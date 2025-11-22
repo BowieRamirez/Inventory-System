@@ -169,8 +169,8 @@ public class AdminDashboardController {
             Button viewAll = new Button("View All Activities");
             viewAll.setOnAction(e -> {
                 Dialog<Void> dlg = new Dialog<>();
-                dlg.setTitle("All Activities");
-                dlg.getDialogPane().setContent(createStockLogsView());
+                dlg.setTitle("Admin Activities");
+                dlg.getDialogPane().setContent(createAdminActivitiesView());
                 dlg.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
                 dlg.showAndWait();
             });
@@ -1218,6 +1218,15 @@ public class AdminDashboardController {
         // Keep the pagination bar compact; don't stretch across the full width
         paginationBar.setMaxWidth(Region.USE_PREF_SIZE);
 
+        // Wrap the compact pagination bar in a full-width container so it stays centered
+        HBox paginationWrapper = new HBox();
+        paginationWrapper.setAlignment(Pos.CENTER);
+        paginationWrapper.setPadding(new Insets(0, 0, 0, 0));
+        paginationWrapper.setPrefWidth(Double.MAX_VALUE);
+        // allow the paginationBar to keep its preferred size while the wrapper fills width
+        javafx.scene.layout.HBox.setHgrow(paginationBar, javafx.scene.layout.Priority.NEVER);
+        paginationWrapper.getChildren().add(paginationBar);
+
         // Set row height
         table.setRowFactory(tv -> {
             javafx.scene.control.TableRow<Student> row = new javafx.scene.control.TableRow<>();
@@ -1279,7 +1288,7 @@ public class AdminDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table, paginationBar);
+        container.getChildren().addAll(actionBar, table, paginationWrapper);
 
         return container;
     }
@@ -1386,8 +1395,8 @@ public class AdminDashboardController {
         final int[] staffCurrentPage = new int[]{1};
 
         Label staffPageLabel = new Label();
-        Button staffPrevBtn = new Button("Previous");
-        Button staffNextBtn = new Button("Next");
+        Button staffPrevBtn = new Button("← Previous");
+        Button staffNextBtn = new Button("Next →");
         TextField staffPageSearch = new TextField();
         staffPageSearch.setPromptText("Search in pages...");
         staffPageSearch.setPrefWidth(180);
@@ -1403,6 +1412,14 @@ public class AdminDashboardController {
         staffPaginationBar.getChildren().addAll(staffPrevBtn, staffPageLabel, staffPageSearch, staffNextBtn);
         // Keep the staff pagination bar compact; don't stretch across the full width
         staffPaginationBar.setMaxWidth(Region.USE_PREF_SIZE);
+
+        // Wrap staff pagination in a full-width container and center it
+        HBox staffPaginationWrapper = new HBox();
+        staffPaginationWrapper.setAlignment(Pos.CENTER);
+        staffPaginationWrapper.setPadding(new Insets(0, 0, 0, 0));
+        staffPaginationWrapper.setPrefWidth(Double.MAX_VALUE);
+        javafx.scene.layout.HBox.setHgrow(staffPaginationBar, javafx.scene.layout.Priority.NEVER);
+        staffPaginationWrapper.getChildren().add(staffPaginationBar);
 
         // Set row height
         table.setRowFactory(tv -> {
@@ -1462,7 +1479,7 @@ public class AdminDashboardController {
         });
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table, staffPaginationBar);
+        container.getChildren().addAll(actionBar, table, staffPaginationWrapper);
 
         return container;
     }
@@ -1978,6 +1995,120 @@ public class AdminDashboardController {
         VBox.setVgrow(tabPane, Priority.ALWAYS);
         container.getChildren().add(tabPane);
 
+        return container;
+    }
+
+    /**
+     * Create an Admin-only Activities view (no student/staff tabs) showing only logs
+     * where the performer is an Admin actor (uses loadStockLogs()).
+     */
+    private Node createAdminActivitiesView() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(20));
+
+        // Action bar
+        HBox actionBar = new HBox(15);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
+        Button refreshBtn = new Button("🔄 Refresh");
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search admin activities...");
+        searchField.setPrefWidth(300);
+        styleActionButton(refreshBtn);
+        actionBar.getChildren().addAll(refreshBtn, searchField);
+
+        // Table
+        TableView<String[]> table = new TableView<>();
+        table.setStyle("-fx-background-color: -color-bg-subtle;");
+
+        TableColumn<String[], String> timestampCol = new TableColumn<>("Timestamp");
+        timestampCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[0]));
+        timestampCol.setPrefWidth(160);
+
+        TableColumn<String[], String> performerCol = new TableColumn<>("Performed By");
+        performerCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[1]));
+        performerCol.setPrefWidth(180);
+
+        TableColumn<String[], String> actionCol = new TableColumn<>("Action");
+        actionCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[6]));
+        actionCol.setPrefWidth(150);
+
+        TableColumn<String[], String> itemCol = new TableColumn<>("Item");
+        itemCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[3]));
+        itemCol.setPrefWidth(220);
+
+        TableColumn<String[], String> detailsCol = new TableColumn<>("Details");
+        detailsCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()[7]));
+        detailsCol.setPrefWidth(300);
+
+        table.getColumns().addAll(timestampCol, performerCol, actionCol, itemCol, detailsCol);
+
+        // Pagination
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+        List<String[]> adminLogs = loadStockLogs(); // already filters performed-by admin
+
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+        Button prevBtn = new Button("← Previous");
+        javafx.scene.control.Label pageLabel = new javafx.scene.control.Label();
+        Button nextBtn = new Button("Next →");
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        Runnable updateTable = () -> {
+            List<String[]> display = adminLogs;
+            String txt = searchField.getText();
+            if (txt != null && !txt.isEmpty()) {
+                display = display.stream()
+                    .filter(r -> String.join(" ", r).toLowerCase().contains(txt.toLowerCase()))
+                    .collect(java.util.stream.Collectors.toList());
+            }
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<String[]> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+            table.setItems(FXCollections.observableArrayList(pageItems));
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) { currentPage[0]--; updateTable.run(); }
+        });
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) adminLogs.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) { currentPage[0]++; updateTable.run(); }
+        });
+
+        searchField.textProperty().addListener((obs, o, n) -> {
+            currentPage[0] = 1; updateTable.run();
+        });
+
+        refreshBtn.setOnAction(e -> {
+            adminLogs.clear(); adminLogs.addAll(loadStockLogs()); currentPage[0] = 1; searchField.clear(); updateTable.run();
+        });
+
+        // Row click -> show details
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<String[]> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 1) {
+                    showStockLogDetailsDialog(row.getItem());
+                }
+            });
+            return row;
+        });
+
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        table.setPrefHeight(itemsPerPage * rowHeight + 56);
+
+        updateTable.run();
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        container.getChildren().addAll(actionBar, table, pageControls);
         return container;
     }
 

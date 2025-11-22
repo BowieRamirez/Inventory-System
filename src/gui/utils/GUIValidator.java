@@ -18,7 +18,7 @@ public class GUIValidator {
     );
     
     private static final List<String> TERTIARY_COURSES = Arrays.asList(
-        "BSCS", "BSIT", "BSCpE", "BSBA", "BSA", "BSHM", "BMMA", "BSTM"
+        "BSCS", "BSIT", "BSCPE", "BSBA", "BSA", "BSHM", "BMMA", "BSTM"
     );
     
     private static final List<String> ALL_COURSES;
@@ -26,7 +26,7 @@ public class GUIValidator {
     static {
         ALL_COURSES = Arrays.asList(
             "ABM", "STEM", "HUMSS", "TVL-ICT", "TVL-TO", "TVL-CA",
-            "BSCS", "BSIT", "BSCpE", "BSBA", "BSA", "BSHM", "BMMA", "BSTM"
+            "BSCS", "BSIT", "BSCPE", "BSBA", "BSA", "BSHM", "BMMA", "BSTM"
         );
     }
     

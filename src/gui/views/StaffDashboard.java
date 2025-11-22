@@ -55,6 +55,8 @@ public class StaffDashboard {
     public StaffDashboard() {
         controller = new StaffDashboardController();
         initializeView();
+        // Listen for theme changes and reapply the sidebar styles to avoid stale styles
+        javafx.application.Platform.runLater(() -> ThemeManager.addThemeChangeListener(() -> javafx.application.Platform.runLater(this::updateSidebarTheme)));
     }
     
     private void initializeView() {
@@ -205,8 +207,11 @@ public class StaffDashboard {
         VBox.setVgrow(spacer, Priority.ALWAYS);
         
         logoutBtn = createNavButton("🚪 Logout", false);
-        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
-        String logoutBg = ThemeManager.isDarkMode() ? "-color-danger-emphasis" : "rgba(255,255,255,0.15)";
+        // In dark mode the logout button should show a danger background with white text
+        // (previously used a red text color which caused it to appear pure red on some setups)
+        String logoutColor = ThemeManager.isDarkMode() ? "white" : "rgba(255,255,255,0.9)";
+        // Use explicit danger color to avoid relying on CSS variable resolution
+        String logoutBg = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.15)";
         logoutBtn.setStyle(
             "-fx-background-color: " + logoutBg + ";" +
             "-fx-text-fill: " + logoutColor + ";" +
@@ -472,7 +477,8 @@ public class StaffDashboard {
         
         // Update logout button: keep it as a nav-style text button in light mode
         if (isDark) {
-            logoutBtn.setStyle("-fx-background-color: -color-danger-emphasis; -fx-text-fill: white; " +
+            // Use explicit danger color for dark mode
+            logoutBtn.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; " +
                              "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
                              "-fx-alignment: center; -fx-font-size: 14px; -fx-font-weight: bold;");
         } else {

@@ -60,6 +60,8 @@ public class StudentDashboardController {
     private List<CartItem> cart;  // Shopping cart for bundle purchases with quantities
     private Runnable cartUpdateCallback;  // Callback to update cart badge
     private Runnable navigateToShopCallback;  // Callback to navigate to shop view
+    private Runnable notificationUpdateCallback; // Callback to update notification badge
+    private java.util.Set<Integer> seenNotifications = new java.util.HashSet<>(); // in-memory seen set
 
     /**
      * Inner class to represent an item in the cart with its quantity
@@ -123,6 +125,8 @@ public class StudentDashboardController {
 
         // Link receipt manager to reservation manager for synchronization
         reservationManager.setReceiptManager(receiptManager);
+        // Initialize seen notifications in-memory only (do not use disk persistence)
+        this.seenNotifications = new java.util.HashSet<>();
     }
 
     // Determine if an item variant should be visible to the logged-in student
@@ -150,6 +154,234 @@ public class StudentDashboardController {
      */
     public void setNavigateToShopCallback(Runnable callback) {
         this.navigateToShopCallback = callback;
+    }
+
+    /**
+     * Set notification update callback
+     */
+    public void setNotificationUpdateCallback(Runnable callback) {
+        this.notificationUpdateCallback = callback;
+    }
+
+    /**
+     * Get number of unread notifications for this student.
+     * Notifications are: reservation accepted (APPROVED - WAITING FOR PAYMENT) and replacement accepted (REPLACED).
+     */
+    public int getUnreadNotificationCount() {
+        try {
+            // Refresh reservations from ReservationManager to pick up any external staff approvals
+            reservationManager.refresh();
+            java.util.List<inventory.Reservation> all = reservationManager.getAllReservations();
+            // Consider only the newest 5 interesting reservations
+            java.util.List<inventory.Reservation> notes = all.stream()
+                .filter(r -> r.getStudentId() != null && r.getStudentId().equals(student.getStudentId()))
+                .filter(r -> {
+                    String s = r.getStatus();
+                    return "APPROVED - WAITING FOR PAYMENT".equals(s) || "REPLACED".equals(s);
+                })
+                .sorted(inventory.Reservation.newestFirstComparator())
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+
+            return (int) notes.stream().filter(r -> !seenNotifications.contains(r.getReservationId())).count();
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
+    /**
+     * Mark a reservation notification as seen
+     */
+    public void markNotificationSeen(int reservationId) {
+        if (reservationId <= 0) return;
+        seenNotifications.add(reservationId);
+        // Do not persist to disk - keep seen state in-memory only
+        if (notificationUpdateCallback != null) notificationUpdateCallback.run();
+    }
+
+    /**
+     * Show notifications dialog listing accepted reservations and replacements.
+     */
+    public void showNotificationsDialog() {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Notifications");
+        dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+        // Make dialog larger for readability
+        // Dialog sizing: keep reasonably wide but not require horizontal scrolling
+        dialog.getDialogPane().setPrefSize(820, 620);
+
+        VBox content = new VBox(10);
+        content.setPadding(new javafx.geometry.Insets(18));
+        // Use layout properties instead of CSS min-width so width can adapt
+        content.setMinWidth(300);
+        content.setMinHeight(560);
+        content.setMaxWidth(Double.MAX_VALUE);
+
+        // Refresh in-memory reservations first so we pick up staff approvals from storage
+        reservationManager.refresh();
+        // Use in-memory ReservationManager to get recent reservations
+        java.util.List<inventory.Reservation> all = reservationManager.getAllReservations();
+
+            java.util.List<inventory.Reservation> filtered = all.stream()
+            .filter(r -> r.getStudentId() != null && r.getStudentId().equals(student.getStudentId()))
+            .filter(r -> {
+                String s = r.getStatus();
+                return "APPROVED - WAITING FOR PAYMENT".equals(s) || "REPLACED".equals(s);
+            })
+            .sorted(inventory.Reservation.newestFirstComparator())
+            .collect(java.util.stream.Collectors.toList());
+
+            // Group by bundleId (preserve order) so bundled reservations show as a single notification
+            java.util.LinkedHashMap<String, java.util.List<inventory.Reservation>> groups = new java.util.LinkedHashMap<>();
+            for (inventory.Reservation r : filtered) {
+                String key = (r.isPartOfBundle() && r.getBundleId() != null) ? r.getBundleId() : ("SINGLE-" + r.getReservationId());
+                groups.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(r);
+            }
+
+            java.util.List<java.util.Map.Entry<String, java.util.List<inventory.Reservation>>> entries = new java.util.ArrayList<>(groups.entrySet());
+            // limit to 5 most recent groups
+            if (entries.size() > 5) entries = entries.subList(0, 5);
+
+        if (entries.isEmpty()) {
+            Label empty = new Label("No new notifications");
+            empty.setStyle("-fx-text-fill: -color-fg-muted;");
+            content.getChildren().add(empty);
+        } else {
+            // Top controls: Title and Clear All
+            HBox topControls = new HBox(8);
+            topControls.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+            Label titleLabel = new Label("Notifications");
+            titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+            Region topSpacer = new Region();
+            HBox.setHgrow(topSpacer, Priority.ALWAYS);
+            topControls.getChildren().addAll(titleLabel, topSpacer);
+            content.getChildren().add(topControls);
+
+            for (java.util.Map.Entry<String, java.util.List<inventory.Reservation>> entry : entries) {
+                java.util.List<inventory.Reservation> group = entry.getValue();
+                // Representative reservation is the newest in the group (list is newest-first)
+                inventory.Reservation rep = group.get(0);
+
+                VBox card = new VBox(8);
+                card.setMaxWidth(Double.MAX_VALUE);
+                card.setStyle("-fx-padding: 14; -fx-background-color: -color-bg-subtle; -fx-border-color: -color-border-default; -fx-border-radius: 8; -fx-background-radius: 8;");
+                HBox row = new HBox(12);
+                row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                row.setMaxWidth(Double.MAX_VALUE);
+                Label messageLabel = new Label();
+                messageLabel.setWrapText(true);
+                messageLabel.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(messageLabel, Priority.ALWAYS);
+                // Reserve space for the right-side "View" button to avoid overlap
+                messageLabel.maxWidthProperty().bind(content.widthProperty().subtract(180));
+
+                // Determine if this group is a bundle
+                boolean isBundle = rep.isPartOfBundle();
+                if (isBundle) {
+                    // If any item in bundle is REPLACED, show replacement message; otherwise show accepted message
+                    boolean anyReplaced = group.stream().anyMatch(g -> "REPLACED".equals(g.getStatus()));
+                    if (anyReplaced) {
+                        messageLabel.setText("Bundle replacement accepted — proceed to staff to get the replaced items.\nBundle (" + group.size() + " items)");
+                    } else {
+                        messageLabel.setText("Bundle reservation accepted — proceed to cashier.\nBundle (" + group.size() + " items)");
+                    }
+                } else {
+                    if ("APPROVED - WAITING FOR PAYMENT".equals(rep.getStatus())) {
+                        messageLabel.setText("Item reservation accepted — proceed to cashier.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity());
+                    } else if ("REPLACED".equals(rep.getStatus())) {
+                        messageLabel.setText("Item replacement accepted — proceed to staff to get the replaced item.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity());
+                    } else {
+                        messageLabel.setText("Update for reservation #" + rep.getReservationId());
+                    }
+                }
+
+                Button details = new Button("View");
+                details.setStyle("-fx-font-weight: bold;");
+                // Allow the button to grow vertically to match the card height
+                details.setMaxHeight(Double.MAX_VALUE);
+                VBox detailsContainer = new VBox(details);
+                detailsContainer.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+                // Fix right column width so it never collapses behind a horizontal scroll
+                detailsContainer.setMinWidth(140);
+                detailsContainer.setPrefWidth(140);
+                detailsContainer.setMaxWidth(140);
+                VBox.setVgrow(details, Priority.ALWAYS);
+                details.setOnAction(evt -> {
+                    // Show detailed dialog for the representative or bundle
+                    javafx.scene.control.Dialog<Void> d2 = new javafx.scene.control.Dialog<>();
+                    d2.setTitle(isBundle ? "Bundle Notification Details" : "Notification Details");
+                    d2.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+
+                    VBox dcontent = new VBox(10);
+                    dcontent.setPadding(new javafx.geometry.Insets(12));
+                    Label header = new Label((isBundle ? "Bundle " : "") + rep.getItemName() + " — Reservation " + (isBundle ? rep.getBundleId() : "#" + rep.getReservationId()));
+                    header.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+                    dcontent.getChildren().add(header);
+
+                    if (isBundle) {
+                        Label itemsTitle = new Label("Items in bundle:");
+                        dcontent.getChildren().add(itemsTitle);
+                        for (inventory.Reservation it : group) {
+                            Label li = new Label("• " + it.getItemName() + " (" + it.getSize() + ") - Qty: " + it.getQuantity());
+                            li.setWrapText(true);
+                            dcontent.getChildren().add(li);
+                        }
+                    } else {
+                        Label status = new Label("Status: " + rep.getStatus());
+                        Label qty = new Label("Quantity: " + rep.getQuantity());
+                        Label size = new Label("Size: " + rep.getSize());
+                        Label time = new Label("Reserved: " + rep.getFormattedTime());
+                        dcontent.getChildren().addAll(status, qty, size, time);
+                    }
+
+                    d2.getDialogPane().setContent(dcontent);
+                    d2.showAndWait();
+
+                    // After viewing, mark all reservations in the group as seen but keep notifications visible
+                    for (inventory.Reservation it : group) {
+                        markNotificationSeen(it.getReservationId());
+                    }
+                    // Visually update the message to a muted style to indicate it's been seen
+                    messageLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+                    if (notificationUpdateCallback != null) notificationUpdateCallback.run();
+                });
+
+                // Visually indicate unread: group is unread if any reservation id in it is unseen
+                boolean groupUnread = group.stream().anyMatch(g -> !seenNotifications.contains(g.getReservationId()));
+                if (groupUnread) {
+                    messageLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+                } else {
+                    messageLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+                }
+
+                Region spacer = new Region();
+                HBox.setHgrow(spacer, Priority.ALWAYS);
+                // Put the View button in its own fixed-width container so it stays visible
+                row.getChildren().addAll(messageLabel, spacer, detailsContainer);
+                card.getChildren().add(row);
+
+                // Make the whole card clickable to show details (same as View button)
+                card.setOnMouseClicked(evt -> {
+                    details.fire();
+                });
+                card.setOnMouseEntered(evt -> card.setStyle(card.getStyle() + " -fx-cursor: hand;"));
+
+                content.getChildren().add(card);
+            }
+        }
+
+        ScrollPane sp = new ScrollPane(content);
+        sp.setFitToWidth(true);
+        sp.setFitToHeight(true);
+        // Never show horizontal scrollbar — wrap content to available width
+        sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        // Bind content width to scroll pane width so the right-side "View" button stays visible
+        content.prefWidthProperty().bind(sp.widthProperty().subtract(24));
+        dialog.getDialogPane().setContent(sp);
+        dialog.showAndWait();
+        // After closing, run update callback
+        if (notificationUpdateCallback != null) notificationUpdateCallback.run();
     }
     
     /**

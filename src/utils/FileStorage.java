@@ -550,6 +550,46 @@ public class FileStorage {
 
         return result;
     }
+
+    // ==================== NOTIFICATIONS SEEN PERSISTENCE ====================
+
+    /**
+     * Save seen notification ids for a student. Each line contains a reservationId integer.
+     */
+    public static boolean saveSeenNotifications(String studentId, java.util.Set<Integer> ids) {
+        if (studentId == null) return false;
+        // Persist only to the primary txt data folder (src/database/data)
+        File srcDir = new File("src/database/data");
+        if (!srcDir.exists()) srcDir.mkdirs();
+        File f = new File(srcDir, "seen_notifications_" + studentId + ".txt");
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(f, false))) {
+            for (Integer id : ids) { writer.write(String.valueOf(id)); writer.newLine(); }
+            writer.flush();
+            try { f.setLastModified(System.currentTimeMillis()); } catch (Exception ex) {}
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Load seen notification ids for a student. Returns empty set if none.
+     */
+    public static java.util.Set<Integer> loadSeenNotifications(String studentId) {
+        java.util.Set<Integer> out = new java.util.HashSet<>();
+        if (studentId == null) return out;
+        File srcDir = new File("src/database/data");
+        File f = new File(srcDir, "seen_notifications_" + studentId + ".txt");
+        if (!f.exists()) return out;
+        try (BufferedReader reader = new BufferedReader(new FileReader(f))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim(); if (line.isEmpty()) continue;
+                try { out.add(Integer.parseInt(line)); } catch (NumberFormatException ex) {}
+            }
+        } catch (IOException e) { }
+        return out;
+    }
     
     /**
      * Convert staff to file format

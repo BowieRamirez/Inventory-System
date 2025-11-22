@@ -22,3 +22,11 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-21 01:28:27|Admin|0||||MAINTENANCE_ACTIVATED|Maintenance mode enabled
 2025-11-21 01:33:46|Admin|0||||STUDENT_DEACTIVATED|Student: 020002100000 - Junela, Frigger
 2025-11-21 02:05:06|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled
+2025-11-22 20:29:17|Admin|0||||STUDENT_ACTIVATED|Student: 020002992999 - awdadawd, wadawd
+2025-11-22 20:29:19|Admin|0||||STUDENT_DEACTIVATED|Student: 020002992999 - awdadawd, wadawd
+2025-11-22 20:29:28|Admin|0||||MAINTENANCE_ACTIVATED|Maintenance mode enabled
+2025-11-22 20:29:34|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled
+2025-11-22 22:22:45|staff|1024|Business Blazer|S|+1/31|ITEM_UPDATED|Added by staff: +1 (manual restock)
+2025-11-22 22:53:05|Admin|0||||STUDENT_DEACTIVATED|Student: 02000288888 - raslu, hashim
+2025-11-22 23:12:38|Admin|0||||STUDENT_ACTIVATED|Student: 020002992999 - awdadawd, wadawd
+2025-11-22 23:12:49|Admin|0||||STUDENT_DEACTIVATED|Student: 02000427327 - dela cruz, jhames

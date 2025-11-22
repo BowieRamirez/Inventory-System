@@ -44,6 +44,8 @@ public class CashierDashboard {
     public CashierDashboard() {
         controller = new CashierDashboardController();
         initializeView();
+        // Re-apply theme when ThemeManager changes (fixes cases where theme was toggled earlier)
+        javafx.application.Platform.runLater(() -> ThemeManager.addThemeChangeListener(() -> javafx.application.Platform.runLater(this::updateSidebarTheme)));
     }
     
     private void initializeView() {
@@ -191,8 +193,9 @@ public class CashierDashboard {
         VBox.setVgrow(spacer, Priority.ALWAYS);
         
         logoutBtn = createNavButton("🚪 Logout", false);
-        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
-        String logoutBg = ThemeManager.isDarkMode() ? "-color-danger-emphasis" : "rgba(255,255,255,0.15)";
+        String logoutColor = ThemeManager.isDarkMode() ? "white" : "rgba(255,255,255,0.9)";
+        // Use explicit danger color for background to avoid CSS variable resolution issues
+        String logoutBg = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.15)";
         logoutBtn.setStyle(
             "-fx-background-color: " + logoutBg + ";" +
             "-fx-text-fill: " + logoutColor + ";" +
@@ -386,7 +389,8 @@ public class CashierDashboard {
         
         // Update logout button
         if (isDark) {
-            logoutBtn.setStyle("-fx-background-color: -color-danger-emphasis; -fx-text-fill: white; " +
+            // Use explicit danger color for dark mode
+            logoutBtn.setStyle("-fx-background-color: #CF222E; -fx-text-fill: white; " +
                              "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
                              "-fx-alignment: center; -fx-font-size: 14px; -fx-font-weight: bold;");
         } else {

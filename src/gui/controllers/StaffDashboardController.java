@@ -61,6 +61,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.GridPane;
 import utils.StockReturnLogger;
 
 /**
@@ -96,7 +97,8 @@ public class StaffDashboardController {
     private void handleChangePriceForItem(Item item, Runnable refreshAction) {
         TextInputDialog priceDialog = new TextInputDialog(String.format("%.2f", item.getPrice()));
         priceDialog.setTitle("Change Price");
-        priceDialog.setHeaderText("Change price for: " + item.getName() + " (" + item.getSize() + ")");
+        // Changing price here will apply to all sizes of the selected item code
+        priceDialog.setHeaderText("Change price for: " + item.getName() + " (applies to all sizes)");
         priceDialog.setContentText("Current Price: ₱" + String.format("%.2f", item.getPrice()) + "\nNew Price:");
 
         priceDialog.showAndWait().ifPresent(input -> {
@@ -108,18 +110,16 @@ public class StaffDashboardController {
                 }
 
                 double oldPrice = item.getPrice();
-                boolean success = inventoryManager.updateItemPriceBySize(item.getCode(), item.getSize(), newPrice);
+                // Update price across all size variants (staff intent is to change price for the item, not a single size)
+                boolean success = inventoryManager.updateItemPriceByCode(item.getCode(), newPrice);
                 if (success) {
-                    // Log legacy change
-                    StockReturnLogger.logPriceChange("staff", item.getCode(), item.getName(), item.getSize(), oldPrice, newPrice);
-
                     // Refresh table
                     refreshAction.run();
 
                     AlertHelper.showSuccess("Price Updated",
-                        "Price updated successfully!\n\n" +
-                        "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
-                        "Old Price: ₱" + String.format("%.2f", oldPrice) + "\n" +
+                        "Price updated successfully for all sizes!\n\n" +
+                        "Item: " + item.getName() + "\n" +
+                        "Old Price (example): ₱" + String.format("%.2f", oldPrice) + "\n" +
                         "New Price: ₱" + String.format("%.2f", newPrice));
                 } else {
                     AlertHelper.showError("Error", "Failed to update price!");
@@ -707,7 +707,8 @@ public class StaffDashboardController {
             table.setItems(FXCollections.observableArrayList(pageItems));
 
             pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
-            pageLabel.setVisible(totalPages > 2);
+            // Always show the page indicator so staff know which page they're on
+            pageLabel.setVisible(true);
             prevBtn.setDisable(currentPage[0] <= 1);
             nextBtn.setDisable(currentPage[0] >= totalPages);
         };
@@ -854,7 +855,11 @@ public class StaffDashboardController {
 
         VBox.setVgrow(table, Priority.ALWAYS);
         // Do not add the statsBox to the UI (hide the top summary boxes)
-        container.getChildren().addAll(searchBar, filterBar, table, pageControls);
+        // Wrap page controls in a full-width HBox so the pagination buttons are centered
+        HBox pageControlsWrapper = new HBox(pageControls);
+        pageControlsWrapper.setAlignment(Pos.CENTER);
+        pageControlsWrapper.setMaxWidth(Double.MAX_VALUE);
+        container.getChildren().addAll(searchBar, filterBar, table, pageControlsWrapper);
 
         // Make the container resize-friendly and wrap it in a ScrollPane so
         // the dashboard can be scrolled on smaller screens instead of overflowing.
@@ -1802,17 +1807,64 @@ public class StaffDashboardController {
             courseComboDialog.setEditable(true);
             courseComboDialog.setPromptText("Course or 'STI Special'");
 
-            javafx.scene.control.ComboBox<String> sizeCombo = new javafx.scene.control.ComboBox<>();
-            sizeCombo.setItems(FXCollections.observableArrayList("S", "M", "L", "XL", "One Size"));
-            sizeCombo.setPromptText("Size");
+            // Size selection: allow multiple sizes (S, M, L, XL) each with a checkbox + qty field.
+            // One Size is exclusive and cannot be combined with S/M/L/XL.
+            GridPane sizesGrid = new GridPane();
+            sizesGrid.setHgap(8);
+            sizesGrid.setVgap(8);
 
-            TextField qtyField = new TextField();
-            qtyField.setPromptText("Quantity");
+            javafx.scene.control.CheckBox cbS = new javafx.scene.control.CheckBox("S");
+            TextField qtyS = new TextField(); qtyS.setPromptText("Qty"); qtyS.setPrefWidth(70); qtyS.setDisable(true);
+            javafx.scene.control.CheckBox cbM = new javafx.scene.control.CheckBox("M");
+            TextField qtyM = new TextField(); qtyM.setPromptText("Qty"); qtyM.setPrefWidth(70); qtyM.setDisable(true);
+            javafx.scene.control.CheckBox cbL = new javafx.scene.control.CheckBox("L");
+            TextField qtyL = new TextField(); qtyL.setPromptText("Qty"); qtyL.setPrefWidth(70); qtyL.setDisable(true);
+            javafx.scene.control.CheckBox cbXL = new javafx.scene.control.CheckBox("XL");
+            TextField qtyXL = new TextField(); qtyXL.setPromptText("Qty"); qtyXL.setPrefWidth(70); qtyXL.setDisable(true);
+
+            // One Size (exclusive)
+            javafx.scene.control.CheckBox cbOne = new javafx.scene.control.CheckBox("One Size");
+            TextField qtyOne = new TextField(); qtyOne.setPromptText("Qty"); qtyOne.setPrefWidth(70); qtyOne.setDisable(true);
+
+            // Wire up enable/disable behavior
+            cbS.selectedProperty().addListener((obs,o,n) -> qtyS.setDisable(!n));
+            cbM.selectedProperty().addListener((obs,o,n) -> qtyM.setDisable(!n));
+            cbL.selectedProperty().addListener((obs,o,n) -> qtyL.setDisable(!n));
+            cbXL.selectedProperty().addListener((obs,o,n) -> qtyXL.setDisable(!n));
+            cbOne.selectedProperty().addListener((obs,o,n) -> {
+                qtyOne.setDisable(!n);
+                // if one-size selected, disable others
+                if (n) {
+                    cbS.setDisable(true); cbM.setDisable(true); cbL.setDisable(true); cbXL.setDisable(true);
+                    qtyS.setDisable(true); qtyM.setDisable(true); qtyL.setDisable(true); qtyXL.setDisable(true);
+                } else {
+                    cbS.setDisable(false); cbM.setDisable(false); cbL.setDisable(false); cbXL.setDisable(false);
+                }
+            });
+            // If any regular size selected, disable one-size
+            java.util.List<javafx.scene.control.CheckBox> regularCbs = java.util.List.of(cbS, cbM, cbL, cbXL);
+            for (javafx.scene.control.CheckBox cb : regularCbs) {
+                cb.selectedProperty().addListener((obs,o,n) -> {
+                    if (n) {
+                        cbOne.setDisable(true); cbOne.setSelected(false); qtyOne.setDisable(true);
+                    } else {
+                        boolean any = regularCbs.stream().anyMatch(c -> c.isSelected());
+                        if (!any) cbOne.setDisable(false);
+                    }
+                });
+            }
+
+            // Layout sizes grid
+            sizesGrid.add(cbS, 0, 0); sizesGrid.add(qtyS, 1, 0);
+            sizesGrid.add(cbM, 2, 0); sizesGrid.add(qtyM, 3, 0);
+            sizesGrid.add(cbL, 0, 1); sizesGrid.add(qtyL, 1, 1);
+            sizesGrid.add(cbXL, 2, 1); sizesGrid.add(qtyXL, 3, 1);
+            sizesGrid.add(cbOne, 0, 2); sizesGrid.add(qtyOne, 1, 2);
 
             TextField priceField = new TextField();
             priceField.setPromptText("Price (e.g. 450.00)");
 
-            content.getChildren().addAll(codeLabel, nameField, courseComboDialog, sizeCombo, qtyField, priceField);
+            content.getChildren().addAll(codeLabel, nameField, courseComboDialog, sizesGrid, priceField);
 
             dialog.getDialogPane().setContent(content);
 
@@ -1820,41 +1872,83 @@ public class StaffDashboardController {
             javafx.scene.control.Button addActionBtn = (javafx.scene.control.Button) dialog.getDialogPane().lookupButton(addBtnType);
             addActionBtn.setDisable(true);
 
-            // Simple validation listener
+            // Simple validation listener for multi-size inputs
             Runnable validate = () -> {
                 boolean ok = !nameField.getText().trim().isEmpty()
-                         && courseComboDialog.getValue() != null && !courseComboDialog.getValue().trim().isEmpty()
-                         && sizeCombo.getValue() != null && !sizeCombo.getValue().trim().isEmpty();
+                         && courseComboDialog.getValue() != null && !courseComboDialog.getValue().trim().isEmpty();
                 try {
-                    int q = Integer.parseInt(qtyField.getText().trim());
                     double p = Double.parseDouble(priceField.getText().trim());
-                    ok = ok && q >= 0 && p >= 0;
+                    ok = ok && p >= 0;
                 } catch (Exception ex) {
                     ok = false;
                 }
-                addActionBtn.setDisable(!ok);
+
+                // At least one size must be selected with a valid quantity
+                boolean anySizeValid = false;
+                try {
+                    if (cbS.isSelected()) { int qs = Integer.parseInt(qtyS.getText().trim()); if (qs >= 0) anySizeValid = true; }
+                    if (cbM.isSelected()) { int qm = Integer.parseInt(qtyM.getText().trim()); if (qm >= 0) anySizeValid = true; }
+                    if (cbL.isSelected()) { int ql = Integer.parseInt(qtyL.getText().trim()); if (ql >= 0) anySizeValid = true; }
+                    if (cbXL.isSelected()) { int qxl = Integer.parseInt(qtyXL.getText().trim()); if (qxl >= 0) anySizeValid = true; }
+                    if (cbOne.isSelected()) { int qo = Integer.parseInt(qtyOne.getText().trim()); if (qo >= 0) anySizeValid = true; }
+                } catch (Exception ex) { anySizeValid = false; }
+
+                addActionBtn.setDisable(!(ok && anySizeValid));
             };
 
+            // Attach listeners
             nameField.textProperty().addListener((obs, o, n) -> validate.run());
             courseComboDialog.valueProperty().addListener((obs, o, n) -> validate.run());
-            sizeCombo.valueProperty().addListener((obs, o, n) -> validate.run());
-            qtyField.textProperty().addListener((obs, o, n) -> validate.run());
             priceField.textProperty().addListener((obs, o, n) -> validate.run());
+            qtyS.textProperty().addListener((obs, o, n) -> validate.run());
+            qtyM.textProperty().addListener((obs, o, n) -> validate.run());
+            qtyL.textProperty().addListener((obs, o, n) -> validate.run());
+            qtyXL.textProperty().addListener((obs, o, n) -> validate.run());
+            qtyOne.textProperty().addListener((obs, o, n) -> validate.run());
+            cbS.selectedProperty().addListener((obs, o, n) -> validate.run());
+            cbM.selectedProperty().addListener((obs, o, n) -> validate.run());
+            cbL.selectedProperty().addListener((obs, o, n) -> validate.run());
+            cbXL.selectedProperty().addListener((obs, o, n) -> validate.run());
+            cbOne.selectedProperty().addListener((obs, o, n) -> validate.run());
 
             dialog.setResultConverter(button -> {
                 if (button == addBtnType) {
                     try {
                         String name = nameField.getText().trim();
                         String course = courseComboDialog.getValue().trim();
-                        String size = sizeCombo.getValue().trim();
-                        int qty = Integer.parseInt(qtyField.getText().trim());
                         double price = Double.parseDouble(priceField.getText().trim());
 
-                        Item newItem = new Item(nextCode[0], name, course, size, qty, price);
-                        inventoryManager.addItem(newItem);
-
-                        // Log the new item addition to stock logs
-                        StockReturnLogger.logItemAdded("staff", nextCode[0], name, size, qty, price);
+                        // Add an item for each selected size
+                        if (cbS.isSelected()) {
+                            int qs = Integer.parseInt(qtyS.getText().trim());
+                            Item it = new Item(nextCode[0], name, course, "S", qs, price);
+                            inventoryManager.addItem(it);
+                            StockReturnLogger.logItemAdded("staff", nextCode[0], name, "S", qs, price);
+                        }
+                        if (cbM.isSelected()) {
+                            int qm = Integer.parseInt(qtyM.getText().trim());
+                            Item it = new Item(nextCode[0], name, course, "M", qm, price);
+                            inventoryManager.addItem(it);
+                            StockReturnLogger.logItemAdded("staff", nextCode[0], name, "M", qm, price);
+                        }
+                        if (cbL.isSelected()) {
+                            int ql = Integer.parseInt(qtyL.getText().trim());
+                            Item it = new Item(nextCode[0], name, course, "L", ql, price);
+                            inventoryManager.addItem(it);
+                            StockReturnLogger.logItemAdded("staff", nextCode[0], name, "L", ql, price);
+                        }
+                        if (cbXL.isSelected()) {
+                            int qxl = Integer.parseInt(qtyXL.getText().trim());
+                            Item it = new Item(nextCode[0], name, course, "XL", qxl, price);
+                            inventoryManager.addItem(it);
+                            StockReturnLogger.logItemAdded("staff", nextCode[0], name, "XL", qxl, price);
+                        }
+                        if (cbOne.isSelected()) {
+                            int qo = Integer.parseInt(qtyOne.getText().trim());
+                            Item it = new Item(nextCode[0], name, course, "One Size", qo, price);
+                            inventoryManager.addItem(it);
+                            StockReturnLogger.logItemAdded("staff", nextCode[0], name, "One Size", qo, price);
+                        }
 
                         // Refresh table and stats by invoking the refresh button action
                         refreshBtn.fire();
@@ -1918,10 +2012,22 @@ public class StaffDashboardController {
                 } else {
                     InventoryRow currentRow = getTableView().getItems().get(getIndex());
                     adjustBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
+                    // Allow buttons to expand to occupy available cell space so text is not truncated
+                    adjustBtn.setMaxWidth(Double.MAX_VALUE);
+                    HBox.setHgrow(adjustBtn, Priority.ALWAYS);
                     adjustBtn.setOnAction(e -> showVariantSelectionDialog(currentRow, "Adjust Stock", selected -> handleStockAdjustmentForItem(selected, refreshBtn::fire)));
 
                     priceBtn.setStyle("-fx-background-color: #0A84FF; -fx-text-fill: white; -fx-cursor: hand;");
-                    priceBtn.setOnAction(e -> showVariantSelectionDialog(currentRow, "Change Price", selected -> handleChangePriceForItem(selected, refreshBtn::fire)));
+                    priceBtn.setMaxWidth(Double.MAX_VALUE);
+                    HBox.setHgrow(priceBtn, Priority.ALWAYS);
+                    // For Change Price, do not prompt for size — change price for all sizes of this item code
+                    priceBtn.setOnAction(e -> {
+                        List<Item> variants = currentRow.getVariants();
+                        if (variants != null && !variants.isEmpty()) {
+                            // Use the first variant as representative; handler updates all sizes by code
+                            handleChangePriceForItem(variants.get(0), refreshBtn::fire);
+                        }
+                    });
 
                     HBox btns = new HBox(8, adjustBtn, priceBtn);
                     btns.setAlignment(Pos.CENTER);
@@ -1938,13 +2044,16 @@ public class StaffDashboardController {
         table.setPrefWidth(Double.MAX_VALUE);
 
         // Bind column widths as percentages of the table width so the table fills its box
+        // Increase `actions` column to give space for full button labels
         codeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.36));
-        courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
-        sizesCol.prefWidthProperty().bind(table.widthProperty().multiply(0.18));
-        qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.10));
+        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.32));
+        courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.08));
+        sizesCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
+        qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
         priceCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
-        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
+        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.24));
+        // Ensure actions column has a reasonable minimum so buttons don't get clipped
+        actionsCol.setMinWidth(240);
 
         // Keep table visual size consistent when limiting rows: fix row height and pref height
         // (pref height will be set after itemsPerPage is declared below)
@@ -2432,28 +2541,29 @@ public class StaffDashboardController {
      * Handle stock adjustment request for an item
      */
     private void handleStockAdjustmentForItem(Item item, Runnable refreshAction) {
-        TextInputDialog newQtyDialog = new TextInputDialog(String.valueOf(item.getQuantity()));
-        newQtyDialog.setTitle("Adjust Stock");
-        newQtyDialog.setHeaderText("Adjust stock for: " + item.getName() + " (" + item.getSize() + ")");
-        newQtyDialog.setContentText("Current Quantity: " + item.getQuantity() + "\nNew Quantity:");
+        // Change behavior: staff can only ADD stock (increase quantity), not remove.
+        TextInputDialog addQtyDialog = new TextInputDialog("0");
+        addQtyDialog.setTitle("Adjust Stock");
+        addQtyDialog.setHeaderText("Adjust stock for: " + item.getName() + " (" + item.getSize() + ")");
+        addQtyDialog.setContentText("Current Quantity: " + item.getQuantity() + "\nAdd Quantity:");
 
-        newQtyDialog.showAndWait().ifPresent(input -> {
+        addQtyDialog.showAndWait().ifPresent(input -> {
             try {
-                int newQuantity = Integer.parseInt(input.trim());
+                int addQuantity = Integer.parseInt(input.trim());
 
-                if (newQuantity < 0) {
-                    AlertHelper.showError("Invalid Input", "Quantity cannot be negative!");
+                if (addQuantity < 0) {
+                    AlertHelper.showError("Invalid Input", "Added quantity cannot be negative!");
                     return;
                 }
 
-                if (newQuantity == item.getQuantity()) {
-                    AlertHelper.showInfo("No Change", "New quantity is the same as current quantity.");
+                if (addQuantity == 0) {
+                    AlertHelper.showInfo("No Change", "No quantity added.");
                     return;
                 }
 
-                // Calculate the difference
+                // Compute new total (only adding)
                 int oldQuantity = item.getQuantity();
-                int stockChange = newQuantity - oldQuantity;
+                int newQuantity = oldQuantity + addQuantity;
 
                 // Apply the change immediately (staff can adjust without admin approval)
                 boolean success = inventoryManager.updateItemQuantityBySize(
@@ -2461,27 +2571,27 @@ public class StaffDashboardController {
                     item.getSize(),
                     newQuantity
                 );
-                
+
                 if (success) {
                     // Log the change into the legacy stock logs so Admin can see it in the Admin UI
-                    String details = String.format("Adjusted by staff: %s → %s", oldQuantity, newQuantity);
+                    String details = String.format("Added by staff: +%d (manual restock)", addQuantity);
                     StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), oldQuantity, newQuantity, details);
 
                     // Refresh the table to show updated stock
                     refreshAction.run();
 
                     AlertHelper.showSuccess("Stock Updated",
-                        "Stock updated successfully!\n\n" +
+                        "Stock increased successfully!\n\n" +
                         "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
                         "Old Quantity: " + oldQuantity + "\n" +
-                        "New Quantity: " + newQuantity + "\n" +
-                        "Change: " + (stockChange > 0 ? "+" : "") + stockChange);
+                        "Added: " + addQuantity + "\n" +
+                        "New Quantity: " + newQuantity + "\n");
                 } else {
                     AlertHelper.showError("Error", "Failed to update stock!");
                 }
 
             } catch (NumberFormatException e) {
-                AlertHelper.showError("Invalid Input", "Please enter a valid number!");
+                AlertHelper.showError("Invalid Input", "Please enter a valid whole number!");
             }
         });
     }

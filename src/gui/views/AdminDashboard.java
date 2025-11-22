@@ -57,6 +57,8 @@ public class AdminDashboard {
     public AdminDashboard() {
         controller = new AdminDashboardController();
         initializeView();
+        // Ensure dashboard listens for theme changes so styles are reapplied correctly
+        javafx.application.Platform.runLater(() -> ThemeManager.addThemeChangeListener(() -> javafx.application.Platform.runLater(this::updateSidebarTheme)));
     }
     
     private void initializeView() {
@@ -236,8 +238,9 @@ public class AdminDashboard {
         VBox.setVgrow(spacer, Priority.ALWAYS);
         
         logoutBtn = createNavButton("🚪 Logout", false);
-        String logoutColor = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.9)";
-        String logoutBg = ThemeManager.isDarkMode() ? "-color-danger-emphasis" : "rgba(255,255,255,0.15)";
+        String logoutColor = ThemeManager.isDarkMode() ? "white" : "rgba(255,255,255,0.9)";
+        // Explicit danger color to avoid depending on theme CSS variable resolution
+        String logoutBg = ThemeManager.isDarkMode() ? "#CF222E" : "rgba(255,255,255,0.15)";
         logoutBtn.setStyle(
             "-fx-background-color: " + logoutBg + ";" +
             "-fx-text-fill: " + logoutColor + ";" +
@@ -478,8 +481,9 @@ public class AdminDashboard {
         
         // Update logout button: red background in dark mode, transparent in light mode
         if (ThemeManager.isDarkMode()) {
+            // Use explicit danger color to avoid variable resolution issues
             logoutBtn.setStyle(
-                "-fx-background-color: -color-danger-emphasis;" +
+                "-fx-background-color: #CF222E;" +
                 "-fx-text-fill: white;" +
                 "-fx-font-size: 14px;" +
                 "-fx-alignment: center;" +
