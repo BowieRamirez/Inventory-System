@@ -9,6 +9,7 @@ import gui.utils.AlertHelper;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
 import gui.utils.TableViewUtils;
+import gui.utils.ThemeManager;
 import gui.views.LoginView;
 import inventory.InventoryManager;
 import inventory.Item;
@@ -251,7 +252,7 @@ public class AdminDashboardController {
 
         // Action buttons
         HBox actionBar = new HBox(15);
-        actionBar.setAlignment(Pos.CENTER_LEFT);
+        actionBar.setAlignment(Pos.CENTER);
 
         Button addItemBtn = new Button("➕ Add Item");
         Button refreshBtn = new Button("🔄 Refresh");
@@ -267,6 +268,12 @@ public class AdminDashboardController {
         // Create inventory table
         TableView<Item> table = new TableView<>();
         TableViewUtils.applyConsistentStyle(table);
+
+        // Pagination setup
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+        List<Item> allItems = new ArrayList<>(inventoryManager.getAllItems());
+        List<Item> workingFiltered = new ArrayList<>(allItems);
 
         TableColumn<Item, Integer> codeCol = new TableColumn<>("Code");
         codeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getCode()));
@@ -332,32 +339,146 @@ public class AdminDashboardController {
 
         table.getColumns().addAll(codeCol, nameCol, courseCol, sizeCol, qtyCol, priceCol, actionsCol);
 
-        // Load data
-        ObservableList<Item> items = FXCollections.observableArrayList(inventoryManager.getAllItems());
-        table.setItems(items);
+        // Pagination controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
 
-        // Search functionality
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null || newVal.isEmpty()) {
-                table.setItems(FXCollections.observableArrayList(inventoryManager.getAllItems()));
-            } else {
-                List<Item> filtered = inventoryManager.getAllItems().stream()
-                    .filter(item -> item.getName().toLowerCase().contains(newVal.toLowerCase()) ||
-                                  String.valueOf(item.getCode()).contains(newVal))
-                    .collect(java.util.stream.Collectors.toList());
-                table.setItems(FXCollections.observableArrayList(filtered));
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        Label pageLabel = new Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Function to update table with current page and search
+        Runnable updateTable = () -> {
+            List<Item> display = new ArrayList<>(workingFiltered);
+
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Item> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            // pageLabel always visible to match Staff inventory pagination
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+            
+            // Create go-to page field per Staff canonical pagination
+            TextField goToPageField = new TextField();
+            goToPageField.setPromptText("Go to page...");
+            goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120;");
+            goToPageField.setOnAction(ev -> {
+                try {
+                    String input = goToPageField.getText().trim();
+                    if (!input.isEmpty()) {
+                        int pageNum = Integer.parseInt(input);
+                        int tPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+                        if (pageNum >= 1 && pageNum <= tPages) {
+                            currentPage[0] = pageNum;
+                            goToPageField.clear();
+                            int s = (currentPage[0] - 1) * itemsPerPage;
+                            int e = Math.min(s + itemsPerPage, workingFiltered.size());
+                            List<Item> pItems = workingFiltered.isEmpty() ? java.util.Collections.emptyList() : workingFiltered.subList(s, e);
+                            table.setItems(FXCollections.observableArrayList(pItems));
+                            pageLabel.setText("Page " + currentPage[0] + " of " + tPages);
+                            prevBtn.setDisable(currentPage[0] <= 1);
+                            nextBtn.setDisable(currentPage[0] >= tPages);
+                            pageControls.getChildren().clear();
+                            pageControls.setSpacing(12);
+                            pageControls.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
+                            pageControls.setAlignment(Pos.CENTER);
+                        } else {
+                            goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                            goToPageField.clear();
+                            goToPageField.setPromptText("Invalid page (1-" + tPages + ")");
+                        }
+                    }
+                } catch (NumberFormatException ex) {
+                    goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                    goToPageField.clear();
+                    goToPageField.setPromptText("Enter a valid number");
+                }
+            });
+            // Rebuild page controls to include the go-to field
+            pageControls.getChildren().clear();
+            pageControls.setSpacing(12);
+            pageControls.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
+            pageControls.setAlignment(Pos.CENTER);
+        };
+
+        // Navigation actions
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
+                updateTable.run();
             }
+        });
+        
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateTable.run();
+            }
+        });
+
+        // Load initial data
+        workingFiltered.clear();
+        workingFiltered.addAll(allItems);
+
+        // Search functionality with pagination
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String searchText = newVal == null ? "" : newVal.toLowerCase().trim();
+            currentPage[0] = 1;
+            
+            if (searchText.isEmpty()) {
+                workingFiltered.clear();
+                workingFiltered.addAll(allItems);
+            } else {
+                List<Item> filtered = allItems.stream()
+                    .filter(item -> item.getName().toLowerCase().contains(searchText) ||
+                                  String.valueOf(item.getCode()).contains(searchText) ||
+                                  (item.getCourse() != null && item.getCourse().toLowerCase().contains(searchText)))
+                    .collect(java.util.stream.Collectors.toList());
+                workingFiltered.clear();
+                workingFiltered.addAll(filtered);
+            }
+            updateTable.run();
         });
 
         // Button actions
         addItemBtn.setOnAction(e -> handleAddItem(table));
         refreshBtn.setOnAction(e -> {
-            table.setItems(FXCollections.observableArrayList(inventoryManager.getAllItems()));
+            allItems.clear();
+            allItems.addAll(inventoryManager.getAllItems());
+            workingFiltered.clear();
+            workingFiltered.addAll(allItems);
+            currentPage[0] = 1;
             searchField.clear();
+            updateTable.run();
         });
 
+        // Set fixed row height and table height for consistent pagination
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
+
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(actionBar, table);
+        container.getChildren().addAll(actionBar, table, pageControls);
+
+        // Initialize table
+        updateTable.run();
 
         return container;
     }
@@ -572,50 +693,171 @@ public class AdminDashboardController {
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, bundleCol, actionsCol);
 
-        // Load all reservations (deduplicated for bundles)
-        ObservableList<Reservation> allReservations = FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()));
-        table.setItems(allReservations);
+        // Pagination setup
+        final int itemsPerPage = 10;
+        final int[] currentPage = new int[] { 1 };
+        List<Reservation> allReservations = new ArrayList<>(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()));
+        List<Reservation> workingFiltered = new ArrayList<>(allReservations);
+        final String[] currentFilter = new String[] { "All" };
 
-        // Filter actions
-        allBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()))));
+        // Pagination controls
+        HBox pageControls = new HBox(12);
+        pageControls.setAlignment(Pos.CENTER);
+        pageControls.setPadding(new Insets(12, 0, 0, 0));
+
+        Button prevBtn = new Button("← Previous");
+        prevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        Label pageLabel = new Label();
+        pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+
+        Button nextBtn = new Button("Next →");
+        nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+
+        pageControls.getChildren().addAll(prevBtn, pageLabel, nextBtn);
+
+        // Function to update table with current page and filter
+        Runnable updateTable = () -> {
+            List<Reservation> display = new ArrayList<>(workingFiltered);
+            int totalPages = Math.max(1, (int) Math.ceil((double) display.size() / itemsPerPage));
+            if (currentPage[0] > totalPages) currentPage[0] = totalPages;
+
+            int start = (currentPage[0] - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, display.size());
+            List<Reservation> pageItems = display.isEmpty() ? java.util.Collections.emptyList() : display.subList(start, end);
+
+            table.setItems(FXCollections.observableArrayList(pageItems));
+
+            pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
+            // pageLabel always visible to match Staff inventory pagination
+            prevBtn.setDisable(currentPage[0] <= 1);
+            nextBtn.setDisable(currentPage[0] >= totalPages);
+        };
+
+        // Navigation actions
+        prevBtn.setOnAction(e -> {
+            if (currentPage[0] > 1) {
+                currentPage[0]--;
+                updateTable.run();
+            }
+        });
+        
+        nextBtn.setOnAction(e -> {
+            int totalPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+            if (currentPage[0] < totalPages) {
+                currentPage[0]++;
+                updateTable.run();
+            }
+        });
+
+        // Filter actions with pagination
+        allBtn.setOnAction(e -> {
+            currentFilter[0] = "All";
+            currentPage[0] = 1;
+            workingFiltered.clear();
+            workingFiltered.addAll(allReservations);
+            updateTable.run();
+        });
+        
         pendingBtn.setOnAction(e -> {
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+            currentFilter[0] = "Pending";
+            currentPage[0] = 1;
+            List<Reservation> filtered = allReservations.stream()
                 .filter(r -> "PENDING".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            workingFiltered.clear();
+            workingFiltered.addAll(filtered);
+            updateTable.run();
         });
+        
         approvedBtn.setOnAction(e -> {
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+            currentFilter[0] = "Approved";
+            currentPage[0] = 1;
+            List<Reservation> filtered = allReservations.stream()
                 .filter(r -> r.getStatus().contains("APPROVED"))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            workingFiltered.clear();
+            workingFiltered.addAll(filtered);
+            updateTable.run();
         });
+        
         paidBtn.setOnAction(e -> {
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+            currentFilter[0] = "Paid";
+            currentPage[0] = 1;
+            List<Reservation> filtered = allReservations.stream()
                 .filter(r -> r.getStatus().contains("PAID"))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            workingFiltered.clear();
+            workingFiltered.addAll(filtered);
+            updateTable.run();
         });
+        
         completedBtn.setOnAction(e -> {
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+            currentFilter[0] = "Completed";
+            currentPage[0] = 1;
+            List<Reservation> filtered = allReservations.stream()
                 .filter(r -> "COMPLETED".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            workingFiltered.clear();
+            workingFiltered.addAll(filtered);
+            updateTable.run();
         });
+        
         returnRequestsBtn.setOnAction(e -> {
-            List<Reservation> filtered = reservationManager.getReturnRequests();
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            currentFilter[0] = "Return Requests";
+            currentPage[0] = 1;
+            List<Reservation> filtered = ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests());
+            workingFiltered.clear();
+            workingFiltered.addAll(filtered);
+            updateTable.run();
         });
+        
         cancelledBtn.setOnAction(e -> {
-            List<Reservation> filtered = reservationManager.getAllReservations().stream()
+            currentFilter[0] = "Cancelled";
+            currentPage[0] = 1;
+            List<Reservation> filtered = allReservations.stream()
                 .filter(r -> "CANCELLED".equals(r.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
-            table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(filtered)));
+            workingFiltered.clear();
+            workingFiltered.addAll(filtered);
+            updateTable.run();
         });
-        refreshBtn.setOnAction(e -> table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()))));
+        
+        refreshBtn.setOnAction(e -> {
+            allReservations.clear();
+            allReservations.addAll(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations()));
+            currentPage[0] = 1;
+            // Reapply current filter
+            if ("All".equals(currentFilter[0])) {
+                allBtn.fire();
+            } else if ("Pending".equals(currentFilter[0])) {
+                pendingBtn.fire();
+            } else if ("Approved".equals(currentFilter[0])) {
+                approvedBtn.fire();
+            } else if ("Paid".equals(currentFilter[0])) {
+                paidBtn.fire();
+            } else if ("Completed".equals(currentFilter[0])) {
+                completedBtn.fire();
+            } else if ("Return Requests".equals(currentFilter[0])) {
+                returnRequestsBtn.fire();
+            } else if ("Cancelled".equals(currentFilter[0])) {
+                cancelledBtn.fire();
+            } else {
+                allBtn.fire();
+            }
+        });
+
+        // Set fixed row height and table height for consistent pagination
+        final double rowHeight = 65;
+        table.setFixedCellSize(rowHeight);
+        final double headerReserve = 56;
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
 
         VBox.setVgrow(table, Priority.ALWAYS);
-        container.getChildren().addAll(filterBar, table);
+        container.getChildren().addAll(filterBar, table, pageControls);
+
+        // Initialize with all reservations
+        updateTable.run();
 
         // Add row click handler to show order details
         table.setRowFactory(tv -> {
@@ -1027,7 +1269,8 @@ public class AdminDashboardController {
                         item.getReservationId(),
                         selectedReplacement.getCode(),
                         selectedReplacement.getName(),
-                        selectedReplacement.getSize()
+                        selectedReplacement.getSize(),
+                        ""
                     );
                     if (success) {
                         successCount++;
@@ -1109,7 +1352,7 @@ public class AdminDashboardController {
 
         // Action buttons
         HBox actionBar = new HBox(15);
-        actionBar.setAlignment(Pos.CENTER_LEFT);
+        actionBar.setAlignment(Pos.CENTER);
 
         Button refreshBtn = new Button("🔄 Refresh");
         TextField searchField = new TextField();
@@ -1185,6 +1428,7 @@ public class AdminDashboardController {
                     resetPwdBtn.setOnAction(e -> handleResetStudentPassword(student, table));
                     
                     actionBox.getChildren().setAll(toggleBtn, resetPwdBtn);
+                    actionBox.setAlignment(Pos.CENTER);
                     setGraphic(actionBox);
                 }
             }
@@ -1206,16 +1450,12 @@ public class AdminDashboardController {
         pageSearch.setPromptText("Search in pages...");
         pageSearch.setPrefWidth(180);
 
-        // When hidden, the pageSearch should not take up layout space
-        pageSearch.managedProperty().bind(pageSearch.visibleProperty());
-
+        // Compact pagination bar container (we'll rebuild controls inside update runnable)
         HBox paginationBar = new HBox(12);
         paginationBar.setAlignment(Pos.CENTER);
         paginationBar.setPadding(new Insets(12, 0, 0, 0));
         pageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
         nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
-        paginationBar.getChildren().addAll(prevBtn, pageLabel, pageSearch, nextBtn);
-        // Keep the pagination bar compact; don't stretch across the full width
         paginationBar.setMaxWidth(Region.USE_PREF_SIZE);
 
         // Wrap the compact pagination bar in a full-width container so it stays centered
@@ -1223,16 +1463,14 @@ public class AdminDashboardController {
         paginationWrapper.setAlignment(Pos.CENTER);
         paginationWrapper.setPadding(new Insets(0, 0, 0, 0));
         paginationWrapper.setPrefWidth(Double.MAX_VALUE);
-        // allow the paginationBar to keep its preferred size while the wrapper fills width
         javafx.scene.layout.HBox.setHgrow(paginationBar, javafx.scene.layout.Priority.NEVER);
         paginationWrapper.getChildren().add(paginationBar);
 
-        // Set row height
-        table.setRowFactory(tv -> {
-            javafx.scene.control.TableRow<Student> row = new javafx.scene.control.TableRow<>();
-            row.setPrefHeight(65);
-            return row;
-        });
+        // Use fixed cell size so table height is predictable like Staff inventory
+        final double rowHeight = 65;
+        final double headerReserve = 56;
+        table.setFixedCellSize(rowHeight);
+        table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
 
         // Update page contents based on search and current page
         Runnable updateStudentPage = () -> {
@@ -1252,8 +1490,49 @@ public class AdminDashboardController {
             prevBtn.setDisable(currentPage[0] <= 1);
             nextBtn.setDisable(currentPage[0] >= totalPages);
 
-            // Show pageSearch only when there are more than 2 pages
-            pageSearch.setVisible(totalPages > 2);
+            // Build go-to page field (Staff-style) and rebuild pagination bar
+            TextField goToPageField = new TextField();
+            goToPageField.setPromptText("Go to page...");
+            goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120;");
+            goToPageField.setOnAction(ev -> {
+                try {
+                    String input = goToPageField.getText().trim();
+                    if (!input.isEmpty()) {
+                        int pageNum = Integer.parseInt(input);
+                        int tPages = Math.max(1, (int) Math.ceil((double) masterStudents.size() / itemsPerPage));
+                        if (pageNum >= 1 && pageNum <= tPages) {
+                                currentPage[0] = pageNum;
+                                goToPageField.clear();
+                                // reuse filtering performed above by applying search text
+                            String queryInner = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+                            List<Student> filteredInner = masterStudents.stream()
+                                .filter(s -> s.getFullName().toLowerCase().contains(queryInner) || s.getStudentId().toLowerCase().contains(queryInner))
+                                .collect(java.util.stream.Collectors.toList());
+                            int s = (currentPage[0] - 1) * itemsPerPage;
+                            int e = Math.min(s + itemsPerPage, filteredInner.size());
+                            List<Student> pData = filteredInner.isEmpty() ? java.util.Collections.emptyList() : filteredInner.subList(s, e);
+                            table.setItems(FXCollections.observableArrayList(pData));
+                            pageLabel.setText("Page " + currentPage[0] + " of " + tPages);
+                            prevBtn.setDisable(currentPage[0] <= 1);
+                            nextBtn.setDisable(currentPage[0] >= tPages);
+                            paginationBar.getChildren().clear();
+                            paginationBar.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
+                        } else {
+                            goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                            goToPageField.clear();
+                            goToPageField.setPromptText("Invalid page (1-" + tPages + ")");
+                        }
+                    }
+                } catch (NumberFormatException ex) {
+                    goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                    goToPageField.clear();
+                    goToPageField.setPromptText("Enter a valid number");
+                }
+            });
+
+            // Rebuild pagination bar: Previous, PageLabel, GoTo, Next
+            paginationBar.getChildren().clear();
+            paginationBar.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
         };
 
         // Wire controls
@@ -1317,7 +1596,8 @@ public class AdminDashboardController {
 
         // Create staff table
         TableView<Staff> table = new TableView<>();
-        table.setStyle("-fx-background-color: -color-bg-subtle;");
+        String staffTableBg = ThemeManager.isDarkMode() ? "#0f1720" : "#F8F9FA";
+        table.setStyle("-fx-background-color: " + staffTableBg + ";");
 
         TableColumn<Staff, String> idCol = new TableColumn<>("Staff ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStaffId()));
@@ -1381,6 +1661,7 @@ public class AdminDashboardController {
                     resetPwdBtn.setOnAction(e -> handleResetStaffPassword(staff, table));
                     
                     actionBox.getChildren().setAll(editBtn, toggleBtn, resetPwdBtn);
+                    actionBox.setAlignment(Pos.CENTER);
                     setGraphic(actionBox);
                 }
             }
@@ -1401,16 +1682,12 @@ public class AdminDashboardController {
         staffPageSearch.setPromptText("Search in pages...");
         staffPageSearch.setPrefWidth(180);
 
-        // When hidden, the staffPageSearch should not take up layout space
-        staffPageSearch.managedProperty().bind(staffPageSearch.visibleProperty());
-
+        // Compact staff pagination bar container (we'll rebuild controls inside update runnable)
         HBox staffPaginationBar = new HBox(12);
         staffPaginationBar.setAlignment(Pos.CENTER);
         staffPaginationBar.setPadding(new Insets(12, 0, 0, 0));
         staffPageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
         staffNextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
-        staffPaginationBar.getChildren().addAll(staffPrevBtn, staffPageLabel, staffPageSearch, staffNextBtn);
-        // Keep the staff pagination bar compact; don't stretch across the full width
         staffPaginationBar.setMaxWidth(Region.USE_PREF_SIZE);
 
         // Wrap staff pagination in a full-width container and center it
@@ -1421,12 +1698,11 @@ public class AdminDashboardController {
         javafx.scene.layout.HBox.setHgrow(staffPaginationBar, javafx.scene.layout.Priority.NEVER);
         staffPaginationWrapper.getChildren().add(staffPaginationBar);
 
-        // Set row height
-        table.setRowFactory(tv -> {
-            javafx.scene.control.TableRow<Staff> row = new javafx.scene.control.TableRow<>();
-            row.setPrefHeight(65);
-            return row;
-        });
+        // Use fixed cell size so table height is predictable like Staff inventory
+        final double staffRowHeight = 65;
+        final double staffHeaderReserve = 56;
+        table.setFixedCellSize(staffRowHeight);
+        table.setPrefHeight(staffItemsPerPage * staffRowHeight + staffHeaderReserve);
 
         // Update page contents based on search and current page
         Runnable updateStaffPage = () -> {
@@ -1445,7 +1721,48 @@ public class AdminDashboardController {
             staffPageLabel.setText("Page " + staffCurrentPage[0] + " of " + totalPages);
             staffPrevBtn.setDisable(staffCurrentPage[0] <= 1);
             staffNextBtn.setDisable(staffCurrentPage[0] >= totalPages);
-            staffPageSearch.setVisible(totalPages > 2);
+
+            // Build go-to page field for staff pagination and rebuild controls
+            TextField staffGoToPage = new TextField();
+            staffGoToPage.setPromptText("Go to page...");
+            staffGoToPage.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120;");
+            staffGoToPage.setOnAction(ev -> {
+                try {
+                    String input = staffGoToPage.getText().trim();
+                    if (!input.isEmpty()) {
+                        int pageNum = Integer.parseInt(input);
+                        int tPages = Math.max(1, (int) Math.ceil((double) masterStaff.size() / staffItemsPerPage));
+                        if (pageNum >= 1 && pageNum <= tPages) {
+                            staffCurrentPage[0] = pageNum;
+                            staffGoToPage.clear();
+                            String queryInner = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+                            List<Staff> filteredInner = masterStaff.stream()
+                                .filter(s -> s.getFullName().toLowerCase().contains(queryInner) || s.getStaffId().toLowerCase().contains(queryInner))
+                                .collect(java.util.stream.Collectors.toList());
+                            int s = (staffCurrentPage[0] - 1) * staffItemsPerPage;
+                            int e = Math.min(s + staffItemsPerPage, filteredInner.size());
+                            List<Staff> pData = filteredInner.isEmpty() ? java.util.Collections.emptyList() : filteredInner.subList(s, e);
+                            table.setItems(FXCollections.observableArrayList(pData));
+                            staffPageLabel.setText("Page " + staffCurrentPage[0] + " of " + tPages);
+                            staffPrevBtn.setDisable(staffCurrentPage[0] <= 1);
+                            staffNextBtn.setDisable(staffCurrentPage[0] >= tPages);
+                            staffPaginationBar.getChildren().clear();
+                            staffPaginationBar.getChildren().addAll(staffPrevBtn, staffPageLabel, staffGoToPage, staffNextBtn);
+                        } else {
+                            staffGoToPage.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                            staffGoToPage.clear();
+                            staffGoToPage.setPromptText("Invalid page (1-" + tPages + ")");
+                        }
+                    }
+                } catch (NumberFormatException ex) {
+                    staffGoToPage.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                    staffGoToPage.clear();
+                    staffGoToPage.setPromptText("Enter a valid number");
+                }
+            });
+
+            staffPaginationBar.getChildren().clear();
+            staffPaginationBar.getChildren().addAll(staffPrevBtn, staffPageLabel, staffGoToPage, staffNextBtn);
         };
 
         staffPrevBtn.setOnAction(e -> {
@@ -2992,8 +3309,20 @@ public class AdminDashboardController {
         // Get only items with the same name and course as the original item
         List<Item> allItems = inventoryManager.getAllItems();
         List<Item> sameItemVariants = allItems.stream()
-            .filter(item -> item.getName().equals(originalItem.getItemName()) && 
-                           item.getCourse().equals(originalItem.getCourse()))
+            .filter(item -> {
+                if (!item.getName().equals(originalItem.getItemName())) return false;
+                String sel = originalItem.getCourse() == null ? "" : originalItem.getCourse();
+                String itemCourse = item.getCourse() == null ? "" : item.getCourse();
+                if (sel.equalsIgnoreCase(itemCourse)) return true;
+                // allow combined labels to match single items and vice-versa
+                if (sel.contains("/")) {
+                    for (String sp : sel.split("/")) if (sp.trim().equalsIgnoreCase(itemCourse)) return true;
+                }
+                if (itemCourse.contains("/")) {
+                    for (String ip : itemCourse.split("/")) if (ip.trim().equalsIgnoreCase(sel)) return true;
+                }
+                return false;
+            })
             .collect(Collectors.toList());
         ObservableList<Item> itemList = FXCollections.observableArrayList(sameItemVariants);
         ObservableList<Item> filteredList = FXCollections.observableArrayList(sameItemVariants);

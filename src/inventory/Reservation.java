@@ -14,6 +14,7 @@ public class Reservation {
     private int quantity;
     private LocalDateTime reservationTime;
     private LocalDateTime completedDate;
+    private LocalDateTime scheduledPickupDateTime; // When staff schedules the pickup
     private LocalDateTime paymentDeadline; // Deadline for payment (48 hours after approval)
     private String status;
     private String reason;
@@ -25,6 +26,8 @@ public class Reservation {
     private int replacementItemCode; // Item code of replacement (when status is REPLACED)
     private String replacementItemName; // Item name of replacement (when status is REPLACED)
     private String replacementSize; // Size of replacement item
+    private String replacementNote; // Optional note explaining replacement / size change
+    private String claimProofImagePath; // Path to image proof when item is claimed
     public Reservation(int reservationId, String studentName, String studentId, String course,
                        int itemCode, String itemName, int quantity, double totalPrice, String size) {
         this.reservationId = reservationId;
@@ -72,6 +75,8 @@ public class Reservation {
     public void setPaid(boolean paid) { this.isPaid = paid; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public void setCompletedDate(LocalDateTime completedDate) { this.completedDate = completedDate; }
+    public LocalDateTime getScheduledPickupDateTime() { return scheduledPickupDateTime; }
+    public void setScheduledPickupDateTime(LocalDateTime scheduledPickupDateTime) { this.scheduledPickupDateTime = scheduledPickupDateTime; }
     public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }
     public void setBundleId(String bundleId) { this.bundleId = bundleId; }
     
@@ -84,6 +89,12 @@ public class Reservation {
         this.replacementItemName = itemName;
         this.replacementSize = size;
     }
+
+    public String getReplacementNote() { return replacementNote; }
+    public void setReplacementNote(String note) { this.replacementNote = note; }
+    
+    public String getClaimProofImagePath() { return claimProofImagePath; }
+    public void setClaimProofImagePath(String imagePath) { this.claimProofImagePath = imagePath; }
     
     public boolean isPartOfBundle() { return bundleId != null && !bundleId.isEmpty(); }
     

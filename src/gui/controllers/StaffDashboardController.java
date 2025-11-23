@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -30,6 +31,7 @@ import inventory.Item;
 import inventory.ReceiptManager;
 import inventory.Reservation;
 import inventory.ReservationManager;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -40,13 +42,16 @@ import javafx.scene.chart.CategoryAxis;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -56,12 +61,13 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.GridPane;
 import utils.StockReturnLogger;
 
 /**
@@ -89,6 +95,34 @@ public class StaffDashboardController {
 
         // Load data
         inventoryManager.getAllItems().forEach(item -> {});
+    }
+
+    /**
+     * Normalize course names for display (combine SHS variants)
+     */
+    private String normalizeCourseForDisplay(String course) {
+        if (course == null || course.trim().isEmpty()) return "";
+        String c = course.trim().toUpperCase();
+        
+        // Normalize SHS-related courses to "SHS"
+        if (c.equals("ABM") || c.equals("STEM") || c.equals("HUMSS") || 
+            c.equals("IT") || c.equals("T.O") || c.equals("TO") || 
+            c.startsWith("TVL") || c.contains("TVL-")) {
+            return "SHS";
+        }
+        
+        // Group CS-related courses: BSCS, BSIT, BSCpE → BSCS/BSIT/BSCpE
+        if (c.equals("BSCS") || c.equals("BSIT") || c.equals("BSCPE")) {
+            return "BSCS/BSIT/BSCpE";
+        }
+        
+        // Group business courses: BSA, BSBA → BSBA/BSA
+        if (c.equals("BSA") || c.equals("BSBA")) {
+            return "BSBA/BSA";
+        }
+        
+        // Return original if already combined or other courses
+        return course;
     }
 
     /**
@@ -154,8 +188,8 @@ public class StaffDashboardController {
         searchField.setStyle(
             "-fx-background-color: -color-bg-default;" +
             "-fx-border-color: -color-border-default;" +
-            "-fx-border-radius: 6px;" +
-            "-fx-background-radius: 6px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
             "-fx-padding: 8px;" +
             "-fx-font-size: 13px;" +
             "-fx-text-fill: -color-fg-default;"
@@ -167,7 +201,7 @@ public class StaffDashboardController {
             "-fx-text-fill: white;" +
             "-fx-font-size: 12px;" +
             "-fx-font-weight: bold;" +
-            "-fx-background-radius: 6px;" +
+            "-fx-background-radius: 3px;" +
             "-fx-cursor: hand;" +
             "-fx-pref-height: 36px;"
         );
@@ -203,10 +237,22 @@ public class StaffDashboardController {
         // Filter Bar with Dropdowns
         HBox filterBar = new HBox(15);
         filterBar.setAlignment(Pos.CENTER_LEFT);
+        filterBar.setPadding(new Insets(8, 0, 8, 0));
+        filterBar.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 12; -fx-background-radius: 3px;");
 
         // Status Filter
+        // We'll append live counts to the Pickup/Replacement items but match by prefix when applying filters.
+        int initialPickupBadge = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getPickupRequestsAwaitingApproval()).size();
+        int initialReplacementBadge = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests()).size();
         ComboBox<String> statusFilter = new ComboBox<>(FXCollections.observableArrayList(
-            "All Statuses", "Pending", "Approved", "Replaced", "Cancelled", "Pickup Approvals", "Replacement Requests"
+            "All Statuses",
+            "Pending",
+            "Approved",
+            "Awaiting Pickup Request",
+            "Replaced",
+            "Cancelled",
+            "Pickup Approvals (" + initialPickupBadge + ")",
+            "Replacement Requests (" + initialReplacementBadge + ")"
         ));
         statusFilter.setValue("Pending");
         statusFilter.setPrefWidth(180);
@@ -215,19 +261,86 @@ public class StaffDashboardController {
         String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
         String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
         String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
+        // Use the same highlighted border style as the Inventory course filter so focus/border remains consistent
         String baseComboStyle =
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 14px;" +
             "-fx-background-color: " + fieldBg + ";" +
             "-fx-control-inner-background: " + fieldBg + ";" +
             "-fx-text-fill: " + fieldText + ";" +
-            "-fx-border-color: " + fieldBorder + ";" +
-            "-fx-border-width: 1px;" +
+            "-fx-border-color: -color-accent-emphasis;" +
+            "-fx-border-width: 2px;" +
             "-fx-border-radius: 4px;" +
             "-fx-background-radius: 4px;" +
             "-fx-padding: 0px 8px;" +
             "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
         statusFilter.setStyle(baseComboStyle);
+
+        // Mark the control for dialog-like styling (global stylesheet is loaded by SceneManager)
+        statusFilter.getStyleClass().add("dialog-combo");
+        if (ThemeManager.isDarkMode()) statusFilter.getStyleClass().add("dark");
+
+        // Listen for theme changes so the ComboBox updates immediately when user toggles dark mode
+        ThemeManager.addThemeChangeListener(() -> Platform.runLater(() -> {
+            String fb = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+            String fborder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+            String ftext = ThemeManager.isDarkMode() ? "white" : "#111827";
+            String updatedStyle =
+                "-fx-font-size: 14px;" +
+                "-fx-background-color: " + fb + ";" +
+                "-fx-control-inner-background: " + fb + ";" +
+                "-fx-text-fill: " + ftext + ";" +
+                "-fx-border-color: -color-accent-emphasis;" +
+                "-fx-border-width: 2px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-padding: 0px 8px;" +
+                "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+            statusFilter.setStyle(updatedStyle);
+            if (ThemeManager.isDarkMode()) {
+                if (!statusFilter.getStyleClass().contains("dark")) statusFilter.getStyleClass().add("dark");
+            } else {
+                statusFilter.getStyleClass().remove("dark");
+            }
+            // Force-reload the combobox stylesheet so CSS rules re-evaluate (fixes transient border removal)
+            try {
+                String cssPath = getClass().getResource("/gui/styles/combobox-dark.css").toExternalForm();
+                if (statusFilter.getStylesheets().contains(cssPath)) {
+                    statusFilter.getStylesheets().remove(cssPath);
+                    statusFilter.getStylesheets().add(cssPath);
+                }
+            } catch (Exception ex) {
+                // ignore
+            }
+            // Re-apply CSS and layout to ensure visual state updates immediately
+            try {
+                statusFilter.applyCss();
+                statusFilter.requestLayout();
+                if (statusFilter.getScene() != null && statusFilter.getScene().getRoot() != null) {
+                    statusFilter.getScene().getRoot().applyCss();
+                }
+            } catch (Exception ex) {
+                // ignore
+            }
+        }));
+
+        // When the popup list is shown, ensure its background/text are updated immediately
+        statusFilter.showingProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                Platform.runLater(() -> {
+                    try {
+                        Node listView = statusFilter.lookup(".list-view");
+                        if (listView != null) {
+                            String lvBg = ThemeManager.isDarkMode() ? "-fx-background-color: rgba(255,255,255,0.04); -fx-text-fill: white;" : "-fx-background-color: -color-bg-default; -fx-text-fill: -color-fg-default;";
+                            listView.setStyle(lvBg);
+                        }
+                    } catch (Exception ex) {
+                        // ignore reflection/lookup issues
+                    }
+                });
+            }
+        });
 
         Button clearFilterBtn = new Button("Clear Filters");
         styleActionButton(clearFilterBtn);
@@ -280,7 +393,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        idCol.setPrefWidth(220);
+        idCol.setPrefWidth(250);
 
         TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
         studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
@@ -297,19 +410,19 @@ public class StaffDashboardController {
                 }
             }
         });
-        studentCol.setPrefWidth(200);
+        studentCol.setPrefWidth(220);
 
         TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
         itemCol.setCellValueFactory(data -> {
             Reservation r = data.getValue();
             if (r.isPartOfBundle()) {
-                // For bundles, show bundle info with item count
+                // For bundles, show only bundle info without item name
                 String bundleId = r.getBundleId();
                 long itemCount = reservationManager.getAllReservations().stream()
                     .filter(res -> bundleId.equals(res.getBundleId()))
                     .count();
                 return new javafx.beans.property.SimpleStringProperty(
-                    "BUNDLE ORDER (" + itemCount + " items) - " + r.getItemName());
+                    "BUNDLE ORDER (" + itemCount + " items)");
             }
             return new javafx.beans.property.SimpleStringProperty(r.getItemName());
         });
@@ -331,7 +444,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        itemCol.setPrefWidth(280);
+        itemCol.setPrefWidth(320);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
         sizeCol.setCellValueFactory(data -> {
@@ -362,11 +475,11 @@ public class StaffDashboardController {
                     setStyle("");
                 } else {
                     setText(size);
-                    setStyle("-fx-padding: 8 12; -fx-alignment: center;");
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
                 }
             }
         });
-        sizeCol.setPrefWidth(80);
+        sizeCol.setPrefWidth(100);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
         qtyCol.setCellValueFactory(data -> {
@@ -391,11 +504,11 @@ public class StaffDashboardController {
                     setStyle("");
                 } else {
                     setText(String.valueOf(qty));
-                    setStyle("-fx-padding: 8 12; -fx-alignment: center;");
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
                 }
             }
         });
-        qtyCol.setPrefWidth(80);
+        qtyCol.setPrefWidth(90);
 
         TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total");
         priceCol.setCellValueFactory(data -> {
@@ -417,16 +530,18 @@ public class StaffDashboardController {
                 super.updateItem(price, empty);
                 if (empty || price == null) {
                     setText(null);
+                    setStyle("");
                 } else {
                     setText(String.format("₱%.2f", price));
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
                 }
             }
         });
-        priceCol.setPrefWidth(100);
+        priceCol.setPrefWidth(120);
 
         TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
-        statusCol.setPrefWidth(180);
+        statusCol.setPrefWidth(220);
         // Render a colored badge so approved/completed/replaced/pending states are obvious
         statusCol.setCellFactory(col -> new TableCell<Reservation, String>() {
             @Override
@@ -446,7 +561,7 @@ public class StaffDashboardController {
                 String s = status.toUpperCase();
 
                 javafx.scene.control.Label badge = new javafx.scene.control.Label();
-                badge.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 6 10; -fx-background-radius: 6;");
+                badge.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 6 10; -fx-background-radius: 3px;");
 
                 if (s.contains("REPLACED")) {
                     badge.setText("REPLACED");
@@ -454,18 +569,18 @@ public class StaffDashboardController {
                 } else if (s.contains("COMPLETED")) {
                     badge.setText("COMPLETED");
                     badge.setStyle(badge.getStyle() + " -fx-background-color: #1A7F37; -fx-text-fill: white;");
-                } else if (s.contains("PICKUP") || s.contains("REQUESTED") && s.contains("PICKUP")) {
-                    // Any pickup-related status (student requested pickup / awaiting staff approval)
+                } else if (s.contains("PICKUP REQUESTED") || (s.contains("REQUESTED") && s.contains("PICKUP"))) {
+                    // Only treat explicit pickup-requested states as "PICKUP REQUESTED".
+                    // This avoids matching awaiting-request states (e.g. "AWAITING PICKUP REQUEST").
                     badge.setText("PICKUP REQUESTED");
                     badge.setStyle(badge.getStyle() + " -fx-background-color: #0969DA; -fx-text-fill: white;");
-                } else if (s.contains("PAID") || r.isPaid()) {
-                    // Paid reservations - indicate approved+paid (ready for pickup / awaiting pickup approval)
-                    if (s.contains("AWAITING") || s.contains("PICKUP") || s.contains("AWAITING PICKUP")) {
-                        badge.setText("APPROVED (PAID) - AWAITING PICKUP");
-                    } else {
-                        badge.setText("APPROVED (PAID)");
-                    }
-                    badge.setStyle(badge.getStyle() + " -fx-background-color: #1A7F37; -fx-text-fill: white;");
+                } else if (s.contains("AWAITING PICKUP REQUEST")) {
+                    // Status when payment is complete but student hasn't requested pickup yet
+                    badge.setText("AWAITING PICKUP REQUEST");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #6c757d; -fx-text-fill: white;");
+                } else if (s.contains("PAID")) {
+                    badge.setText("PAID");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #6c757d; -fx-text-fill: white;");
                 } else if (s.contains("APPROVED")) {
                     // Approved but not yet paid
                     if (s.contains("WAITING FOR PAYMENT") || s.contains("WAITING")) {
@@ -494,7 +609,29 @@ public class StaffDashboardController {
             }
         });
 
-        
+        TableColumn<Reservation, String> dateCol = new TableColumn<>("Date & Time");
+        dateCol.setCellValueFactory(data -> {
+            Reservation r = data.getValue();
+            if (r.getReservationTime() != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
+                return new javafx.beans.property.SimpleStringProperty(r.getReservationTime().format(formatter));
+            }
+            return new javafx.beans.property.SimpleStringProperty("");
+        });
+        dateCol.setCellFactory(col -> new TableCell<Reservation, String>() {
+            @Override
+            protected void updateItem(String date, boolean empty) {
+                super.updateItem(date, empty);
+                if (empty || date == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(date);
+                    setStyle("-fx-padding: 8 12; -fx-alignment: center-left;");
+                }
+            }
+        });
+        dateCol.setPrefWidth(190);
 
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
@@ -634,14 +771,14 @@ public class StaffDashboardController {
         });
         actionsCol.setPrefWidth(150);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, actionsCol);
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, dateCol, actionsCol);
         
 
         // Pagination + search setup (10 items per page, prev/next, page label visible when pages > 2)
         final int itemsPerPage = 10;
         final int[] currentPage = new int[] { 1 };
 
-        // Default to showing PENDING reservations on view load
+        // Default to showing pending reservations
         List<Reservation> pendingReservations = new ArrayList<>(reservationManager.getPendingReservations());
 
         List<Reservation> allReservations = new ArrayList<>(ControllerUtils.getDeduplicatedReservations(pendingReservations));
@@ -743,7 +880,9 @@ public class StaffDashboardController {
 
         // Filter actions - update workingFiltered and reset page
         Runnable applyFilters = () -> {
-            String status = statusFilter.getValue();
+            // Normalize status selection: remove any appended counts in parentheses
+            String rawStatus = statusFilter.getValue();
+            String status = rawStatus == null ? "All Statuses" : rawStatus.split(" \\(")[0].trim();
 
             // Highlight active filters - blue border with consistent styling
             String activeBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
@@ -767,20 +906,28 @@ public class StaffDashboardController {
             // Filter by Status (including the new "Type" options which are now part of status)
             if ("All Statuses".equals(status)) {
                 filtered = reservationManager.getAllReservations();
+            } else if ("Awaiting Pickup Request".equals(status)) {
+                // Show items where payment is complete but student hasn't requested pickup
+                filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> "AWAITING PICKUP REQUEST".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
             } else if ("Pending".equals(status)) {
                 filtered = reservationManager.getAllReservations().stream()
                     .filter(r -> "PENDING".equals(r.getStatus()))
                     .collect(java.util.stream.Collectors.toList());
             } else if ("Approved".equals(status)) {
+                // Show reservations that are explicitly in an APPROVED state (e.g. "APPROVED - WAITING FOR PAYMENT",
+                // "APPROVED FOR PICKUP"). Do NOT include all paid or completed items here (those are their own states).
                 filtered = reservationManager.getAllReservations().stream()
                     .filter(r -> {
                         String s = r.getStatus();
                         if (s == null) return false;
                         s = s.toUpperCase();
-                        return s.contains("APPROVED") || s.contains("PAID") || s.contains("COMPLETED") || r.isPaid();
+                        return s.contains("APPROVED") && !s.contains("PAID");
                     })
                     .collect(java.util.stream.Collectors.toList());
-            } else if ("Returned".equals(status)) {
+            } else if ("Returned".equals(status) || "Replaced".equals(status)) {
+                // legacy label support: treat "Returned" as "Replaced"
                 filtered = reservationManager.getAllReservations().stream()
                     .filter(r -> {
                         String s = r.getStatus();
@@ -825,6 +972,44 @@ public class StaffDashboardController {
             int updatedReturnCount = (int) ControllerUtils.getDeduplicatedReservations(reservationManager.getReturnRequests()).size();
             returnBadge.setText(String.valueOf(updatedReturnCount));
             returnBadge.setVisible(updatedReturnCount > 0);
+
+                // Refresh the ComboBox items so the Pickup/Replacement entries show live counts.
+                // Do this asynchronously to avoid modifying the ComboBox items while its selection event is being processed.
+                final String prevSelection = rawStatus == null ? "All Statuses" : rawStatus;
+                javafx.application.Platform.runLater(() -> {
+                    javafx.collections.ObservableList<String> comboItems = FXCollections.observableArrayList(
+                        "All Statuses",
+                        "Pending",
+                        "Approved",
+                        "Awaiting Pickup Request",
+                        "Replaced",
+                        "Cancelled",
+                        "Pickup Approvals (" + updatedPickupCount + ")",
+                        "Replacement Requests (" + updatedReturnCount + ")"
+                    );
+                    // Temporarily detach the action handler to avoid re-entrancy while we replace items and restore selection.
+                    javafx.event.EventHandler<javafx.event.ActionEvent> oldHandler = statusFilter.getOnAction();
+                    try {
+                        statusFilter.setOnAction(null);
+                        statusFilter.setItems(comboItems);
+                        // Preserve previous selection (match by prefix before '(' ) without firing the handler.
+                        String prevBase = prevSelection.split(" \\(")[0].trim();
+                        boolean matched = false;
+                        for (String it : comboItems) {
+                            if (it.startsWith(prevBase)) {
+                                statusFilter.getSelectionModel().select(it);
+                                matched = true;
+                                break;
+                            }
+                        }
+                        if (!matched) {
+                            statusFilter.getSelectionModel().selectFirst();
+                        }
+                    } finally {
+                        // Restore the original handler after selection is set
+                        statusFilter.setOnAction(oldHandler);
+                    }
+                });
         };
 
         statusFilter.setOnAction(e -> applyFilters.run());
@@ -835,6 +1020,8 @@ public class StaffDashboardController {
         });
 
         refreshBtn.setOnAction(e -> {
+            // Reload reservations from persistent storage in case external edits were made
+            try { reservationManager.refresh(); } catch (Exception ex) { /* ignore refresh errors */ }
             applyFilters.run();
         });
 
@@ -899,6 +1086,10 @@ public class StaffDashboardController {
 
         javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
         dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        // Dialog styling is provided globally by SceneManager; just add semantic classes
+        dialog.getDialogPane().getStyleClass().add("dialog-root");
+        if (ThemeManager.isDarkMode()) dialog.getDialogPane().getStyleClass().add("dark");
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
@@ -999,6 +1190,18 @@ public class StaffDashboardController {
             
             totalPrice = reservation.getTotalPrice();
             totalQuantity = reservation.getQuantity();
+
+            // Show replacement note if exists
+            if (reservation.getReplacementNote() != null && !reservation.getReplacementNote().isEmpty()) {
+                VBox noteBox = new VBox(6);
+                noteBox.setStyle("-fx-background-color: #FFF8C5; -fx-padding: 8; -fx-background-radius: 4; -fx-border-color: #E6C07A; -fx-border-width: 1;");
+                javafx.scene.control.Label noteHeader = new javafx.scene.control.Label("Replacement Note");
+                noteHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #6F4400;");
+                javafx.scene.control.Label noteText = new javafx.scene.control.Label(reservation.getReplacementNote());
+                noteText.setWrapText(true);
+                noteBox.getChildren().addAll(noteHeader, noteText);
+                itemsSection.getChildren().add(noteBox);
+            }
         }
 
         // Order Summary Section
@@ -1055,6 +1258,10 @@ public class StaffDashboardController {
 
         javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
         dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        // Dialog styling is provided globally by SceneManager; just add semantic classes
+        dialog.getDialogPane().getStyleClass().add("dialog-root");
+        if (ThemeManager.isDarkMode()) dialog.getDialogPane().getStyleClass().add("dark");
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
@@ -1305,8 +1512,33 @@ public class StaffDashboardController {
                 return;
             }
             
-            itemDescription = "Bundle Order (" + itemsToReturn.size() + " items)";
-            totalRefund = itemsToReturn.stream().mapToDouble(Reservation::getTotalPrice).sum();
+            // Calculate correct item count and total refund based on partial replacements
+            int totalItemsToReplace = 0;
+            totalRefund = 0.0;
+            for (Reservation item : itemsToReturn) {
+                // Check if this is a partial replacement request
+                String reasonText = item.getReason() != null ? item.getReason() : "";
+                int qtyToReplace = item.getQuantity(); // default to full quantity
+                
+                if (reasonText.startsWith("Partial Replacement (")) {
+                    try {
+                        int start = reasonText.indexOf("(") + 1;
+                        int end = reasonText.indexOf(" of ");
+                        String qtyStr = reasonText.substring(start, end).trim();
+                        qtyToReplace = Integer.parseInt(qtyStr);
+                    } catch (Exception e) {
+                        // If parsing fails, use full quantity
+                        qtyToReplace = item.getQuantity();
+                    }
+                }
+                
+                totalItemsToReplace += qtyToReplace;
+                // Calculate refund based on quantity being replaced
+                double pricePerUnit = item.getTotalPrice() / item.getQuantity();
+                totalRefund += pricePerUnit * qtyToReplace;
+            }
+            
+            itemDescription = "Bundle Order (" + totalItemsToReplace + " item(s) from " + itemsToReturn.size() + " reservation(s))";
         } else {
             itemsToReturn.add(reservation);
             itemDescription = reservation.getItemName() + " (" + reservation.getSize() + ")";
@@ -1321,9 +1553,29 @@ public class StaffDashboardController {
         if (reservation.isPartOfBundle()) {
             message.append("Bundle Items:\n");
             for (Reservation item : itemsToReturn) {
+                // Parse quantity to replace for partial replacements
+                int qtyToReplace = item.getQuantity();
+                String reasonText = item.getReason() != null ? item.getReason() : "";
+                if (reasonText.startsWith("Partial Replacement (")) {
+                    try {
+                        int start = reasonText.indexOf("(") + 1;
+                        int end = reasonText.indexOf(" of ");
+                        String qtyStr = reasonText.substring(start, end).trim();
+                        qtyToReplace = Integer.parseInt(qtyStr);
+                    } catch (Exception e) {
+                        qtyToReplace = item.getQuantity();
+                    }
+                }
+                
+                double pricePerUnit = item.getTotalPrice() / item.getQuantity();
+                double refundForThisItem = pricePerUnit * qtyToReplace;
+                
                 message.append("• ").append(item.getItemName()).append(" - ").append(item.getSize())
-                       .append(" (").append(item.getQuantity()).append("x) - ₱")
-                       .append(String.format("%.2f", item.getTotalPrice())).append("\n");
+                       .append(" (").append(qtyToReplace);
+                if (qtyToReplace < item.getQuantity()) {
+                    message.append(" of ").append(item.getQuantity());
+                }
+                message.append("x) - ₱").append(String.format("%.2f", refundForThisItem)).append("\n");
             }
         } else {
             message.append("Item: ").append(itemDescription).append("\n");
@@ -1333,55 +1585,693 @@ public class StaffDashboardController {
         message.append("\nTotal Refund Amount: ₱").append(String.format("%.2f", totalRefund)).append("\n\n");
         message.append("Reason: ").append(reservation.getReason() != null ? reservation.getReason() : "N/A").append("\n\n");
         message.append("Select replacement item for each.");
-        
-        boolean confirm = AlertHelper.showConfirmation("Approve Replacement", message.toString());
 
-        if (confirm) {
-            // Approve replacement for all items - show dialog to select replacement item
+        // Build a richer confirmation dialog with boxed information and colored labels
+        Dialog<ButtonType> confirmDialog = new Dialog<>();
+        confirmDialog.setTitle("Approve Replacement");
+        confirmDialog.setHeaderText(null);
+
+        ButtonType okType = ButtonType.OK;
+        ButtonType cancelType = ButtonType.CANCEL;
+        confirmDialog.getDialogPane().getButtonTypes().addAll(cancelType, okType);
+
+        // Content layout
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(16));
+        grid.setStyle("-fx-background-color: transparent;");
+
+        // Boxed info area
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(12));
+        String boxBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.03)" : "#F8FAFF";
+        box.setStyle("-fx-background-color: " + boxBg + "; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: rgba(0,0,0,0.06); -fx-border-width: 1;");
+
+        Label titleLbl = new Label("Replacement Request");
+        titleLbl.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #0B5FFF;");
+
+        Label studentLbl = new Label("Student: " + reservation.getStudentName());
+        studentLbl.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #0B5FFF;");
+
+        // Top card: only show student name here; student ID/order/date are in the topInfo block below.
+        Label refundLbl = new Label("Total Refund Amount: ₱" + String.format("%.2f", totalRefund));
+        refundLbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #0B5FFF;");
+
+        // Simplify reason text: strip any leading 'Replacement requested' phrasing and show concise reason.
+        String rawReason = reservation.getReason() != null ? reservation.getReason().trim() : "N/A";
+        String simpleReason = rawReason;
+        if (rawReason.toLowerCase().startsWith("replacement requested")) {
+            int idx = rawReason.lastIndexOf("Reason:");
+            if (idx >= 0) {
+                simpleReason = rawReason.substring(idx + "Reason:".length()).trim();
+            } else {
+                // remove the prefix
+                int dash = rawReason.indexOf('-');
+                if (dash >= 0 && dash + 1 < rawReason.length()) simpleReason = rawReason.substring(dash + 1).trim();
+                else simpleReason = rawReason;
+            }
+        }
+        // Capitalize first letter
+        if (simpleReason != null && !simpleReason.isEmpty()) {
+            simpleReason = simpleReason.substring(0, 1).toUpperCase() + simpleReason.substring(1);
+        }
+
+        Label reasonLbl = new Label("Reason: " + (simpleReason != null ? simpleReason : "N/A"));
+        reasonLbl.setWrapText(true);
+        reasonLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
+        
+        // Extract and display image proof if attached
+        String imagePath = null;
+        if (rawReason != null && rawReason.contains("[Image proof attached:")) {
+            int startIdx = rawReason.indexOf("[Image proof attached:");
+            int endIdx = rawReason.indexOf("]", startIdx);
+            if (startIdx >= 0 && endIdx > startIdx) {
+                imagePath = rawReason.substring(startIdx + "[Image proof attached:".length(), endIdx).trim();
+            }
+        }
+        
+        VBox imageProofBox = null;
+        final String finalImagePath = imagePath;
+        if (imagePath != null && !imagePath.isEmpty()) {
+            imageProofBox = new VBox(8);
+            imageProofBox.setPadding(new Insets(8, 0, 0, 0));
+            
+            Label imageProofLabel = new Label("📷 Proof of Damage/Issue:");
+            imageProofLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #666666;");
+            
+            try {
+                java.io.File imgFile = new java.io.File(imagePath);
+                if (imgFile.exists()) {
+                    HBox imageControls = new HBox(10);
+                    imageControls.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                    imageControls.setPadding(new Insets(4, 0, 0, 0));
+                    
+                    Label imagePathLabel = new Label("📁 " + imgFile.getName());
+                    imagePathLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
+                    imagePathLabel.setWrapText(true);
+                    
+                    javafx.scene.control.Button showImageBtn = new javafx.scene.control.Button("🔍 Show Image");
+                    showImageBtn.setStyle("-fx-font-size: 11px; -fx-background-color: #0969DA; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;");
+                    showImageBtn.setOnMouseEntered(e -> showImageBtn.setStyle("-fx-font-size: 11px; -fx-background-color: #0860CA; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;"));
+                    showImageBtn.setOnMouseExited(e -> showImageBtn.setStyle("-fx-font-size: 11px; -fx-background-color: #0969DA; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;"));
+                    showImageBtn.setOnAction(e -> {
+                        openImageModal(finalImagePath, imgFile.getName());
+                    });
+                    
+                    imageControls.getChildren().addAll(imagePathLabel, showImageBtn);
+                    
+                    imageProofBox.getChildren().addAll(imageProofLabel, imageControls);
+                } else {
+                    Label notFoundLabel = new Label("⚠️ Image file not found: " + imgFile.getName());
+                    notFoundLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #CF222E;");
+                    notFoundLabel.setWrapText(true);
+                    imageProofBox.getChildren().addAll(imageProofLabel, notFoundLabel);
+                }
+            } catch (Exception ex) {
+                Label errorLabel = new Label("⚠️ Error loading image");
+                errorLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #CF222E;");
+                imageProofBox.getChildren().addAll(imageProofLabel, errorLabel);
+            }
+        }
+
+        box.getChildren().addAll(titleLbl, studentLbl, new javafx.scene.control.Separator(), refundLbl, reasonLbl);
+        if (imageProofBox != null) {
+            box.getChildren().add(imageProofBox);
+        }
+
+        // Dialog styling is provided globally by SceneManager; just add semantic classes
+        confirmDialog.getDialogPane().getStyleClass().add("dialog-root");
+        if (ThemeManager.isDarkMode()) confirmDialog.getDialogPane().getStyleClass().add("dark");
+
+        // Add semantic style classes to top card elements
+        box.getStyleClass().add("top-card");
+        titleLbl.getStyleClass().add("top-title");
+        studentLbl.getStyleClass().add("top-title");
+        refundLbl.getStyleClass().add("top-muted");
+        reasonLbl.getStyleClass().add("small-muted");
+        grid.getStyleClass().add("scroll-area");
+
+        // Instruction
+        Label instr = new Label("Select replacement item for each.");
+        instr.setStyle("-fx-font-size: 12px; -fx-text-fill: #555555;");
+        instr.getStyleClass().add("section-label");
+
+        grid.add(box, 0, 0);
+        grid.add(instr, 0, 1);
+
+        confirmDialog.getDialogPane().setContent(grid);
+
+        // Create selection dialog so staff can pick all replacement items in one place
+        confirmDialog.getDialogPane().getButtonTypes().clear();
+        ButtonType approveType = new ButtonType("Approve Replacement", ButtonBar.ButtonData.OK_DONE);
+        confirmDialog.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, approveType);
+
+        // Top info: student, student id, order id/date
+        VBox topInfo = new VBox(6);
+        topInfo.setPadding(new Insets(6, 0, 6, 0));
+        Label studentIdLbl = new Label("Student ID: " + (reservation.getStudentId() != null ? reservation.getStudentId() : "N/A"));
+        studentIdLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
+        Label orderRefLbl = new Label("Order: " + (reservation.isPartOfBundle() ? (reservation.getBundleId() != null ? reservation.getBundleId() : "Bundle") : String.valueOf(reservation.getReservationId())));
+        orderRefLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
+        String orderTime = reservation.getFormattedTime();
+        // If bundle, try to show earliest time across items
+        if (reservation.isPartOfBundle()) {
+            try {
+                java.time.LocalDateTime earliest = itemsToReturn.stream()
+                    .map(Reservation::getReservationTime)
+                    .filter(Objects::nonNull)
+                    .min(Comparator.naturalOrder())
+                    .orElse(reservation.getReservationTime());
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
+                orderTime = earliest.format(fmt);
+            } catch (Exception ex) {
+                // fall back to reservation.getFormattedTime()
+            }
+        }
+        Label orderTimeLbl = new Label("Ordered: " + orderTime);
+        orderTimeLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
+
+        topInfo.getChildren().addAll(studentIdLbl, orderRefLbl, orderTimeLbl);
+
+        // Make dialog larger and responsive
+        javafx.stage.Screen screen = javafx.stage.Screen.getPrimary();
+        double screenWidth = screen.getVisualBounds().getWidth();
+        double screenHeight = screen.getVisualBounds().getHeight();
+        double dialogWidth = Math.min(1000, screenWidth * 0.72);
+        double dialogHeight = Math.min(720, screenHeight * 0.78);
+        confirmDialog.getDialogPane().setPrefSize(dialogWidth, dialogHeight);
+
+        // Create replacement selector area (stack original above replacement)
+        VBox selectors = new VBox(14);
+        selectors.setPadding(new Insets(8, 0, 8, 0));
+
+        // Ensure damaged/priority items appear first
+        try {
+            itemsToReturn.sort((a, b) -> {
+                boolean ad = a.getReason() != null && a.getReason().toLowerCase().contains("damaged");
+                boolean bd = b.getReason() != null && b.getReason().toLowerCase().contains("damaged");
+                if (ad == bd) return 0;
+                return ad ? -1 : 1; // damaged first
+            });
+        } catch (Exception ex) {
+            // ignore sort errors
+        }
+
+        // Map each reservation to its toggle-group of replacement size options
+        Map<Reservation, javafx.scene.control.ToggleGroup> selectionMap = new java.util.LinkedHashMap<>();
+        // Keep a parallel map of variants per reservation to retrieve Item objects from selected toggles
+        Map<Reservation, List<Item>> variantsMap = new java.util.HashMap<>();
+        // Keep optional notes per reservation when staff choose a different size
+        Map<Reservation, javafx.scene.control.TextArea> notesMap = new java.util.HashMap<>();
+
+        for (Reservation it : itemsToReturn) {
+            VBox itemRow = new VBox(8);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            itemRow.setPadding(new Insets(10));
+            itemRow.setStyle("-fx-background-color: " + (ThemeManager.isDarkMode() ? "rgba(255,255,255,0.05)" : "#F8FAFF") + "; -fx-border-color: rgba(0,0,0,0.1); -fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6;");
+
+            VBox origBox = new VBox(6);
+            Label origLabel = new Label("📦 Original Item:");
+            origLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #666666;");
+            
+            // Parse quantity to replace for partial replacements
+            int qtyToReplace = it.getQuantity();
+            String reasonText = it.getReason() != null ? it.getReason() : "";
+            if (reasonText.startsWith("Partial Replacement (")) {
+                try {
+                    int start = reasonText.indexOf("(") + 1;
+                    int end = reasonText.indexOf(" of ");
+                    String qtyStr = reasonText.substring(start, end).trim();
+                    qtyToReplace = Integer.parseInt(qtyStr);
+                } catch (Exception e) {
+                    qtyToReplace = it.getQuantity();
+                }
+            }
+            
+            String quantityDisplay = "x" + qtyToReplace;
+            if (qtyToReplace < it.getQuantity()) {
+                quantityDisplay = "x" + qtyToReplace + " of " + it.getQuantity();
+            }
+            
+            // Display item name and details in separate lines for better readability
+            Label origName = new Label(it.getItemName());
+            origName.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #0B5FFF;");
+            
+            Label origDetails = new Label("Size: " + it.getSize() + "  •  Quantity: " + quantityDisplay);
+            origDetails.setStyle("-fx-font-size: 12px; -fx-font-weight: normal; -fx-text-fill: #333333;");
+            
+            origBox.getChildren().addAll(origLabel, origName, origDetails);
+
+            // Replacement label
+            Label replLabel = new Label("🔄 Replacement Item:");
+            replLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #666666;");
+
+            // Instead of a repetitive dropdown per size, show the same item name and provide
+            // per-size radio buttons so staff select one size for replacement.
+            List<Item> allItems = inventoryManager.getAllItems();
+            
+            // Debug: Show what we're searching for
+            System.out.println("DEBUG: Looking for replacement for: " + it.getItemName());
+            System.out.println("DEBUG: Original course: " + it.getCourse());
+            System.out.println("DEBUG: Original size: " + it.getSize());
+            System.out.println("DEBUG: Total items in inventory: " + allItems.size());
+            
+            // First, find items with matching name
+            List<Item> nameMatches = allItems.stream()
+                .filter(item -> item.getName().equals(it.getItemName()))
+                .collect(Collectors.toList());
+            System.out.println("DEBUG: Items with matching name: " + nameMatches.size());
+            
+            // Then filter by course and stock
+            List<Item> rawCandidates = allItems.stream()
+                .filter(item -> item.getName().equals(it.getItemName()))
+                .filter(item -> {
+                    // Special case: SHS items are available to all SHS courses (STEM, HUMSS, ABM, etc.)
+                    // Normalize reservation/item course and allow prefix matching so values like
+                    // "TVL-CA" or "CUL ART" are treated as SHS-related courses.
+                    String courseRes = it.getCourse() != null ? it.getCourse().trim().toUpperCase() : "";
+                    String itemCourse = item.getCourse() != null ? item.getCourse().trim().toUpperCase() : "";
+                    boolean isSHSItem = "SHS".equals(itemCourse);
+                    boolean isSHSReservation = !courseRes.isEmpty() && (
+                        courseRes.startsWith("SHS") ||
+                        courseRes.startsWith("STEM") ||
+                        courseRes.startsWith("HUMSS") ||
+                        courseRes.startsWith("ABM") ||
+                        courseRes.startsWith("GAS") ||
+                        courseRes.startsWith("TVL") ||
+                        courseRes.startsWith("CUL")
+                    );
+
+                    if (isSHSItem && isSHSReservation) {
+                        return true; // SHS items match all SHS-related courses
+                    }
+                    
+                    // Course matching: allow "STI Special", exact match, or when either side is a combined label
+                    boolean courseMatch = it.getCourse().equals("STI Special") ||
+                        item.getCourse().equals("STI Special") ||
+                        // allow combined labels like "BSBA/BSA" to match items labeled "BSBA" or "BSA"
+                        (it.getCourse() != null && item.getCourse() != null && (
+                            it.getCourse().equalsIgnoreCase(item.getCourse()) ||
+                            (it.getCourse().contains("/") && java.util.Arrays.stream(it.getCourse().split("/")).anyMatch(p -> p.trim().equalsIgnoreCase(item.getCourse()))) ||
+                            (item.getCourse().contains("/") && java.util.Arrays.stream(item.getCourse().split("/")).anyMatch(p -> p.trim().equalsIgnoreCase(it.getCourse())))
+                        ));
+                    if (!courseMatch) {
+                        System.out.println("DEBUG: Rejected due to course mismatch - Item course: " + item.getCourse() + " vs Reservation course: " + it.getCourse());
+                    }
+                    return courseMatch;
+                })
+                .filter(item -> {
+                    boolean hasStock = item.getQuantity() > 0;
+                    if (!hasStock) {
+                        System.out.println("DEBUG: Rejected due to no stock - " + item.getName() + " (" + item.getSize() + ") - Stock: " + item.getQuantity());
+                    }
+                    return hasStock;
+                })
+                .collect(Collectors.toList());
+            
+            System.out.println("DEBUG: Final candidates after filtering: " + rawCandidates.size());
+
+            // Group candidates by size to avoid repetitive radio entries (aggregate stock per size)
+            java.util.Map<String, java.util.List<Item>> groupedBySize = rawCandidates.stream()
+                .collect(Collectors.groupingBy(Item::getSize, LinkedHashMap::new, Collectors.toList()));
+
+            // Build a deduplicated candidate list where each size is represented by the variant with highest stock
+            List<Item> candidates = new ArrayList<>();
+            Map<String, Integer> aggregatedStockBySize = new HashMap<>();
+            for (Map.Entry<String, java.util.List<Item>> entry : groupedBySize.entrySet()) {
+                String sizeKey = entry.getKey();
+                List<Item> listForSize = entry.getValue();
+                int sumQty = listForSize.stream().mapToInt(Item::getQuantity).sum();
+                aggregatedStockBySize.put(sizeKey, sumQty);
+                // choose representative item (highest quantity) as the item used for replacement
+                Item rep = listForSize.stream().max(Comparator.comparingInt(Item::getQuantity)).orElse(listForSize.get(0));
+                candidates.add(rep);
+            }
+
+            // Keep variants for lookup when approving (store deduplicated candidates)
+            variantsMap.put(it, candidates);
+
+            VBox sizesBox = new VBox(6);
+            sizesBox.setPadding(new Insets(6, 0, 6, 8));
+            sizesBox.setStyle("-fx-background-color: transparent;");
+            javafx.scene.control.ToggleGroup tg = new javafx.scene.control.ToggleGroup();
+
+            if (candidates.isEmpty()) {
+                Label none = new Label("No replacement available");
+                none.setStyle("-fx-font-size:12px; -fx-text-fill:#999999;");
+                sizesBox.getChildren().add(none);
+            } else {
+                // Create a radio button per available size. Preselect same-size when possible.
+                for (Item cand : candidates) {
+                    int totalStock = aggregatedStockBySize.getOrDefault(cand.getSize(), cand.getQuantity());
+                    javafx.scene.control.RadioButton rb = new javafx.scene.control.RadioButton(cand.getSize() + " — Stock: " + totalStock);
+                    rb.setToggleGroup(tg);
+                    rb.setUserData(cand);
+                    String textColor = ThemeManager.isDarkMode() ? "#E6E6E6" : "#333333";
+                    rb.setStyle("-fx-font-size:12px; -fx-text-fill:" + textColor + "; -fx-background-color: transparent;");
+                    if (cand.getSize().equals(it.getSize())) rb.setSelected(true);
+                    sizesBox.getChildren().add(rb);
+                }
+
+                // Add a mismatch indicator and an optional note field
+                Label mismatchLbl = new Label("");
+                mismatchLbl.setStyle("-fx-font-size:11px; -fx-text-fill:#C86900; -fx-font-weight:bold;");
+                javafx.scene.control.TextArea noteArea = new javafx.scene.control.TextArea();
+                noteArea.setPromptText("Note (optional): explain why a different size was chosen");
+                noteArea.setPrefRowCount(2);
+                noteArea.setWrapText(true);
+                noteArea.setMaxWidth(420);
+
+                // update mismatch label when selection changes
+                tg.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+                    if (newT != null && newT.getUserData() instanceof Item) {
+                        Item sel = (Item) newT.getUserData();
+                        if (!sel.getSize().equals(it.getSize())) {
+                            mismatchLbl.setText("⚠ Selected size differs from original (" + it.getSize() + ")");
+                            mismatchLbl.setStyle("-fx-font-size:11px; -fx-text-fill:#C86900; -fx-font-weight:bold; -fx-background-color:#FFF4E5; -fx-padding:4; -fx-border-radius:4; -fx-background-radius:4;");
+                        } else {
+                            mismatchLbl.setText("");
+                            mismatchLbl.setStyle("-fx-font-size:11px; -fx-text-fill:#C86900; -fx-font-weight:bold;");
+                        }
+                    } else {
+                        mismatchLbl.setText("");
+                    }
+                });
+
+                // 'Add note' quick link to focus the note area
+                javafx.scene.control.Hyperlink addNoteLink = new javafx.scene.control.Hyperlink("Add note");
+                addNoteLink.setOnAction(ae -> Platform.runLater(() -> noteArea.requestFocus()));
+
+                sizesBox.getChildren().addAll(mismatchLbl, noteArea, addNoteLink);
+                notesMap.put(it, noteArea);
+            }
+
+            selectionMap.put(it, tg);
+
+            itemRow.getChildren().addAll(origBox, replLabel, sizesBox);
+            selectors.getChildren().add(itemRow);
+        }
+
+        // Instruction and actions row
+        Label confirmNote = new Label("Selected replacements will be applied when you click Approve Replacement.");
+        confirmNote.setStyle("-fx-font-size: 12px; -fx-text-fill: #555555;");
+
+        Button viewOrderBtn = new Button("View Full Order");
+        viewOrderBtn.setOnAction(evt -> showOrderDetailsDialog(reservation));
+
+        // Combine selectors + notes + date/time into a single scrollable section
+        VBox middleContent = new VBox(12);
+        middleContent.setPadding(new Insets(4, 0, 4, 0));
+        // we'll add selectors and the notes/date controls into middleContent below
+
+        // --- Global notes + pickup date controls (placed after replacement selectors) ---
+        Label globalNotesLabel = new Label("Notes (optional):");
+        globalNotesLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #333333;");
+        javafx.scene.control.TextArea globalNotesArea = new javafx.scene.control.TextArea();
+        globalNotesArea.setPromptText("Add a note for this replacement approval (optional)");
+        globalNotesArea.setWrapText(true);
+        globalNotesArea.setPrefRowCount(3);
+        globalNotesArea.setPrefWidth(Double.MAX_VALUE);
+
+        // Pickup Date (global) - allowed: today .. today + N days
+        final int N = 3; // configurable window (default 3 days)
+        java.time.LocalDate minDate = java.time.LocalDate.now();
+        java.time.LocalDate maxDate = minDate.plusDays(N);
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("MMM d, yyyy");
+
+        Label pickupLabel = new Label("Pickup Date (Today - " + maxDate.format(dateFmt) + "): ");
+        pickupLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #333333;");
+        DatePicker pickupDatePicker = new DatePicker(minDate);
+        pickupDatePicker.setPrefWidth(240);
+        pickupDatePicker.setEditable(false);
+
+        // --- Time picker controls (editable spinners + AM/PM) ---
+        Label timeLabel = new Label("Pickup Time:");
+        timeLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #333333;");
+
+        javafx.collections.ObservableList<Integer> allowedHours = FXCollections.observableArrayList(8,9,10,11,12,1,2,3,4,5);
+        javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<Integer> hourFactory =
+            new javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<>(allowedHours);
+        javafx.scene.control.Spinner<Integer> hourSpinner = new javafx.scene.control.Spinner<>();
+        hourSpinner.setValueFactory(hourFactory);
+        hourSpinner.setEditable(true);
+        hourSpinner.setPrefWidth(70);
+        hourSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.valueOf(object);
+            }
+
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return hourFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    if (allowedHours.contains(parsed)) return parsed;
+                    if (parsed >= 8 && parsed <= 17) {
+                        int mapped = parsed > 12 ? parsed - 12 : parsed;
+                        if (allowedHours.contains(mapped)) return mapped;
+                    }
+                } catch (NumberFormatException ignored) {}
+                return hourFactory.getValue();
+            }
+        });
+
+        javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory minuteFactory =
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+        javafx.scene.control.Spinner<Integer> minuteSpinner = new javafx.scene.control.Spinner<>();
+        minuteSpinner.setValueFactory(minuteFactory);
+        minuteSpinner.setEditable(true);
+        minuteSpinner.setPrefWidth(70);
+        minuteSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.format("%02d", object);
+            }
+
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return minuteFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
+                    if (snapped == 60) snapped = 45;
+                    return snapped;
+                } catch (NumberFormatException ignored) {
+                    return minuteFactory.getValue();
+                }
+            }
+        });
+
+        ComboBox<String> amPmPicker = new ComboBox<>(FXCollections.observableArrayList("AM", "PM"));
+        amPmPicker.setEditable(true);
+        amPmPicker.setValue("AM");
+
+        Label colonLabel = new Label(":");
+        colonLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+
+        HBox timeBox = new HBox(6, hourSpinner, colonLabel, minuteSpinner, amPmPicker);
+        timeBox.setAlignment(Pos.CENTER_LEFT);
+
+        // Auto-adjust AM/PM based on selected hour so resulting 24-hour time falls within 08:00-17:00
+        hourSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            int h = newVal;
+            if (h >= 8 && h <= 11) {
+                amPmPicker.setValue("AM");
+            } else {
+                amPmPicker.setValue("PM");
+            }
+        });
+
+        // If the hour is 5 PM, clamp minutes to 00 to enforce the 5:00 PM cutoff
+        minuteSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            try {
+                Integer m = newVal;
+                Integer h = hourSpinner.getValue();
+                String ap = amPmPicker.getValue();
+                if (h != null && ap != null && h == 5 && "PM".equalsIgnoreCase(ap) && m != null && m > 0) {
+                    minuteSpinner.getValueFactory().setValue(0);
+                }
+            } catch (Exception ignored) {}
+        });
+
+        amPmPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            String ap = newVal.trim().toUpperCase();
+            int h = hourSpinner.getValue();
+            if (ap.equals("AM") && (h < 8 || h > 11)) {
+                amPmPicker.setValue("PM");
+            } else if (ap.equals("PM") && !(h == 12 || (h >= 1 && h <= 5))) {
+                if (h >= 8 && h <= 11) amPmPicker.setValue("AM");
+            }
+        });
+
+        // Helper text under date picker
+        Label dateHelper = new Label("Allowed: Today - " + maxDate.format(dateFmt));
+        dateHelper.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
+
+        // Inline error label (hidden by default)
+        Label dateErrorLabel = new Label();
+        dateErrorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #CF222E;");
+        dateErrorLabel.setVisible(false);
+
+        // Disable days outside the allowed window in the calendar UI
+        pickupDatePicker.setDayCellFactory(picker -> new javafx.scene.control.DateCell() {
+            @Override
+            public void updateItem(java.time.LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                if (empty || date == null) return;
+                if (date.isBefore(minDate) || date.isAfter(maxDate)) {
+                    setDisable(true);
+                    setStyle("-fx-text-fill: #bdbdbd;");
+                    setTooltip(new javafx.scene.control.Tooltip("Not available: pickups allowed only through " + maxDate.format(dateFmt)));
+                }
+            }
+        });
+
+        VBox notesAndDateBox = new VBox(8, globalNotesLabel, globalNotesArea, pickupLabel, pickupDatePicker, timeBox, dateHelper, dateErrorLabel);
+        notesAndDateBox.setPadding(new Insets(8, 0, 8, 0));
+
+        VBox contentBox = new VBox(16);
+        // Add selectors and the notes/date into the single middle scroll area
+        middleContent.getChildren().addAll(selectors, notesAndDateBox, confirmNote, viewOrderBtn);
+        ScrollPane middleScroll = new ScrollPane(middleContent);
+        middleScroll.setFitToWidth(true);
+        middleScroll.setPrefViewportHeight(Math.min(420, dialogHeight * 0.55));
+        middleScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        middleScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        middleScroll.setPannable(true);
+        middleScroll.getStyleClass().add("scroll-section");
+
+        contentBox.getChildren().addAll(box, topInfo, new javafx.scene.control.Separator(), middleScroll);
+        contentBox.setPadding(new Insets(12));
+
+        confirmDialog.getDialogPane().setContent(contentBox);
+
+        // Show dialog and process selection
+        Optional<ButtonType> result = confirmDialog.showAndWait();
+        if (result.isPresent() && result.get() == approveType) {
+            // Validate global pickup date chosen and ensure it lies within allowed window
+            java.time.LocalDate selectedDate = pickupDatePicker.getValue();
+            if (selectedDate == null) {
+                dateErrorLabel.setText("Please select a pickup date.");
+                dateErrorLabel.setVisible(true);
+                return;
+            }
+            if (selectedDate.isBefore(minDate) || selectedDate.isAfter(maxDate)) {
+                dateErrorLabel.setText("Please select a pickup date between " + minDate.format(dateFmt) + " and " + maxDate.format(dateFmt) + ".");
+                dateErrorLabel.setVisible(true);
+                return;
+            }
+            dateErrorLabel.setVisible(false);
+
+            // Ensure every replacement item has a selected replacement before proceeding
+            boolean allSelected = true;
+            for (Map.Entry<Reservation, javafx.scene.control.ToggleGroup> entry : selectionMap.entrySet()) {
+                if (entry.getValue().getSelectedToggle() == null) {
+                    allSelected = false;
+                    break;
+                }
+            }
+            if (!allSelected) {
+                AlertHelper.showError("Missing selection", "Please select replacement item for all listed items.");
+                return;
+            }
+
+            // Read selected time controls and validate business hours (08:00 - 17:00)
+            int selHour12 = hourSpinner.getValue();
+            int selMinute = minuteSpinner.getValue();
+            String selAp = amPmPicker.getValue() == null ? "AM" : amPmPicker.getValue().trim().toUpperCase();
+            int selHour24 = "AM".equals(selAp) ? (selHour12 == 12 ? 0 : selHour12) : (selHour12 == 12 ? 12 : selHour12 + 12);
+
+            if (selHour24 < 8 || selHour24 > 17 || (selHour24 == 17 && selMinute > 0)) {
+                AlertHelper.showError("Invalid Time", "Selected time is outside business hours (8:00 AM - 5:00 PM). Please choose 5:00 PM or earlier.");
+                return;
+            }
+
+            java.time.LocalDateTime scheduled = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(selHour24, selMinute));
+            if (scheduled.isBefore(java.time.LocalDateTime.now())) {
+                AlertHelper.showError("Invalid Time", "Selected date/time is in the past.");
+                return;
+            }
+            // If any selected replacement changes size and no note was provided, ask for confirmation
+            List<Reservation> mismatchesNoNote = new ArrayList<>();
+            for (Map.Entry<Reservation, javafx.scene.control.ToggleGroup> entry : selectionMap.entrySet()) {
+                Reservation item = entry.getKey();
+                javafx.scene.control.ToggleGroup tg = entry.getValue();
+                javafx.scene.control.Toggle selected = tg.getSelectedToggle();
+                if (selected != null && selected.getUserData() instanceof Item) {
+                    Item sel = (Item) selected.getUserData();
+                    if (!sel.getSize().equals(item.getSize())) {
+                        javafx.scene.control.TextArea note = notesMap.get(item);
+                        if (note == null || note.getText().trim().isEmpty()) {
+                            mismatchesNoNote.add(item);
+                        }
+                    }
+                }
+            }
+
+            if (!mismatchesNoNote.isEmpty()) {
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("Confirm size changes");
+                confirmAlert.setHeaderText("Some replacements change size");
+                confirmAlert.setContentText("There are " + mismatchesNoNote.size() + " replacement(s) where the selected size differs from the original and no note was provided. Continue anyway?");
+                Optional<ButtonType> r = confirmAlert.showAndWait();
+                if (!r.isPresent() || r.get() != ButtonType.OK) {
+                    return; // abort approval so staff can add notes or change selection
+                }
+            }
+
             boolean allSuccess = true;
             int successCount = 0;
-            
-            for (Reservation item : itemsToReturn) {
-                // Show item selection dialog for replacement
-                Item selectedReplacement = showReplacementItemSelection(item);
-                if (selectedReplacement != null) {
+
+            for (Map.Entry<Reservation, javafx.scene.control.ToggleGroup> entry : selectionMap.entrySet()) {
+                Reservation item = entry.getKey();
+                javafx.scene.control.ToggleGroup tg = entry.getValue();
+                javafx.scene.control.Toggle selected = tg.getSelectedToggle();
+                if (selected != null && selected.getUserData() instanceof Item) {
+                    Item selectedReplacement = (Item) selected.getUserData();
+                    // Retrieve optional note provided by staff for this item
+                    javafx.scene.control.TextArea noteArea = notesMap.get(item);
+                    String noteTxt = (noteArea != null) ? noteArea.getText().trim() : "";
+
                     boolean success = reservationManager.approveReplacementWithItem(
                         item.getReservationId(),
                         selectedReplacement.getCode(),
                         selectedReplacement.getName(),
-                        selectedReplacement.getSize()
+                        selectedReplacement.getSize(),
+                        noteTxt
                     );
-                    if (success) {
-                        successCount++;
-                    } else {
-                        allSuccess = false;
-                    }
+                    if (success) successCount++; else allSuccess = false;
                 } else {
-                    allSuccess = false; // User cancelled selection
+                    allSuccess = false; // missing selection
                 }
             }
-            
+
             if (allSuccess) {
-                // Call refresh callback to update the display with current filter applied
-                if (refreshCallback != null) {
-                    refreshCallback.run();
-                }
-                String successMsg = reservation.isPartOfBundle() ?
-                    "Replacement approved for all " + successCount + " items!\n\n" :
-                    "Replacement approved!\n\n";
+                if (refreshCallback != null) refreshCallback.run();
                 
-                AlertHelper.showSuccess("Success",
-                    successMsg + "Items have been replaced successfully. previous item is back in inventory.");
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Replacement Approved");
+                successAlert.setHeaderText(reservation.isPartOfBundle() ? 
+                    "Replacement approved for all " + successCount + " items!" : 
+                    "Replacement approved!");
+                DateTimeFormatter dateTimeFmt = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
+                successAlert.setContentText(
+                    "Pickup scheduled for:\n" +
+                    scheduled.format(dateTimeFmt) + "\n\n" +
+                    "Items have been replaced successfully.\n" +
+                    "Previous items are back in inventory.\n\n" +
+                    "The student has been notified and will see this in their notification bell (🔔)."
+                );
+                successAlert.showAndWait();
             } else if (successCount > 0) {
-                // Call refresh callback to update the display with current filter applied
-                if (refreshCallback != null) {
-                    refreshCallback.run();
-                }
-                AlertHelper.showWarning("Partial Success",
-                    "Replacement approved for " + successCount + " out of " + itemsToReturn.size() + " items.\n" +
-                    "Previous items are back in inventory.");
+                if (refreshCallback != null) refreshCallback.run();
+                AlertHelper.showWarning("Partial Success", "Replacement approved for " + successCount + " out of " + itemsToReturn.size() + " items.\nPrevious items are back in inventory.");
             } else {
-                AlertHelper.showError("Error", "Failed to approve replacement. Insufficient stock for replacement items.");
+                AlertHelper.showError("Error", "Failed to approve replacement. Please ensure replacement items are selected and have available stock.");
             }
         }
     }
@@ -1415,9 +2305,18 @@ public class StaffDashboardController {
      * Handle approve pickup request
      */
     private void handleApprovePickup(Reservation reservation, TableView<Reservation> table) {
-        javafx.scene.control.Alert confirmAlert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Approve Pickup Request");
-        confirmAlert.setHeaderText("Approve pickup for: " + reservation.getStudentName());
+        // Create date picker dialog
+        Dialog<LocalDate> dateDialog = new Dialog<>();
+        dateDialog.setTitle("Set Pickup Date");
+        dateDialog.setHeaderText("Approve pickup for: " + reservation.getStudentName());
+        
+        ButtonType confirmButtonType = new ButtonType("Confirm", ButtonBar.ButtonData.OK_DONE);
+        dateDialog.getDialogPane().getButtonTypes().addAll(confirmButtonType, ButtonType.CANCEL);
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
         
         String itemInfo;
         if (reservation.isPartOfBundle()) {
@@ -1430,44 +2329,242 @@ public class StaffDashboardController {
             itemInfo = reservation.getItemName() + " - " + reservation.getSize() + "\nQuantity: " + reservation.getQuantity() + "x";
         }
         
-        confirmAlert.setContentText(
+        Label infoLabel = new Label(
             "Item: " + itemInfo + "\n" +
-            "Total: ₱" + String.format("%.2f", reservation.getTotalPrice()) + "\n\n" +
-            "Approve this pickup request?"
+            "Total: ₱" + String.format("%.2f", reservation.getTotalPrice())
         );
+        infoLabel.setWrapText(true);
+        infoLabel.setStyle("-fx-font-size: 13px;");
+        
+        Label dateLabel = new Label("Pickup Date:");
+        dateLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
+        
+        // Limit pickup dates to a 3-day window (today .. today + 3) for consistency
+        java.time.LocalDate minDate = java.time.LocalDate.now();
+        final int N_window = 3;
+        java.time.LocalDate maxDate = minDate.plusDays(N_window);
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == javafx.scene.control.ButtonType.OK) {
-                boolean allSuccess = true;
-                
-                if (reservation.isPartOfBundle()) {
-                    // Approve all items in the bundle
-                    String bundleId = reservation.getBundleId();
-                    List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
-                        .filter(r -> bundleId.equals(r.getBundleId()))
-                        .filter(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
-                        .collect(java.util.stream.Collectors.toList());
-                    
-                    for (Reservation item : bundleItems) {
-                        boolean success = reservationManager.approvePickupRequest(item.getReservationId());
-                        if (!success) {
-                            allSuccess = false;
-                        }
+        DatePicker datePicker = new DatePicker(minDate);
+        datePicker.setDayCellFactory(picker -> new javafx.scene.control.DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                if (empty || date == null) return;
+                if (date.isBefore(minDate) || date.isAfter(maxDate)) {
+                    setDisable(true);
+                    setStyle("-fx-text-fill: #bdbdbd;");
+                    setTooltip(new javafx.scene.control.Tooltip("Not available: pickups allowed only through " + maxDate.format(dateFmt)));
+                }
+            }
+        });
+        datePicker.setPrefWidth(200);
+        
+        Label timeLabel = new Label("Pickup Time:");
+        timeLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
+        
+        // Time picker: editable Spinners for hour (1-12) and minute (00,15,30,45), plus editable AM/PM ComboBox
+        // Allowed hour values mapped to business hours: 8,9,10,11,12,1,2,3,4,5
+        javafx.collections.ObservableList<Integer> allowedHours = FXCollections.observableArrayList(8,9,10,11,12,1,2,3,4,5);
+        javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<Integer> hourFactory =
+            new javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<>(allowedHours);
+        javafx.scene.control.Spinner<Integer> hourSpinner = new javafx.scene.control.Spinner<>();
+        hourSpinner.setValueFactory(hourFactory);
+        hourSpinner.setEditable(true);
+        // Converter to safely parse typed input into an allowed hour value
+        hourSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.valueOf(object);
+            }
+
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return hourFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    if (allowedHours.contains(parsed)) return parsed;
+                    // map 24-hour-like input into 12-hour range when reasonable
+                    if (parsed >= 8 && parsed <= 17) {
+                        int mapped = parsed > 12 ? parsed - 12 : parsed;
+                        if (allowedHours.contains(mapped)) return mapped;
                     }
-                } else {
-                    allSuccess = reservationManager.approvePickupRequest(reservation.getReservationId());
+                } catch (NumberFormatException ignored) {}
+                return hourFactory.getValue();
+            }
+        });
+        hourSpinner.setPrefWidth(70);
+
+        javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory minuteFactory =
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+        javafx.scene.control.Spinner<Integer> minuteSpinner = new javafx.scene.control.Spinner<>();
+        minuteSpinner.setValueFactory(minuteFactory);
+        minuteSpinner.setEditable(true);
+        // Converter to safely parse typed input into a minute value (0,15,30,45)
+        minuteSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.format("%02d", object);
+            }
+
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return minuteFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    // snap to nearest 15-minute increment within 0-45
+                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
+                    if (snapped == 60) snapped = 45;
+                    return snapped;
+                } catch (NumberFormatException ignored) {
+                    return minuteFactory.getValue();
+                }
+            }
+        });
+        minuteSpinner.setPrefWidth(70);
+
+        ComboBox<String> amPmPicker = new ComboBox<>(FXCollections.observableArrayList("AM", "PM"));
+        amPmPicker.setEditable(true);
+        amPmPicker.setValue("AM");
+
+        Label colonLabel = new Label(":");
+        colonLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        HBox timeBox = new HBox(5, hourSpinner, colonLabel, minuteSpinner, amPmPicker);
+        timeBox.setAlignment(Pos.CENTER_LEFT);
+
+        // Auto-adjust AM/PM based on selected hour so resulting 24-hour time falls within 08:00-17:00
+        hourSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            int h = newVal;
+            if (h >= 8 && h <= 11) {
+                amPmPicker.setValue("AM");
+            } else {
+                amPmPicker.setValue("PM");
+            }
+        });
+        // If the hour is 5 PM, clamp minutes to 00 to enforce the 5:00 PM cutoff
+        minuteSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            try {
+                Integer m = newVal;
+                Integer h = hourSpinner.getValue();
+                String ap = amPmPicker.getValue();
+                if (h != null && ap != null && h == 5 && "PM".equalsIgnoreCase(ap) && m != null && m > 0) {
+                    // Snap down to 00 minutes when user attempts to pick 5:15/5:30/5:45
+                    minuteSpinner.getValueFactory().setValue(0);
+                }
+            } catch (Exception ignored) {
+            }
+        });
+        // If user edits AM/PM manually, ensure the combination remains valid
+        amPmPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            String ap = newVal.trim().toUpperCase();
+            int h = hourSpinner.getValue();
+            if (ap.equals("AM") && (h < 8 || h > 11)) {
+                amPmPicker.setValue("PM");
+            } else if (ap.equals("PM") && !(h == 12 || (h >= 1 && h <= 5))) {
+                if (h >= 8 && h <= 11) amPmPicker.setValue("AM");
+            }
+        });
+        
+        grid.add(infoLabel, 0, 0, 2, 1);
+        grid.add(new javafx.scene.control.Separator(), 0, 1, 2, 1);
+        grid.add(dateLabel, 0, 2);
+        grid.add(datePicker, 1, 2);
+        grid.add(timeLabel, 0, 3);
+        grid.add(timeBox, 1, 3);
+        
+        dateDialog.getDialogPane().setContent(grid);
+        
+        final String[] selectedTime = new String[1];
+        dateDialog.setResultConverter(dialogButton -> {
+            if (dialogButton == confirmButtonType) {
+                String h = String.valueOf(hourSpinner.getValue());
+                String m = String.format("%02d", minuteSpinner.getValue());
+                String ap = amPmPicker.getValue();
+                selectedTime[0] = h + ":" + m + " " + ap;
+                return datePicker.getValue();
+            }
+            return null;
+        });
+
+        dateDialog.showAndWait().ifPresent(pickupDate -> {
+            // Validate selected time is within business hours and not in the past
+            if (selectedTime[0] == null) {
+                AlertHelper.showError("Invalid Time", "Please select a valid time.");
+                return;
+            }
+            try {
+                String[] parts = selectedTime[0].split("[: ]"); // [HH, mm, AM/PM]
+                int hour12 = Integer.parseInt(parts[0]);
+                int minute = Integer.parseInt(parts[1]);
+                String ampm = parts[2];
+                int hour24 = "AM".equals(ampm) ? (hour12 == 12 ? 0 : hour12) : (hour12 == 12 ? 12 : hour12 + 12);
+                if (hour24 < 8 || hour24 > 17) {
+                    AlertHelper.showError("Invalid Time", "Selected time is outside business hours (8:00 AM - 5:00 PM).");
+                    return;
+                }
+                java.time.LocalDateTime scheduled = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(hour24, minute));
+                if (scheduled.isBefore(java.time.LocalDateTime.now())) {
+                    AlertHelper.showError("Invalid Time", "Selected date/time is in the past.");
+                    return;
+                }
+            } catch (Exception ex) {
+                AlertHelper.showError("Invalid Time", "Unable to parse selected time.");
+                return;
+            }
+            boolean allSuccess = true;
+            
+            java.time.LocalDateTime scheduled = null;
+            try {
+                String[] parts = selectedTime[0].split("[: ]"); // [HH, mm, AM/PM]
+                int hour12 = Integer.parseInt(parts[0]);
+                int minute = Integer.parseInt(parts[1]);
+                String ampm = parts[2];
+                int hour24 = "AM".equals(ampm) ? (hour12 == 12 ? 0 : hour12) : (hour12 == 12 ? 12 : hour12 + 12);
+                scheduled = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(hour24, minute));
+            } catch (Exception ex) {
+                // fallback: use midnight of selected date if parsing failed
+                scheduled = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(9, 0));
+            }
+
+            if (reservation.isPartOfBundle()) {
+                // Approve all items in the bundle with scheduled pickup
+                String bundleId = reservation.getBundleId();
+                List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId.equals(r.getBundleId()))
+                    .filter(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+
+                for (Reservation item : bundleItems) {
+                    boolean success = reservationManager.approvePickupRequest(item.getReservationId(), scheduled);
+                    if (!success) {
+                        allSuccess = false;
+                    }
+                }
+            } else {
+                allSuccess = reservationManager.approvePickupRequest(reservation.getReservationId(), scheduled);
+            }
+            
+            if (allSuccess) {
+                // Call refresh callback to update the display with current filter applied
+                if (refreshCallback != null) {
+                    refreshCallback.run();
                 }
                 
-                if (allSuccess) {
-                    // Call refresh callback to update the display with current filter applied
-                    if (refreshCallback != null) {
-                        refreshCallback.run();
-                    }
-                    AlertHelper.showSuccess("Success", 
-                        reservation.isPartOfBundle() ? "Bundle pickup approved! Students now claimed the item." : "Pickup approved! Student now claimed the item.");
-                } else {
-                    AlertHelper.showError("Error", "Failed to approve pickup request");
-                }
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Pickup Approved");
+                successAlert.setHeaderText(reservation.isPartOfBundle() ? "Bundle pickup approved!" : "Pickup approved!");
+                successAlert.setContentText(
+                    "Pickup scheduled for:\n" +
+                    pickupDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) + " at " + selectedTime[0] + "\n\n" +
+                    "The student has been notified and can now claim the item.\n" +
+                    "They will see this in their notification bell (🔔)."
+                );
+                successAlert.showAndWait();
+            } else {
+                AlertHelper.showError("Error", "Failed to approve pickup request");
             }
         });
     }
@@ -1485,7 +2582,7 @@ public class StaffDashboardController {
             if (!reason.isEmpty()) {
                 javafx.scene.control.Alert confirmAlert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
                 confirmAlert.setTitle("Confirm Rejection");
-                confirmAlert.setHeaderText("This will change status back to 'PAID - AWAITING PICKUP APPROVAL'");
+                confirmAlert.setHeaderText("This will change status back to 'AWAITING PICKUP REQUEST'");
                 confirmAlert.setContentText("Student will need to request pickup again. Continue?");
                 
                 confirmAlert.showAndWait().ifPresent(response -> {
@@ -1503,7 +2600,7 @@ public class StaffDashboardController {
                             for (Reservation item : bundleItems) {
                                 boolean success = reservationManager.updateReservationStatus(
                                     item.getReservationId(), 
-                                    "PAID - AWAITING PICKUP APPROVAL", 
+                                    "AWAITING PICKUP REQUEST", 
                                     "Pickup request rejected: " + reason
                                 );
                                 if (!success) {
@@ -1513,7 +2610,7 @@ public class StaffDashboardController {
                         } else {
                             allSuccess = reservationManager.updateReservationStatus(
                                 reservation.getReservationId(), 
-                                "PAID - AWAITING PICKUP APPROVAL", 
+                                "AWAITING PICKUP REQUEST", 
                                 "Pickup request rejected: " + reason
                             );
                         }
@@ -1543,6 +2640,10 @@ public class StaffDashboardController {
 
         javafx.scene.control.ButtonType closeButton = javafx.scene.control.ButtonType.CLOSE;
         dialog.getDialogPane().getButtonTypes().add(closeButton);
+
+        // Dialog styling is provided globally by SceneManager; just add semantic classes
+        dialog.getDialogPane().getStyleClass().add("dialog-root");
+        if (ThemeManager.isDarkMode()) dialog.getDialogPane().getStyleClass().add("dark");
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
@@ -1693,9 +2794,18 @@ public class StaffDashboardController {
         courseBar.setAlignment(Pos.CENTER_LEFT);
         courseBar.setPadding(new Insets(0, 0, 8, 0));
 
-        // Build course ComboBox
-        List<String> availableCourses = inventoryManager.getAvailableCourses();
-        availableCourses.removeIf(s -> s == null || s.trim().isEmpty());
+        // Build course ComboBox - normalize SHS courses and remove duplicates
+        List<String> rawCourses = inventoryManager.getAvailableCourses();
+        rawCourses.removeIf(s -> s == null || s.trim().isEmpty());
+        
+        // Normalize and deduplicate courses
+        Set<String> uniqueCourses = new LinkedHashSet<>();
+        for (String course : rawCourses) {
+            String normalized = normalizeCourseForDisplay(course);
+            uniqueCourses.add(normalized);
+        }
+        
+        List<String> availableCourses = new ArrayList<>(uniqueCourses);
         if (!availableCourses.contains("STI Special")) availableCourses.add(0, "STI Special");
         java.util.Collections.sort(availableCourses);
 
@@ -1727,7 +2837,24 @@ public class StaffDashboardController {
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
         courseCombo.setStyle(comboStyle);
 
-        courseBar.getChildren().add(courseCombo);
+        // Gender Toggle (modern radio buttons) - placed next to course filter
+        final ToggleGroup genderToggle = new ToggleGroup();
+        final RadioButton rbAllGender = new RadioButton("All");
+        final RadioButton rbMale = new RadioButton("Male");
+        final RadioButton rbFemale = new RadioButton("Female");
+        rbAllGender.setToggleGroup(genderToggle);
+        rbMale.setToggleGroup(genderToggle);
+        rbFemale.setToggleGroup(genderToggle);
+        rbAllGender.setSelected(true);
+
+        HBox genderBox = new HBox(6, rbAllGender, rbMale, rbFemale);
+        genderBox.setAlignment(Pos.CENTER_LEFT);
+        String rbBase = "-fx-cursor: hand; -fx-padding: 6 12; -fx-background-radius: 6px; -fx-border-radius: 6px; -fx-font-size:13px;";
+        rbAllGender.setStyle(rbBase + " -fx-background-color: transparent;");
+        rbMale.setStyle(rbBase + " -fx-background-color: transparent;");
+        rbFemale.setStyle(rbBase + " -fx-background-color: transparent;");
+
+        courseBar.getChildren().addAll(courseCombo, genderBox);
 
         // Update ComboBox style when the application theme changes
         Runnable courseThemeRefresher = () -> {
@@ -1995,48 +3122,51 @@ public class StaffDashboardController {
             protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);
                 setText(empty ? null : value);
+                setAlignment(Pos.CENTER_LEFT);
+                // ensure the text is left-aligned and vertically centered
+                setTextAlignment(javafx.scene.text.TextAlignment.LEFT);
+                if (!getStyleClass().contains("price-cell")) getStyleClass().add("price-cell");
             }
         });
         
-        // Actions column - Adjust Stock and Change Price buttons
+        // Actions column - single Manage button that opens a small modal with actions
         TableColumn<InventoryRow, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<InventoryRow, Void>() {
-            private final Button adjustBtn = new Button("📝 Adjust Stock");
-            private final Button priceBtn = new Button("₱ Change Price");
+            private final Button manageBtn = new Button("⚙ Manage");
+
+            {
+                manageBtn.getStyleClass().add("manage-btn");
+                manageBtn.setMaxWidth(Double.MAX_VALUE);
+                manageBtn.setPrefHeight(32);
+            }
 
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
+                // center the graphic inside the cell
+                setAlignment(Pos.CENTER);
                 if (empty) {
                     setGraphic(null);
                 } else {
                     InventoryRow currentRow = getTableView().getItems().get(getIndex());
-                    adjustBtn.setStyle("-fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
-                    // Allow buttons to expand to occupy available cell space so text is not truncated
-                    adjustBtn.setMaxWidth(Double.MAX_VALUE);
-                    HBox.setHgrow(adjustBtn, Priority.ALWAYS);
-                    adjustBtn.setOnAction(e -> showVariantSelectionDialog(currentRow, "Adjust Stock", selected -> handleStockAdjustmentForItem(selected, refreshBtn::fire)));
-
-                    priceBtn.setStyle("-fx-background-color: #0A84FF; -fx-text-fill: white; -fx-cursor: hand;");
-                    priceBtn.setMaxWidth(Double.MAX_VALUE);
-                    HBox.setHgrow(priceBtn, Priority.ALWAYS);
-                    // For Change Price, do not prompt for size — change price for all sizes of this item code
-                    priceBtn.setOnAction(e -> {
-                        List<Item> variants = currentRow.getVariants();
-                        if (variants != null && !variants.isEmpty()) {
-                            // Use the first variant as representative; handler updates all sizes by code
-                            handleChangePriceForItem(variants.get(0), refreshBtn::fire);
-                        }
-                    });
-
-                    HBox btns = new HBox(8, adjustBtn, priceBtn);
-                    btns.setAlignment(Pos.CENTER);
-                    setGraphic(btns);
+                    manageBtn.setOnAction(e -> showManageItemDialog(currentRow, refreshBtn::fire));
+                    HBox wrapper = new HBox(manageBtn);
+                    wrapper.getStyleClass().add("action-gap");
+                    // left-align the manage button inside the Actions column
+                    wrapper.setAlignment(Pos.CENTER_LEFT);
+                    setAlignment(Pos.CENTER_LEFT);
+                    // add left padding so button isn't flush against the column edge
+                    wrapper.setPadding(new Insets(0, 12, 0, 8));
+                    // ensure wrapper fills cell height to center child vertically
+                    wrapper.setPrefHeight(Region.USE_COMPUTED_SIZE);
+                    setGraphic(wrapper);
                 }
             }
         });
-        actionsCol.setPrefWidth(220);
+        actionsCol.setPrefWidth(140);
+        actionsCol.setMinWidth(120);
         
+        // Place actions column on the right (end) as requested
         table.getColumns().addAll(codeCol, nameCol, courseCol, sizesCol, qtyCol, priceCol, actionsCol);
 
         // Make columns resize to fill the available width of the container
@@ -2044,16 +3174,16 @@ public class StaffDashboardController {
         table.setPrefWidth(Double.MAX_VALUE);
 
         // Bind column widths as percentages of the table width so the table fills its box
-        // Increase `actions` column to give space for full button labels
+        // Bind column widths as percentages of the table width so the table fills its box
+        // Actions column is small on the right, item name gets most space
+        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
+        actionsCol.setMinWidth(80);
         codeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.32));
+        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.34));
         courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.08));
         sizesCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
         qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
         priceCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
-        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.24));
-        // Ensure actions column has a reasonable minimum so buttons don't get clipped
-        actionsCol.setMinWidth(240);
 
         // Keep table visual size consistent when limiting rows: fix row height and pref height
         // (pref height will be set after itemsPerPage is declared below)
@@ -2064,6 +3194,7 @@ public class StaffDashboardController {
         final int[] currentPage = new int[] { 1 };
         final int itemsPerPage = 10;
         final String[] currentCourse = new String[] { "All" };
+        final String[] currentGender = new String[] { "All" };
         // Sliding window start for page numbers (so 1 2 3 ... N can slide to 2 3 4 ... N)
         final int[] pageWindowStart = new int[] { 1 };
 
@@ -2078,7 +3209,7 @@ public class StaffDashboardController {
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             currentPage[0] = 1;
             pageWindowStart[0] = 1;
-            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+            updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
         });
 
         // Course combo action -> update via helper
@@ -2109,7 +3240,20 @@ public class StaffDashboardController {
             
             currentPage[0] = 1;
             pageWindowStart[0] = 1;
-            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+            updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+        });
+
+        // Gender toggle change -> update via helper
+        genderToggle.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+            if (newT == null) {
+                currentGender[0] = "All";
+            } else {
+                RadioButton sel = (RadioButton) newT;
+                currentGender[0] = sel.getText();
+            }
+            currentPage[0] = 1;
+            pageWindowStart[0] = 1;
+            updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
         });
 
         // Refresh button action
@@ -2119,7 +3263,7 @@ public class StaffDashboardController {
             allItems.addAll(refreshed);
             currentPage[0] = 1;
             pageWindowStart[0] = 1;
-            updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+            updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
             searchField.clear();
         });
 
@@ -2136,7 +3280,7 @@ public class StaffDashboardController {
         table.setPrefHeight(itemsPerPage * rowHeight + headerReserve);
 
         // initial display
-        updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+        updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
 
         return container;
     }
@@ -2145,17 +3289,85 @@ public class StaffDashboardController {
      * Update inventory table contents and rebuild pagination controls
      */
     private void updateInventoryTable(TableView<InventoryRow> table, List<Item> allItems, String[] currentCourse,
-                                      int[] currentPage, int itemsPerPage, HBox pageControls, HBox statsBox,
+                                      String[] currentGender, int[] currentPage, int itemsPerPage, HBox pageControls, HBox statsBox,
                                       TextField searchField, int[] pageWindowStart) {
         String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
 
         List<Item> filtered = allItems.stream()
             .filter(it -> {
-                boolean courseMatch = "All".equalsIgnoreCase(currentCourse[0]) ||
-                                      (it.getCourse() != null && it.getCourse().equalsIgnoreCase(currentCourse[0])) ||
-                                      ("STI Special".equalsIgnoreCase(it.getCourse()) && "STI Special".equalsIgnoreCase(currentCourse[0]));
+                String sel = currentCourse[0] == null ? "All" : currentCourse[0];
+                String itemCourse = it.getCourse() == null ? "" : it.getCourse();
+
+                String gsel = currentGender[0] == null ? "All" : currentGender[0];
+
+                boolean courseMatch;
+                if ("All".equalsIgnoreCase(sel)) {
+                    courseMatch = true;
+                } else if ("STI Special".equalsIgnoreCase(sel)) {
+                    courseMatch = "STI Special".equalsIgnoreCase(itemCourse);
+                } else {
+                    // If selected contains multiple course codes (e.g. "BSBA/BSA"), match if itemCourse matches any part
+                    if (sel.contains("/")) {
+                        String[] selParts = sel.split("/");
+                        courseMatch = false;
+                        for (String sp : selParts) {
+                            if (sp.trim().equalsIgnoreCase(itemCourse)) {
+                                courseMatch = true; break;
+                            }
+                            // if itemCourse is combined, check its parts too
+                            if (itemCourse.contains("/")) {
+                                for (String ip : itemCourse.split("/")) {
+                                    if (sp.trim().equalsIgnoreCase(ip.trim())) { courseMatch = true; break; }
+                                }
+                                if (courseMatch) break;
+                            }
+                        }
+                    } else {
+                        // sel is single code; itemCourse may be combined or single
+                        if (itemCourse.contains("/")) {
+                            courseMatch = false;
+                            for (String ip : itemCourse.split("/")) {
+                                if (ip.trim().equalsIgnoreCase(sel)) { courseMatch = true; break; }
+                            }
+                        } else {
+                            courseMatch = itemCourse.equalsIgnoreCase(sel);
+                        }
+                    }
+                }
+
+                // Ensure STEM Lab Coat shows when SHS or STEM is selected (since STEM is now grouped under SHS)
+                String nameLower = it.getName() == null ? "" : it.getName().toLowerCase();
+                if (nameLower.contains("lab coat")) {
+                    // Show when selection is "All", "SHS", or contains "STEM"
+                    String selUpper = sel.toUpperCase();
+                    if (!("All".equalsIgnoreCase(sel) || selUpper.equals("SHS") || selUpper.contains("STEM") || itemCourse.toUpperCase().equals("STEM"))) {
+                        courseMatch = false;
+                    }
+                }
+
+                // Special-case: TVL Chef / Culinary items should show when SHS or TVL-CA is selected
+                boolean isCulArtItem = nameLower.contains("chef") || nameLower.contains("apron") || nameLower.contains("cul art") || nameLower.contains("culinary") || nameLower.contains("tvl chef");
+                if (isCulArtItem) {
+                    // Show when selection is "All", "SHS", or explicitly TVL-CA
+                    String selUpper = sel == null ? "" : sel.toUpperCase();
+                    if (!("All".equalsIgnoreCase(sel) || selUpper.equals("SHS") || selUpper.equals("TVL-CA") || selUpper.equals("CUL ART") || selUpper.equals("TVL CA") || itemCourse.toUpperCase().startsWith("TVL"))) {
+                        courseMatch = false;
+                    }
+                }
+
                 boolean searchMatch = q.isEmpty() || (it.getName() != null && it.getName().toLowerCase().contains(q)) || String.valueOf(it.getCode()).contains(q);
-                return courseMatch && searchMatch;
+
+                boolean genderMatch = true;
+                if (!"All".equalsIgnoreCase(gsel)) {
+                    String name = it.getName() == null ? "" : it.getName().toLowerCase();
+                    if ("Male".equalsIgnoreCase(gsel)) {
+                        genderMatch = name.contains("(male)");
+                    } else if ("Female".equalsIgnoreCase(gsel)) {
+                        genderMatch = name.contains("(female)");
+                    }
+                }
+
+                return courseMatch && genderMatch && searchMatch;
             })
             .collect(java.util.stream.Collectors.toList());
 
@@ -2181,7 +3393,7 @@ public class StaffDashboardController {
         prevBtn.setOnAction(ev -> {
             if (currentPage[0] > 1) {
                 currentPage[0]--;
-                updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+                updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
             }
         });
 
@@ -2201,7 +3413,7 @@ public class StaffDashboardController {
                     if (pageNum >= 1 && pageNum <= totalPages) {
                         currentPage[0] = pageNum;
                         goToPageField.clear();
-                        updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+                        updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
                     } else {
                         goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
                         goToPageField.clear();
@@ -2220,9 +3432,9 @@ public class StaffDashboardController {
         nextBtn.setDisable(currentPage[0] >= totalPages);
         nextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
         nextBtn.setOnAction(ev -> {
-            if (currentPage[0] < totalPages) {
+                if (currentPage[0] < totalPages) {
                 currentPage[0]++;
-                updateInventoryTable(table, allItems, currentCourse, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
+                updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
             }
         });
 
@@ -2239,10 +3451,30 @@ public class StaffDashboardController {
     }
 
     private List<InventoryRow> buildInventoryRows(List<Item> source) {
+        // Deduplicate exact duplicate item entries (same code + size) which may appear in
+        // the underlying data source. Keep insertion order.
+        Map<String, Item> uniqueByKey = new LinkedHashMap<>();
+        for (Item it : source) {
+            String key = it.getCode() + "::" + (it.getSize() == null ? "" : it.getSize()).trim().toLowerCase();
+            if (!uniqueByKey.containsKey(key)) {
+                uniqueByKey.put(key, it);
+            } else {
+                // If the same code+size appears multiple times, merge quantities to preserve totals
+                Item existing = uniqueByKey.get(key);
+                try {
+                    int mergedQty = existing.getQuantity() + it.getQuantity();
+                    existing.setQuantity(mergedQty);
+                } catch (Exception ex) {
+                    // if mutation isn't supported, ignore and keep the first one
+                }
+            }
+        }
+
         Map<Integer, List<Item>> grouped = new LinkedHashMap<>();
-        for (Item item : source) {
+        for (Item item : uniqueByKey.values()) {
             grouped.computeIfAbsent(item.getCode(), k -> new ArrayList<>()).add(item);
         }
+
         return grouped.values().stream().map(InventoryRow::new).collect(Collectors.toList());
     }
 
@@ -2284,6 +3516,56 @@ public class StaffDashboardController {
         dialog.getDialogPane().setContent(sizeList);
         dialog.setResultConverter(btn -> btn == selectButtonType ? sizeList.getSelectionModel().getSelectedItem() : null);
         dialog.showAndWait().ifPresent(onVariantSelected);
+    }
+
+    private void showManageItemDialog(InventoryRow row, Runnable refreshAction) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Manage Item");
+        dialog.setHeaderText("Manage: " + row.getName() + " (Code: " + row.getCode() + ")");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CLOSE);
+
+        Button adjustBtn = new Button("📝 Adjust Stock");
+        adjustBtn.getStyleClass().add("primary-btn");
+        adjustBtn.setMaxWidth(Double.MAX_VALUE);
+        adjustBtn.setOnAction(e -> {
+            dialog.close();
+            // Choose size then adjust
+            showVariantSelectionDialog(row, "Adjust Stock", selected -> handleStockAdjustmentForItem(selected, refreshAction));
+        });
+
+        Button priceBtn = new Button("₱ Change Price");
+        priceBtn.getStyleClass().add("primary-btn");
+        priceBtn.setMaxWidth(Double.MAX_VALUE);
+        priceBtn.setOnAction(e -> {
+            dialog.close();
+            List<Item> variants = row.getVariants();
+            if (variants != null && !variants.isEmpty()) {
+                handleChangePriceForItem(variants.get(0), refreshAction);
+            }
+        });
+
+        Button detailsBtn = new Button("🔍 View Details");
+        detailsBtn.setMaxWidth(Double.MAX_VALUE);
+        detailsBtn.setOnAction(e -> {
+            dialog.close();
+            // Simple details dialog
+            Alert info = new Alert(Alert.AlertType.INFORMATION);
+            info.setTitle("Item Details");
+            info.setHeaderText(row.getName());
+            StringBuilder sb = new StringBuilder();
+            sb.append("Code: ").append(row.getCode()).append("\n");
+            sb.append("Course: ").append(row.getCourse()).append("\n");
+            sb.append("Sizes: ").append(row.getSizesDisplay()).append("\n");
+            sb.append("Total Qty: ").append(row.getTotalQuantity()).append("\n");
+            sb.append("Price (example): ").append(row.getPriceDisplay()).append("\n");
+            info.setContentText(sb.toString());
+            info.showAndWait();
+        });
+
+        VBox content = new VBox(10, adjustBtn, priceBtn, detailsBtn);
+        content.setPrefWidth(360);
+        dialog.getDialogPane().setContent(content);
+        dialog.showAndWait();
     }
 
     private static class InventoryRow {
@@ -2368,15 +3650,7 @@ public class StaffDashboardController {
             getRelevantDate(reservation).equals(today)
         );
 
-        long lowStockCount = allItems.stream()
-            .filter(item -> item.getQuantity() <= 15 && item.getQuantity() > 5)
-            .count();
-        long criticalStockCount = allItems.stream()
-            .filter(item -> item.getQuantity() > 0 && item.getQuantity() <= 5)
-            .count();
-        long outOfStockCount = allItems.stream()
-            .filter(item -> item.getQuantity() == 0)
-            .count();
+        
 
         // Stock Status overview: show key metric cards (Net Sales month, Net Sales all-time,
         // Orders today, Completed orders). Low/critical segmented bar removed per request.
@@ -2386,8 +3660,25 @@ public class StaffDashboardController {
         javafx.scene.control.Label stockTitle = new javafx.scene.control.Label("Stock Status");
         stockTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-        int totalProducts = allItems.size();
         int completedOrdersCount = completedReservations.size();
+
+        // Compute stock metrics per item code (sum quantities across sizes)
+        java.util.Map<Integer, java.util.List<Item>> groupedByCode = allItems.stream()
+            .collect(Collectors.groupingBy(Item::getCode));
+
+        int totalProducts = groupedByCode.size();
+
+        // For each product (code) compute total quantity across sizes
+        java.util.Map<Integer, Integer> totalQtyByCode = new java.util.HashMap<>();
+        for (java.util.Map.Entry<Integer, java.util.List<Item>> e : groupedByCode.entrySet()) {
+            int sum = e.getValue().stream().mapToInt(Item::getQuantity).sum();
+            totalQtyByCode.put(e.getKey(), sum);
+        }
+
+        // Determine stock status counts based on aggregated quantities per product
+        long lowStockCount = totalQtyByCode.values().stream().filter(q -> q <= 15 && q > 5).count();
+        long criticalStockCount = totalQtyByCode.values().stream().filter(q -> q > 0 && q <= 5).count();
+        long outOfStockCount = totalQtyByCode.values().stream().filter(q -> q == 0).count();
 
         javafx.scene.control.Label productsLabel = new javafx.scene.control.Label(totalProducts + " Products");
         productsLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
@@ -4708,6 +5999,122 @@ public class StaffDashboardController {
         }
     }
     
+    /**
+     * Opens an image in a modal window with zoom and pan capabilities
+     */
+    private void openImageModal(String imagePath, String fileName) {
+        try {
+            javafx.stage.Stage imageStage = new javafx.stage.Stage();
+            imageStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            imageStage.setTitle("Image Proof - " + fileName);
+            
+            java.io.File imgFile = new java.io.File(imagePath);
+            if (!imgFile.exists()) {
+                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alert.setTitle("Image Not Found");
+                alert.setHeaderText(null);
+                alert.setContentText("Image file not found.");
+                alert.showAndWait();
+                return;
+            }
+            
+            javafx.scene.image.Image image = new javafx.scene.image.Image(imgFile.toURI().toString());
+            javafx.scene.image.ImageView imageView = new javafx.scene.image.ImageView(image);
+            imageView.setPreserveRatio(true);
+            imageView.setSmooth(true);
+            
+            // Scale image to fit within reasonable window size
+            double imgWidth = image.getWidth();
+            double imgHeight = image.getHeight();
+            double maxWidth = 1000;
+            double maxHeight = 700;
+            
+            double scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+            if (scale < 1.0) {
+                imageView.setFitWidth(imgWidth * scale);
+                imageView.setFitHeight(imgHeight * scale);
+            }
+            
+            // Enable zooming and panning
+            javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane();
+            scrollPane.setContent(imageView);
+            scrollPane.setPannable(true);
+            scrollPane.setStyle("-fx-background: #1F1F1F; -fx-background-color: #1F1F1F;");
+            
+            // Zoom controls
+            double[] zoomLevel = {1.0};
+            
+            HBox controls = new HBox(10);
+            controls.setAlignment(javafx.geometry.Pos.CENTER);
+            controls.setPadding(new Insets(10));
+            controls.setStyle("-fx-background-color: #F6F8FA; -fx-border-color: #D0D7DE; -fx-border-width: 1 0 0 0;");
+            
+            javafx.scene.control.Button zoomInBtn = new javafx.scene.control.Button("➕ Zoom In");
+            javafx.scene.control.Button zoomOutBtn = new javafx.scene.control.Button("➖ Zoom Out");
+            javafx.scene.control.Button resetBtn = new javafx.scene.control.Button("🔄 Reset");
+            javafx.scene.control.Button closeBtn = new javafx.scene.control.Button("✖️ Close");
+            
+            String btnStyle = "-fx-font-size: 12px; -fx-background-color: #0969DA; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;";
+            String btnHoverStyle = "-fx-font-size: 12px; -fx-background-color: #0860CA; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;";
+            String closeBtnStyle = "-fx-font-size: 12px; -fx-background-color: #CF222E; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;";
+            String closeBtnHoverStyle = "-fx-font-size: 12px; -fx-background-color: #A40E26; -fx-text-fill: white; -fx-padding: 6 16; -fx-cursor: hand; -fx-background-radius: 4;";
+            
+            zoomInBtn.setStyle(btnStyle);
+            zoomInBtn.setOnMouseEntered(e -> zoomInBtn.setStyle(btnHoverStyle));
+            zoomInBtn.setOnMouseExited(e -> zoomInBtn.setStyle(btnStyle));
+            zoomInBtn.setOnAction(e -> {
+                zoomLevel[0] += 0.2;
+                imageView.setScaleX(zoomLevel[0]);
+                imageView.setScaleY(zoomLevel[0]);
+            });
+            
+            zoomOutBtn.setStyle(btnStyle);
+            zoomOutBtn.setOnMouseEntered(e -> zoomOutBtn.setStyle(btnHoverStyle));
+            zoomOutBtn.setOnMouseExited(e -> zoomOutBtn.setStyle(btnStyle));
+            zoomOutBtn.setOnAction(e -> {
+                if (zoomLevel[0] > 0.4) {
+                    zoomLevel[0] -= 0.2;
+                    imageView.setScaleX(zoomLevel[0]);
+                    imageView.setScaleY(zoomLevel[0]);
+                }
+            });
+            
+            resetBtn.setStyle(btnStyle);
+            resetBtn.setOnMouseEntered(e -> resetBtn.setStyle(btnHoverStyle));
+            resetBtn.setOnMouseExited(e -> resetBtn.setStyle(btnStyle));
+            resetBtn.setOnAction(e -> {
+                zoomLevel[0] = 1.0;
+                imageView.setScaleX(1.0);
+                imageView.setScaleY(1.0);
+            });
+            
+            closeBtn.setStyle(closeBtnStyle);
+            closeBtn.setOnMouseEntered(e -> closeBtn.setStyle(closeBtnHoverStyle));
+            closeBtn.setOnMouseExited(e -> closeBtn.setStyle(closeBtnStyle));
+            closeBtn.setOnAction(e -> imageStage.close());
+            
+            controls.getChildren().addAll(zoomInBtn, zoomOutBtn, resetBtn, closeBtn);
+            
+            javafx.scene.layout.BorderPane root = new javafx.scene.layout.BorderPane();
+            root.setCenter(scrollPane);
+            root.setBottom(controls);
+            
+            // Calculate window size based on image size
+            double windowWidth = Math.min(image.getWidth() + 50, 1100);
+            double windowHeight = Math.min(image.getHeight() + 100, 800);
+            
+            javafx.scene.Scene scene = new javafx.scene.Scene(root, windowWidth, windowHeight);
+            imageStage.setScene(scene);
+            imageStage.showAndWait();
+            
+        } catch (Exception ex) {
+            javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText(null);
+            alert.setContentText("Failed to open image: " + ex.getMessage());
+            alert.showAndWait();
+        }
+    }
 
 }
 

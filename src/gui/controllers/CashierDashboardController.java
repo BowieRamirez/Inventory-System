@@ -204,44 +204,7 @@ public class CashierDashboardController {
         });
         totalCol.setPrefWidth(100);
 
-        TableColumn<Reservation, Void> bundleCol = new TableColumn<>("Bundle");
-        bundleCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
-            private final Button bundleBtn = new Button("BUNDLE ORDER");
-            
-            {
-                bundleBtn.setStyle(
-                    "-fx-background-color: #0969DA; " +
-                    "-fx-text-fill: white; " +
-                    "-fx-font-weight: bold; " +
-                    "-fx-font-size: 10px; " +
-                    "-fx-padding: 5 10; " +
-                    "-fx-background-radius: 6; " +
-                    "-fx-cursor: hand;"
-                );
-            }
-
-            @Override
-            protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    Reservation reservation = (getTableRow() != null) ? (Reservation) getTableRow().getItem() : null;
-                    if (reservation == null) {
-                        setGraphic(null);
-                        return;
-                    }
-                    if (reservation.isPartOfBundle()) {
-                        bundleBtn.setOnAction(e -> showBundleItemsDialog(reservation));
-                        setGraphic(bundleBtn);
-                    } else {
-                        setGraphic(null);
-                    }
-                }
-            }
-        });
-        bundleCol.setPrefWidth(130);
-
+        // 'Bundle' column removed from payments view per UI simplification
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
             private final Button processBtn = new Button("Process Payment");
@@ -268,7 +231,9 @@ public class CashierDashboardController {
         });
         actionsCol.setPrefWidth(150);
 
-        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, bundleCol, actionsCol);
+        // Ensure no duplicate columns when view is recreated
+        table.getColumns().clear();
+        table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, totalCol, actionsCol);
 
         // Load ONLY approved reservations waiting for payment (deduplicated for bundles)
         // Filter out: CANCELLED, RETURNED, PAID, COMPLETED - only show unpaid approved orders
@@ -277,7 +242,7 @@ public class CashierDashboardController {
                 .filter(r -> "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus()) && !r.isPaid())
                 .collect(java.util.stream.Collectors.toList())
         );
-
+        
         // Pagination setup (10 items per page, prev/next, page label visible when pages > 2)
         final int itemsPerPage = 10;
         final int[] currentPage = new int[] { 1 };
@@ -315,9 +280,49 @@ public class CashierDashboardController {
             table.setItems(FXCollections.observableArrayList(pageItems));
 
             pageLabel.setText("Page " + currentPage[0] + " of " + totalPages);
-            pageLabel.setVisible(totalPages > 2);
+            // pageLabel always visible to match Staff inventory pagination
             prevBtn.setDisable(currentPage[0] <= 1);
             nextBtn.setDisable(currentPage[0] >= totalPages);
+            // Add a go-to page field (consistent with Staff pagination)
+            TextField goToPageField = new TextField();
+            goToPageField.setPromptText("Go to page...");
+            goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120;");
+            goToPageField.setOnAction(ev -> {
+                try {
+                    String input = goToPageField.getText().trim();
+                    if (!input.isEmpty()) {
+                        int pageNum = Integer.parseInt(input);
+                        int tPages = Math.max(1, (int) Math.ceil((double) workingFiltered.size() / itemsPerPage));
+                        if (pageNum >= 1 && pageNum <= tPages) {
+                            currentPage[0] = pageNum;
+                            goToPageField.clear();
+                            int s = (currentPage[0] - 1) * itemsPerPage;
+                            int e = Math.min(s + itemsPerPage, workingFiltered.size());
+                            List<Reservation> pItems = workingFiltered.isEmpty() ? java.util.Collections.emptyList() : workingFiltered.subList(s, e);
+                            table.setItems(FXCollections.observableArrayList(pItems));
+                            pageLabel.setText("Page " + currentPage[0] + " of " + tPages);
+                            prevBtn.setDisable(currentPage[0] <= 1);
+                            nextBtn.setDisable(currentPage[0] >= tPages);
+                            pageControls.getChildren().clear();
+                            pageControls.setSpacing(12);
+                            pageControls.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
+                            pageControls.setAlignment(Pos.CENTER);
+                        } else {
+                            goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                            goToPageField.clear();
+                            goToPageField.setPromptText("Invalid page (1-" + tPages + ")");
+                        }
+                    }
+                } catch (NumberFormatException ex) {
+                    goToPageField.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                    goToPageField.clear();
+                    goToPageField.setPromptText("Enter a valid number");
+                }
+            });
+            pageControls.getChildren().clear();
+            pageControls.setSpacing(12);
+            pageControls.getChildren().addAll(prevBtn, pageLabel, goToPageField, nextBtn);
+            pageControls.setAlignment(Pos.CENTER);
         };
 
         prevBtn.setOnAction(e -> {
@@ -810,7 +815,7 @@ public class CashierDashboardController {
                     // All receipts will share the same bundleId for grouping
                     for (Reservation bundleItem : bundleItems) {
                         receiptManager.createReceipt(
-                            "COMPLETED",
+                            "PAID",
                             bundleItem.getQuantity(),
                             bundleItem.getTotalPrice(),
                             bundleItem.getItemCode(),
@@ -1210,7 +1215,27 @@ public class CashierDashboardController {
         amountCol.setPrefWidth(100);
 
         TableColumn<Receipt, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getPaymentStatus()));
+        // For cashier view: reveal 'PAID' when the payment status contains PAID (handles combined tags).
+        statusCol.setCellValueFactory(data -> {
+            String ps = data.getValue().getPaymentStatus();
+            if (ps != null) {
+                String lower = ps.toLowerCase();
+                if (lower.contains("paid") || lower.contains("completed") || lower.contains("replac")) {
+                    return new javafx.beans.property.SimpleStringProperty("PAID");
+                }
+            }
+            // Try to locate corresponding reservation and determine if it was marked as paid
+            try {
+                Receipt receipt = data.getValue();
+                Reservation matched = findReservationForReceipt(receipt);
+                if (matched != null && matched.isPaid()) {
+                    return new javafx.beans.property.SimpleStringProperty("PAID");
+                }
+            } catch (Exception ex) {
+                // fallback to blank on any error
+            }
+            return new javafx.beans.property.SimpleStringProperty("");
+        });
         statusCol.setPrefWidth(100);
 
         TableColumn<Receipt, String> bundleCol = new TableColumn<>("Bundle");
@@ -1236,7 +1261,7 @@ public class CashierDashboardController {
 
         table.getColumns().addAll(idCol, dateCol, buyerCol, itemCol, sizeCol, qtyCol, amountCol, statusCol, bundleCol);
 
-        // Load all receipts and deduplicate bundles
+        // Load all receipts and deduplicate bundles (cashier view shows all rows)
         List<Receipt> allReceipts = deduplicateBundleReceipts(receiptManager.getAllReceipts());
 
         // Pagination setup (10 items per page, prev/next, page label visible when pages > 2)
@@ -1272,9 +1297,49 @@ public class CashierDashboardController {
             table.setItems(FXCollections.observableArrayList(pageItems));
 
             pageLabelR.setText("Page " + currentPageR[0] + " of " + totalPages);
-            pageLabelR.setVisible(totalPages > 2);
+            // pageLabel always visible to match Staff inventory pagination
             prevBtnR.setDisable(currentPageR[0] <= 1);
             nextBtnR.setDisable(currentPageR[0] >= totalPages);
+            // Add go-to page input for receipts pagination (Staff parity)
+            TextField goToPageFieldR = new TextField();
+            goToPageFieldR.setPromptText("Go to page...");
+            goToPageFieldR.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120;");
+            goToPageFieldR.setOnAction(ev -> {
+                try {
+                    String input = goToPageFieldR.getText().trim();
+                    if (!input.isEmpty()) {
+                        int pageNum = Integer.parseInt(input);
+                        int tPages = Math.max(1, (int) Math.ceil((double) workingReceipts.size() / itemsPerPageR));
+                        if (pageNum >= 1 && pageNum <= tPages) {
+                            currentPageR[0] = pageNum;
+                            goToPageFieldR.clear();
+                            int s = (currentPageR[0] - 1) * itemsPerPageR;
+                            int e = Math.min(s + itemsPerPageR, workingReceipts.size());
+                            List<Receipt> pItems = workingReceipts.isEmpty() ? java.util.Collections.emptyList() : workingReceipts.subList(s, e);
+                            table.setItems(FXCollections.observableArrayList(pItems));
+                            pageLabelR.setText("Page " + currentPageR[0] + " of " + tPages);
+                            prevBtnR.setDisable(currentPageR[0] <= 1);
+                            nextBtnR.setDisable(currentPageR[0] >= tPages);
+                            pageControlsR.getChildren().clear();
+                            pageControlsR.setSpacing(12);
+                            pageControlsR.getChildren().addAll(prevBtnR, pageLabelR, goToPageFieldR, nextBtnR);
+                            pageControlsR.setAlignment(Pos.CENTER);
+                        } else {
+                            goToPageFieldR.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                            goToPageFieldR.clear();
+                            goToPageFieldR.setPromptText("Invalid page (1-" + tPages + ")");
+                        }
+                    }
+                } catch (NumberFormatException ex) {
+                    goToPageFieldR.setStyle("-fx-padding: 6 8; -fx-font-size: 12; -fx-pref-width: 120; -fx-border-color: #ff6b6b;");
+                    goToPageFieldR.clear();
+                    goToPageFieldR.setPromptText("Enter a valid number");
+                }
+            });
+            pageControlsR.getChildren().clear();
+            pageControlsR.setSpacing(12);
+            pageControlsR.getChildren().addAll(prevBtnR, pageLabelR, goToPageFieldR, nextBtnR);
+            pageControlsR.setAlignment(Pos.CENTER);
         };
 
         prevBtnR.setOnAction(e -> {
@@ -1299,7 +1364,7 @@ public class CashierDashboardController {
             updateReceiptsTable.run();
         });
 
-        // Refresh button action
+        // Refresh button action (reload all receipts)
         refreshBtn.setOnAction(e -> {
             List<Receipt> refreshed = deduplicateBundleReceipts(receiptManager.getAllReceipts());
             allReceipts.clear(); allReceipts.addAll(refreshed);
@@ -1420,31 +1485,16 @@ public class CashierDashboardController {
             } else {
                 // New-style bundle - show all individual items
                 for (Receipt item : bundleItems) {
-                    // Find corresponding reservation to check status
-                    String itemStatus = getItemStatusFromReservation(item);
-                    String statusTag = "";
-                    String statusColor = "-color-fg-default";
-                    String borderColor = "-color-border-default";
-                    
-                    if (itemStatus.contains("RETURNED")) {
-                        statusTag = " (REFUNDED)";
-                        statusColor = "#656D76"; // Gray
-                        borderColor = "#656D76";
-                    } else if ("COMPLETED".equals(itemStatus)) {
-                        statusTag = " (COMPLETED)";
-                        statusColor = "#1A7F37"; // Green
-                        borderColor = "#1A7F37";
-                    } else if (itemStatus.contains("REPLACEMENT REQUESTED")) {
-                        statusTag = " (REPLACEMENT REQUESTED)";
-                        statusColor = "#BF8700"; // Orange
-                        borderColor = "#BF8700";
-                    }
-                    
-                    VBox itemBox = new VBox(5);
-                    itemBox.setStyle("-fx-padding: 5; -fx-border-color: " + borderColor + "; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-color: -color-bg-default; -fx-background-radius: 3;");
-                    
-                    javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName() + statusTag);
-                    itemName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
+                    // Determine reservation status for logic, but hide per-item statuses visually
+                        String itemStatus = getItemStatusFromReservation(item);
+                        String statusColor = "#656D76"; // neutral gray
+                        String borderColor = "#e6e9ec"; // light gray border
+
+                        VBox itemBox = new VBox(5);
+                        itemBox.setStyle("-fx-padding: 5; -fx-border-color: " + borderColor + "; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-color: -color-bg-default; -fx-background-radius: 3;");
+
+                        javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + item.getItemName());
+                        itemName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
                     
                     HBox detailsRow = new HBox(15);
                     detailsRow.setAlignment(Pos.CENTER_LEFT);
@@ -1475,30 +1525,15 @@ public class CashierDashboardController {
             }
         } else {
             // Single item
-            // Find corresponding reservation to check status
+            // Find corresponding reservation to check status (used for totals), but hide status in dialog
             String itemStatus = getItemStatusFromReservation(receipt);
-            String statusTag = "";
-            String statusColor = "-color-fg-default";
-            String borderColor = "-color-border-default";
-            
-            if (itemStatus.contains("RETURNED")) {
-                statusTag = " (REFUNDED)";
-                statusColor = "#656D76"; // Gray
-                borderColor = "#656D76";
-            } else if ("COMPLETED".equals(itemStatus)) {
-                statusTag = " (COMPLETED)";
-                statusColor = "#1A7F37"; // Green
-                borderColor = "#1A7F37";
-            } else if (itemStatus.contains("REPLACEMENT REQUESTED")) {
-                statusTag = " (REPLACEMENT REQUESTED)";
-                statusColor = "#BF8700"; // Orange
-                borderColor = "#BF8700";
-            }
-            
+            String statusColor = "#656D76"; // neutral gray
+            String borderColor = "#e6e9ec"; // light gray border
+
             VBox itemBox = new VBox(5);
             itemBox.setStyle("-fx-padding: 5; -fx-border-color: " + borderColor + "; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-color: -color-bg-default; -fx-background-radius: 3;");
-            
-            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + receipt.getItemName() + statusTag);
+
+            javafx.scene.control.Label itemName = new javafx.scene.control.Label("• " + receipt.getItemName());
             itemName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
             
             HBox detailsRow = new HBox(15);
@@ -1535,9 +1570,6 @@ public class CashierDashboardController {
         javafx.scene.control.Label summaryHeader = new javafx.scene.control.Label("PAYMENT SUMMARY");
         summaryHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
         
-        javafx.scene.control.Label statusLabel = new javafx.scene.control.Label("Payment Status: " + receipt.getPaymentStatus());
-        statusLabel.setStyle("-fx-font-size: 12px;");
-        
         javafx.scene.control.Label qtyLabel = new javafx.scene.control.Label("Total Quantity: " + totalQuantity);
         qtyLabel.setStyle("-fx-font-size: 12px;");
         
@@ -1547,7 +1579,7 @@ public class CashierDashboardController {
         javafx.scene.control.Label orderTypeLabel = new javafx.scene.control.Label("Purchase Type: " + (receipt.isPartOfBundle() ? "Bundle Order" : "Single Item"));
         orderTypeLabel.setStyle("-fx-font-size: 12px;");
         
-        summarySection.getChildren().addAll(summaryHeader, statusLabel, orderTypeLabel, qtyLabel, totalLabel);
+        summarySection.getChildren().addAll(summaryHeader, orderTypeLabel, qtyLabel, totalLabel);
 
         content.getChildren().addAll(customerSection, itemsSection, summarySection);
         
@@ -1611,6 +1643,37 @@ public class CashierDashboardController {
         
         // Default to COMPLETED if no reservation found (item already picked up)
         return "COMPLETED";
+    }
+
+    /**
+     * Find a reservation that corresponds to a receipt. Returns null if none found.
+     */
+    private Reservation findReservationForReceipt(Receipt receipt) {
+        List<Reservation> allReservations = reservationManager.getAllReservations();
+
+        // Try matching by buyer name, item code, size, and quantity
+        for (Reservation reservation : allReservations) {
+            if (reservation.getStudentName().equals(receipt.getBuyerName()) &&
+                reservation.getItemCode() == receipt.getItemCode() &&
+                reservation.getSize().equals(receipt.getSize()) &&
+                reservation.getQuantity() == receipt.getQuantity()) {
+                return reservation;
+            }
+        }
+
+        // If bundle, try to match by bundle ID
+        if (receipt.isPartOfBundle()) {
+            String bundleId = receipt.getBundleId();
+            for (Reservation reservation : allReservations) {
+                if (bundleId.equals(reservation.getBundleId()) &&
+                    reservation.getItemCode() == receipt.getItemCode() &&
+                    reservation.getSize().equals(receipt.getSize())) {
+                    return reservation;
+                }
+            }
+        }
+
+        return null;
     }
     
     public void handleLogout() {

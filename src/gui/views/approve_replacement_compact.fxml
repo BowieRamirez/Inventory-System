@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:id="dialogRoot" spacing="10" alignment="TOP_LEFT" stylesheets="@../styles/dialog-compact.css" styleClass="dialog-root" prefWidth="680">
+  <!-- Header -->
+  <HBox fx:id="dialogHeader" spacing="8" alignment="CENTER_LEFT">
+    <Label text="Approve Replacement" styleClass="small-label bold" />
+    <Region HBox.hgrow="ALWAYS" />
+    <Button text="✕" fx:id="closeBtn" mnemonicParsing="false" />
+  </HBox>
+
+  <!-- Top compact card (max ~100px) -->
+  <VBox fx:id="topCard" spacing="6" styleClass="compact-card">
+    <HBox alignment="TOP_LEFT" spacing="8">
+      <VBox spacing="4">
+        <Label fx:id="titleLine" text="Replacement Request — Student Name" styleClass="small-label bold" />
+        <Label fx:id="refundLine" text="Refund: ₱0.00 • Reason: ..." styleClass="small-label muted" />
+      </VBox>
+      <Region HBox.hgrow="ALWAYS" />
+      <GridPane hgap="8" vgap="4">
+        <columnConstraints>
+          <ColumnConstraints hgrow="SOMETIMES" percentWidth="50" />
+          <ColumnConstraints hgrow="SOMETIMES" percentWidth="50" />
+        </columnConstraints>
+        <RowConstraints vgrow="NEVER" />
+        <Label text="Student ID:" styleClass="small-label" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <Label fx:id="studentId" text="2000284770" styleClass="small-label muted" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+        <Label text="Order:" styleClass="small-label" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <Label fx:id="orderId" text="5043" styleClass="small-label muted" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+      </GridPane>
+    </HBox>
+  </VBox>
+
+  <Separator prefHeight="6" />
+
+  <!-- Scrollable middle section -->
+  <ScrollPane fx:id="scrollSection" fitToWidth="true" styleClass="scroll-section" vgrow="ALWAYS" pannable="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+    <content>
+      <VBox fx:id="scrollContent" spacing="10" padding="8">
+
+        <!-- First item (kept near top) -->
+        <VBox fx:id="firstItemBox" spacing="6" styleClass="fixed-item">
+          <Label fx:id="firstItemLabel" text="STEM Lab Coat (L) x2" styleClass="small-label muted" />
+          <HBox spacing="8" alignment="CENTER_LEFT">
+            <!-- compact replacement selector example -->
+            <ToggleGroup fx:id="firstItemToggle" />
+            <HBox spacing="6" fx:id="firstItemSelectors" />
+          </HBox>
+        </VBox>
+
+        <!-- Other items (this area scrolls) -->
+        <VBox fx:id="otherItems" spacing="8" />
+
+        <!-- Date + Time row (moved above notes) -->
+        <HBox fx:id="dateTimeRow" spacing="8" alignment="CENTER_LEFT">
+          <DatePicker fx:id="pickupDate" styleClass="compact-datepicker" />
+          <HBox spacing="6" alignment="CENTER_LEFT">
+            <Spinner fx:id="hourSpinner" editable="true" styleClass="time-spinner" />
+            <Label text=":" />
+            <Spinner fx:id="minuteSpinner" editable="true" styleClass="time-spinner" />
+            <ComboBox fx:id="ampmPicker" prefWidth="70" />
+          </HBox>
+        </HBox>
+
+        <Label fx:id="dateHelper" text="Allowed: Today - Nov 26, 2025" styleClass="small-label muted" />
+        <Label fx:id="dateError" text="" styleClass="error-label" visible="false" />
+
+        <!-- Notes (optional) placed under date/time as requested -->
+        <Label text="Notes (optional):" styleClass="small-label" />
+        <TextArea fx:id="notesArea" styleClass="small-textarea" wrapText="true" />
+
+      </VBox>
+    </content>
+  </ScrollPane>
+
+  <!-- Footer (fixed) -->
+  <HBox fx:id="dialogFooter" alignment="CENTER_RIGHT" spacing="12">
+    <Button text="Cancel" fx:id="cancelBtn" />
+    <Button text="Approve Replacement" fx:id="approveBtn" styleClass="primary" />
+  </HBox>
+
+</VBox>

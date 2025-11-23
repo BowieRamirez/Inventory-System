@@ -32,6 +32,25 @@ public class InventoryManager {
             loadItem(item);
         }
     }
+
+    /**
+     * Normalize course names so SHS variants map to a single canonical value `SHS`.
+     * This keeps the rest of the codebase working without changing callers.
+     */
+    private String normalizeCourse(String course) {
+        if (course == null) return "";
+        String c = course.trim();
+        String cu = c.toUpperCase();
+
+        // Map senior high related course labels to canonical "SHS"
+        if (cu.equals("ABM") || cu.equals("STEM") || cu.equals("HUMSS") || cu.equals("IT")
+                || cu.equals("T.O") || cu.equals("TO")
+                || cu.startsWith("TVL") || cu.startsWith("TVL-")) {
+            return "SHS";
+        }
+
+        return c;
+    }
     
     // Load items from file without saving (used during initialization)
     public void loadItem(Item item) {
@@ -79,14 +98,130 @@ public class InventoryManager {
     
     public List<Item> getItemsByCourse(String course) {
         List<Item> result = new ArrayList<>();
+        String rawSel = course == null ? "" : course.trim();
+        String selUpper = rawSel.toUpperCase();
+        String selNorm = normalizeCourse(rawSel);
+
         for (Item item : inventory) {
-            // Show items that match the student's course OR are "STI Special" (universal items)
-            if ((item.getCourse().equalsIgnoreCase(course) || item.getCourse().equalsIgnoreCase("STI Special"))
-                && item.getQuantity() > 0) {
-                result.add(item);
+            if (item.getQuantity() <= 0) continue;
+
+            String rawItemCourse = item.getCourse() == null ? "" : item.getCourse().trim();
+            String itemNorm = normalizeCourse(rawItemCourse);
+            String nameLower = item.getName() == null ? "" : item.getName().toLowerCase();
+
+            boolean include = false;
+
+            // Universal items (STI Special)
+            if ("STI Special".equalsIgnoreCase(rawItemCourse) || "STI SPECIAL".equalsIgnoreCase(rawItemCourse)) {
+                include = true;
+            }
+
+            // Selection == All: include most items but hide strand-restricted special items (lab coat, chef items)
+            if (!include && (selUpper.isEmpty() || selUpper.equals("ALL"))) {
+                if (nameLower.contains("lab coat")) {
+                    include = false;
+                } else if (nameLower.contains("chef") || nameLower.contains("apron") || nameLower.contains("tvl chef") || nameLower.contains("cul art") || nameLower.contains("culinary") || nameLower.contains("cap")) {
+                    include = false;
+                } else {
+                    include = true;
+                }
+            }
+
+            // Specific selection handling
+            if (!include && !selUpper.isEmpty() && !selUpper.equals("ALL")) {
+                // SHS-derived selection (HUMSS, ABM, STEM, IT, T.O, TVL-CA)
+                if ("SHS".equalsIgnoreCase(selNorm)) {
+                    if ("SHS".equalsIgnoreCase(itemNorm)) {
+                        // Lab coat -> only for STEM
+                        if (nameLower.contains("lab coat")) {
+                            include = selUpper.contains("STEM");
+                        }
+                        // Culinary / TVL chef items -> only for TVL-CA
+                        else if (nameLower.contains("chef") || nameLower.contains("apron") || nameLower.contains("tvl chef") || nameLower.contains("cul art") || nameLower.contains("culinary") || nameLower.contains("cap")) {
+                            include = selUpper.equals("TVL-CA") || selUpper.equals("TVL CA") || selUpper.equals("CUL ART") || selUpper.equals("CULART");
+                        } else {
+                            // Regular SHS garments (vests, shirts, skirts, pants) should show for any SHS-derived selection.
+                            // Accept variants such as HUMSS and other aliases by allowing the normalized SHS selection.
+                            include = true;
+                        }
+                    } else {
+                        // Item has non-SHS course label; include only if raw course matches selection
+                        include = courseMatches(rawItemCourse, rawSel);
+                    }
+                } else {
+                    // Non-SHS normalized selection: include when normalized or raw match
+                    include = courseMatches(rawItemCourse, rawSel) || courseMatches(itemNorm, selNorm);
+                }
+            }
+
+            // Final name-based special inclusion
+            if (!include && isSpecialForCourse(item, rawSel)) include = true;
+
+            if (include) result.add(item);
+        }
+
+        // Order results: show regular uniforms first, then special items (STI Special, lab coats, chef/apron, berets)
+        java.util.List<Item> uniforms = new java.util.ArrayList<>();
+        java.util.List<Item> specials = new java.util.ArrayList<>();
+        for (Item it : result) {
+            String nm = it.getName() == null ? "" : it.getName().toLowerCase();
+            String rawCourse = it.getCourse() == null ? "" : it.getCourse();
+            boolean isStiSpecial = "STI Special".equalsIgnoreCase(rawCourse) || "STI SPECIAL".equalsIgnoreCase(rawCourse);
+            boolean isNameSpecial = nm.contains("lab coat") || nm.contains("chef") || nm.contains("apron") || nm.contains("beret") || nm.contains("cul art") || nm.contains("culinary") || nm.contains("cap");
+            if (isStiSpecial || isNameSpecial || isSpecialForCourse(it, rawSel)) {
+                specials.add(it);
+            } else {
+                uniforms.add(it);
             }
         }
-        return result;
+
+        java.util.List<Item> ordered = new java.util.ArrayList<>();
+        ordered.addAll(uniforms);
+        ordered.addAll(specials);
+        return ordered;
+    }
+
+    /**
+     * Determine if an item should be considered special for a given course selection.
+     * Current rules:
+     * - Items whose name contains "Lab Coat" are considered special for STEM students
+     * - Items whose name contains "Beret" are considered special for T.O (Tourism) students
+     */
+    private boolean isSpecialForCourse(Item item, String requestedCourse) {
+        if (item == null || requestedCourse == null) return false;
+        String name = item.getName() == null ? "" : item.getName().toLowerCase();
+        String rc = requestedCourse.trim().toUpperCase();
+        if (rc.contains("STEM") && name.contains("lab coat")) return true;
+        if ((rc.equals("T.O") || rc.equals("TO") || rc.equals("TVL-TO") || rc.equals("TOURISM")) && name.contains("beret")) return true;
+        return false;
+    }
+
+    /**
+     * Helper to check whether an item's course label should be considered a match
+     * for the selected course. This handles combined labels like "BSCS/BSIT/BSCpE"
+     * and comma-separated values.
+     */
+    private boolean courseMatches(String itemCourseRaw, String selRaw) {
+        if (itemCourseRaw == null || selRaw == null) return false;
+        String a = itemCourseRaw.trim();
+        String b = selRaw.trim();
+        if (a.equalsIgnoreCase(b)) return true;
+        // split on slash or comma
+        if (a.contains("/")) {
+            for (String p : a.split("/")) {
+                if (p.trim().equalsIgnoreCase(b)) return true;
+            }
+        }
+        if (a.contains(",")) {
+            for (String p : a.split(",")) {
+                if (p.trim().equalsIgnoreCase(b)) return true;
+            }
+        }
+        // token match (fallback)
+        for (String p : a.split("\\s+")) {
+            if (p.trim().equalsIgnoreCase(b)) return true;
+        }
+        return false;
     }
     
 
@@ -218,17 +353,48 @@ public class InventoryManager {
     public List<String> getAvailableCourses() {
         Set<String> courses = new HashSet<>();
         for (Item item : inventory) {
-            courses.add(item.getCourse());
+            String raw = normalizeCourse(item.getCourse());
+            // Special handling: SHS items map to multiple SHS-subcourses (HUMSS, ABM, STEM, IT, T.O)
+                if ("SHS".equalsIgnoreCase(raw)) {
+                courses.add("HUMSS");
+                courses.add("ABM");
+                courses.add("STEM");
+                courses.add("IT");
+                courses.add("T.O");
+                courses.add("TVL-CA");
+                continue;
+            }
+
+            // Keep combined entries (like "BSCS/BSIT/BSCpE") as-is but also expose individual parts
+            if (raw.contains("/")) {
+                courses.add(raw);
+                for (String p : raw.split("/")) {
+                    String t = p.trim();
+                    if (!t.isEmpty()) courses.add(t);
+                }
+            } else {
+                // Some backups or entries may contain multiple course codes separated by commas; tokenized parts
+                String[] parts = raw.split(",|/");
+                for (String p : parts) {
+                    String t = p.trim();
+                    if (!t.isEmpty()) courses.add(t);
+                }
+            }
         }
+        // Keep both combined and individual business labels so majors like "BSBA" and "BSA"
+        // remain selectable even when a combined entry "BSBA/BSA" exists in the data.
+
         return new ArrayList<>(courses);
     }
     
     // Find all size variants of an item by name and course
     public List<Item> findSizeVariants(String itemName, String course) {
         List<Item> variants = new ArrayList<>();
+        String target = normalizeCourse(course);
         for (Item item : inventory) {
+            String itemCourse = normalizeCourse(item.getCourse());
             if (item.getName().equalsIgnoreCase(itemName) && 
-                item.getCourse().equalsIgnoreCase(course) &&
+                itemCourse.equalsIgnoreCase(target) &&
                 item.getQuantity() > 0) {
                 variants.add(item);
             }

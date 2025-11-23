@@ -1,0 +1,146 @@
+.dialog-root {
+  -fx-font-family: "Segoe UI", system-ui;
+  -fx-font-size: 13px;
+  -fx-padding: 16px;
+  -fx-background-color: white;
+}
+
+/* HEADER */
+.header-title {
+  -fx-font-size: 15px;
+  -fx-font-weight: 700;
+}
+
+.close-btn {
+  -fx-background-color: transparent;
+  -fx-font-size: 14px;
+}
+.close-btn:hover {
+  -fx-background-color: rgba(0,0,0,0.06);
+}
+
+/* TOP CARD */
+.top-card {
+  -fx-background-color: rgba(6,86,204,0.06);
+  -fx-background-radius: 10px;
+  -fx-padding: 12px;
+}
+
+.top-title {
+  -fx-font-size: 14px;
+  -fx-font-weight: 600;
+}
+
+.top-muted, .small-muted {
+  -fx-text-fill: #6b7280;
+  -fx-font-size: 13px;
+}
+
+.small-label {
+  -fx-font-size: 13px;
+  -fx-text-fill: #374151;
+}
+
+/* SCROLL AREA */
+.scroll-area {
+  -fx-background-color: transparent;
+}
+.scroll-pane > .viewport {
+  -fx-background-color: transparent;
+}
+
+/* minimal scrollbars */
+.scroll-pane .scroll-bar:vertical > .thumb {
+  -fx-background-color: rgba(0,0,0,0.25);
+  -fx-background-radius: 6px;
+}
+
+/* Hide visible scrollbars while keeping scroll functionality (pannable) */
+.scroll-section .scroll-bar, .scroll-pane .scroll-bar {
+  -fx-opacity: 0; /* visually hide */
+  -fx-pref-width: 0; /* collapse width */
+  -fx-pref-height: 0; /* collapse height */
+}
+.scroll-section .scroll-bar .thumb {
+  -fx-opacity: 0;
+}
+
+/* ITEMS */
+.section-label {
+  -fx-font-size: 13px;
+  -fx-font-weight: 600;
+}
+
+.item-label {
+  -fx-font-size: 13px;
+  -fx-text-fill: #111827;
+}
+
+.item-card-fixed {
+  -fx-padding: 4 2;
+}
+
+.item-selector-area {
+  -fx-padding: 4 0;
+}
+
+/* NOTES */
+.notes-field {
+  -fx-font-size: 13px;
+  -fx-padding: 6;
+  -fx-background-radius: 6px;
+  -fx-pref-row-count: 2;
+}
+
+/* DATE + TIME */
+.date-field {
+  -fx-pref-width: 170px;
+  -fx-background-radius: 6px;
+}
+
+.time-field {
+  -fx-pref-width: 64px;
+  -fx-background-radius: 6px;
+}
+
+.error-label {
+  -fx-text-fill: #cf222e;
+  -fx-font-size: 12px;
+}
+
+/* BUTTONS */
+.primary-btn {
+  -fx-background-color: #0a84ff;
+  -fx-text-fill: white;
+  -fx-font-weight: 600;
+  -fx-background-radius: 6px;
+  -fx-padding: 6 14;
+}
+.primary-btn:hover {
+  -fx-background-color: #006fe0;
+}
+.primary-btn:pressed {
+  -fx-background-color: #005bbd;
+}
+
+/* DARK MODE */
+.dialog-root.dark {
+  -fx-background-color: #0b0f13;
+}
+.dialog-root.dark .top-card {
+  -fx-background-color: rgba(255,255,255,0.03);
+}
+.dialog-root.dark .small-label {
+  -fx-text-fill: #e6eef9;
+}
+.dialog-root.dark .top-muted, .dialog-root.dark .small-muted {
+  -fx-text-fill: #9aa4b2;
+}
+.dialog-root.dark .primary-btn {
+  -fx-background-color: #0a84ff;
+}
+
+/* reduce default padding around separators */
+.separator {
+  -fx-padding: 6 0;
+}

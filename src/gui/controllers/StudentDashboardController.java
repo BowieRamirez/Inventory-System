@@ -134,12 +134,28 @@ public class StudentDashboardController {
         if (v == null || v.getCourse() == null || student == null || student.getCourse() == null) return false;
         String itemCourse = v.getCourse().trim();
         String studentCourse = student.getCourse().trim();
-        if (itemCourse.equalsIgnoreCase(studentCourse)) return true;
+
+        // Normalize SHS-related labels so HUMSS/ABM/STEM/IT/T.O/TVL variants match SHS items
+        String itemNorm = normalizeCourseLocal(itemCourse);
+        String studentNorm = normalizeCourseLocal(studentCourse);
+        if (itemNorm.equalsIgnoreCase(studentNorm)) return true;
         // Treat STI Special items as available to all students (special offer)
         if (itemCourse.equalsIgnoreCase("STI Special")) return true;
         // Fallback: if the itemCourse contains the student course code (rare), allow it
         if (itemCourse.toLowerCase().contains(studentCourse.toLowerCase())) return true;
         return false;
+    }
+
+    // Local normalization to match InventoryManager.normalizeCourse behavior for SHS aliases
+    private String normalizeCourseLocal(String course) {
+        if (course == null) return "";
+        String c = course.trim();
+        String cu = c.toUpperCase();
+        if (cu.equals("ABM") || cu.equals("STEM") || cu.equals("HUMSS") || cu.equals("IT")
+                || cu.equals("T.O") || cu.equals("TO") || cu.startsWith("TVL") || cu.startsWith("TVL-")) {
+            return "SHS";
+        }
+        return c;
     }
 
     /**
@@ -419,11 +435,16 @@ public class StudentDashboardController {
             // Logo loading failed, continue without it
         }
         
-        // Welcome section
-        Label welcomeLabel = new Label("Welcome to STI ProWear Novaliches");
+        // Welcome section with student name
+        Label welcomeLabel = new Label("Welcome, " + student.getFirstName() + "! 👋");
         welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
         welcomeLabel.setStyle("-fx-text-fill: -color-fg-default;");
         welcomeLabel.setAlignment(Pos.CENTER);
+        
+        Label shopTitleLabel = new Label("STI ProWear Novaliches");
+        shopTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        shopTitleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        shopTitleLabel.setAlignment(Pos.CENTER);
         
         Label subtitleLabel = new Label("Your one-stop destination for official STI uniforms and gearsets. Browse our collection of\nquality apparel designed specifically for " + "STI" + " students.");
         subtitleLabel.setFont(Font.font("System", 15));
@@ -470,7 +491,7 @@ public class StudentDashboardController {
         
         featuresContainer.getChildren().addAll(qualityCard, reservationCard, claimCard);
         
-        homeContainer.getChildren().addAll(welcomeLabel, subtitleLabel, startShoppingBtn, featuresContainer);
+        homeContainer.getChildren().addAll(welcomeLabel, shopTitleLabel, subtitleLabel, startShoppingBtn, featuresContainer);
         
         // Add thin separator line between welcome and featured items
         VBox separatorBox = new VBox();
@@ -636,15 +657,27 @@ public class StudentDashboardController {
         nameLabel.setFont(Font.font("System", FontWeight.BOLD, 13));
         nameLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
+        // Category badge
+        Label categoryBadge = new Label(item.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
+        categoryBadge.setMaxWidth(Region.USE_PREF_SIZE);
+        categoryBadge.setStyle(
+            "-fx-background-color: " + (item.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
+            "-fx-text-fill: " + (item.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
+            "-fx-padding: 4 10 4 10; -fx-background-radius: 10px; -fx-font-size: 11px; -fx-font-weight: bold;"
+        );
+        
         // Item code
         Label codeLabel = new Label("Code: " + item.getCode());
         codeLabel.setFont(Font.font("System", 11));
         codeLabel.setStyle("-fx-text-fill: -color-fg-muted;");
         
-        // Item size
-        Label sizeLabel = new Label("Size: " + item.getSize());
-        sizeLabel.setFont(Font.font("System", 11));
-        sizeLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+        // Size badge (single-size card) - rounded gray
+        FlowPane sizesBox = new FlowPane(6, 6);
+        sizesBox.setPrefWrapLength(140);
+        sizesBox.setPadding(new Insets(4, 0, 4, 0));
+        Label sizeBadge = new Label(item.getSize());
+        sizeBadge.setStyle("-fx-background-color: #E8E8E8; -fx-text-fill: #333333; -fx-padding: 5 10 5 10; -fx-background-radius: 12px; -fx-font-size: 11px; -fx-font-weight: bold;");
+        sizesBox.getChildren().add(sizeBadge);
         
         // Flexible spacer so that price/stock/buttons align at the bottom
         Region spacer = new Region();
@@ -739,8 +772,9 @@ public class StudentDashboardController {
         
         card.getChildren().addAll(
             nameLabel,
+            categoryBadge,
             codeLabel,
-            sizeLabel,
+            sizesBox,
             spacer,
             priceLabel,
             stockBox,
@@ -834,12 +868,12 @@ public class StudentDashboardController {
         contentArea.setPadding(new Insets(0, 0, 0, 20));
         HBox.setHgrow(contentArea, Priority.ALWAYS);
         
-        // Welcome message
-        Label welcomeLabel = new Label("Welcome, " + student.getFirstName() + "! 👋");
-        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        welcomeLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        // Shop title (removed welcome message from here)
+        Label shopTitleLabel = new Label("Browse Items");
+        shopTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        shopTitleLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
-        Label subtitleLabel = new Label("Browse available uniforms and gearsets for " + student.getCourse());
+        Label subtitleLabel = new Label("Available uniforms and gearsets for " + student.getCourse());
         subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
         
         // Items grid
@@ -980,7 +1014,7 @@ public class StudentDashboardController {
         xxlCheck.selectedProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
         
         contentArea.getChildren().addAll(
-            welcomeLabel,
+            shopTitleLabel,
             subtitleLabel,
             scrollPane
         );
@@ -1024,6 +1058,9 @@ public class StudentDashboardController {
             titleRow.getChildren().add(nameLabel);
         }
 
+        Label codeLabel = new Label("Code: " + item.getCode());
+        codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+
         Label categoryBadge = new Label(item.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
         categoryBadge.setStyle(
             "-fx-background-color: " + (item.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
@@ -1034,11 +1071,13 @@ public class StudentDashboardController {
             "-fx-font-weight: bold;"
         );
 
-        Label codeLabel = new Label("Code: " + item.getCode());
-        codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
-
-        Label sizeLabel = new Label("Size: " + item.getSize());
-        sizeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        // Size badge(s) for single-item card - rounded gray
+        FlowPane sizesBox = new FlowPane(6, 6);
+        sizesBox.setPrefWrapLength(200);
+        sizesBox.setPadding(new Insets(6, 0, 6, 0));
+        Label sizeChip = new Label(item.getSize());
+        sizeChip.setStyle("-fx-background-color: #E8E8E8; -fx-text-fill: #333333; -fx-padding: 6 12 6 12; -fx-background-radius: 12px; -fx-font-size: 12px; -fx-font-weight: bold;");
+        sizesBox.getChildren().add(sizeChip);
 
         // Spacer so price/stock/buttons sit at bottom for all cards
         Region spacer = new Region();
@@ -1160,11 +1199,15 @@ public class StudentDashboardController {
 
         buttonBox.getChildren().addAll(addBtn, reserveBtn);
 
+        // Place the category badge inline with the title so card height is consistent
+        Region titleSpacer = new Region();
+        HBox.setHgrow(titleSpacer, Priority.ALWAYS);
+        titleRow.getChildren().addAll(titleSpacer, categoryBadge);
+
         card.getChildren().addAll(
             titleRow,
-            categoryBadge,
             codeLabel,
-            sizeLabel,
+            sizesBox,
             spacer,
             priceLabel,
             stockLabel,
@@ -1200,6 +1243,14 @@ public class StudentDashboardController {
         name.setFont(Font.font("System", FontWeight.BOLD, 13));
         name.setWrapText(true);
 
+        Label categoryBadge = new Label(rep.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
+        categoryBadge.setMaxWidth(Region.USE_PREF_SIZE);
+        categoryBadge.setStyle(
+            "-fx-background-color: " + (rep.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
+            "-fx-text-fill: " + (rep.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
+            "-fx-padding: 4 10 4 10; -fx-background-radius: 10px; -fx-font-size: 11px; -fx-font-weight: bold;"
+        );
+
         Label code = new Label("Code: " + rep.getCode());
         code.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
 
@@ -1220,9 +1271,10 @@ public class StudentDashboardController {
                 sizeMap.put(sz, sizeMap.getOrDefault(sz, 0) + q);
             }
             for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
-                Label s = new Label(e.getKey());
-                s.setStyle("-fx-background-color: -color-bg-tertiary; -fx-text-fill: -color-fg-default; -fx-padding: 4 8 4 8; -fx-background-radius: 6px; -fx-font-size: 11px;");
-                sizesBox.getChildren().add(s);
+                    String text = e.getKey() + " (" + e.getValue() + ")";
+                    Label s = new Label(text);
+                    s.setStyle("-fx-background-color: #E8E8E8; -fx-text-fill: #333333; -fx-padding: 5 10 5 10; -fx-background-radius: 12px; -fx-font-size: 11px; -fx-font-weight: bold;");
+                    sizesBox.getChildren().add(s);
             }
         }
 
@@ -1268,7 +1320,7 @@ public class StudentDashboardController {
         HBox btns = new HBox(8, addBtn, reserveBtn);
         btns.setAlignment(Pos.CENTER);
 
-        card.getChildren().addAll(name, code, sizesBox, spacer, price, btns);
+        card.getChildren().addAll(name, categoryBadge, code, sizesBox, spacer, price, btns);
         return card;
     }
 
@@ -1302,10 +1354,11 @@ public class StudentDashboardController {
         titleRow.getChildren().add(nameLabel);
 
         Label categoryBadge = new Label(rep.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
+        categoryBadge.setMaxWidth(Region.USE_PREF_SIZE);
         categoryBadge.setStyle(
             "-fx-background-color: " + (rep.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
             "-fx-text-fill: " + (rep.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
-            "-fx-padding: 3 8 3 8; -fx-background-radius: 10px; -fx-font-size: 11px; -fx-font-weight: bold;"
+            "-fx-padding: 4 10 4 10; -fx-background-radius: 10px; -fx-font-size: 12px; -fx-font-weight: bold;"
         );
 
         Label codeLabel = new Label("Code: " + rep.getCode());
@@ -1329,7 +1382,7 @@ public class StudentDashboardController {
             for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
                 String text = e.getKey() + " (" + e.getValue() + ")";
                 Label lbl = new Label(text);
-                lbl.setStyle("-fx-background-color: -color-bg-tertiary; -fx-text-fill: -color-fg-default; -fx-padding: 6 8 6 8; -fx-background-radius: 6px; -fx-font-size: 12px;");
+                lbl.setStyle("-fx-background-color: #E8E8E8; -fx-text-fill: #333333; -fx-padding: 6 12 6 12; -fx-background-radius: 12px; -fx-font-size: 12px; -fx-font-weight: bold;");
                 sizesBox.getChildren().add(lbl);
             }
         }
@@ -1398,9 +1451,14 @@ public class StudentDashboardController {
             return;
         }
 
-        Dialog<Item> dialog = new Dialog<>();
-        dialog.setTitle("Select Size");
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        Dialog<Integer> dialog = new Dialog<>();
+        dialog.setTitle("Add to Cart");
+        
+        String itemName = variants.get(0).getName();
+        dialog.setHeaderText("Add to Cart: " + itemName);
+        
+        ButtonType addButtonType = new ButtonType("Add to Cart", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -1422,43 +1480,88 @@ public class StudentDashboardController {
 
         javafx.scene.control.ChoiceBox<String> sizeChoice = new javafx.scene.control.ChoiceBox<>();
         for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
-            sizeChoice.getItems().add(e.getKey() + " (" + e.getValue() + ")");
+            sizeChoice.getItems().add(e.getKey() + " (" + e.getValue() + " available)");
         }
         sizeChoice.getSelectionModel().selectFirst();
 
-        // Spinner uses the summed quantity for the selected size
+        // Price and stock info
+        Item firstItem = representative.get(0);
+        Label priceLabel = new Label("Price: ₱" + String.format("%.2f", firstItem.getPrice()));
+        priceLabel.setStyle("-fx-font-size: 13px;");
+
+        // Quantity spinner
         int firstMax = sizeMap.values().iterator().next();
-        Spinner<Integer> qty = new Spinner<>(1, Math.max(1, firstMax), 1);
+        Spinner<Integer> qtySpinner = new Spinner<>(1, Math.max(1, firstMax), 1);
+        qtySpinner.setEditable(true);
+        qtySpinner.setPrefWidth(100);
+        
+        // Total price label
+        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", firstItem.getPrice()));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        // Update quantity spinner max and total when size changes
         sizeChoice.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
             int idx = newV.intValue();
             if (idx >= 0 && idx < representative.size()) {
-                // lookup max quantity by size
                 String sz = representative.get(idx).getSize();
                 int max = sizeMap.getOrDefault(sz, representative.get(idx).getQuantity());
-                qty.setValueFactory(new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(1, Math.max(1, max), 1));
+                qtySpinner.setValueFactory(new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(1, Math.max(1, max), 1));
+                double total = representative.get(idx).getPrice() * qtySpinner.getValue();
+                totalLabel.setText("Total: ₱" + String.format("%.2f", total));
+            }
+        });
+        
+        // Update total when quantity changes
+        qtySpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            int idx = sizeChoice.getSelectionModel().getSelectedIndex();
+            if (idx >= 0 && idx < representative.size()) {
+                double total = representative.get(idx).getPrice() * newVal;
+                totalLabel.setText("Total: ₱" + String.format("%.2f", total));
             }
         });
 
-        grid.add(new Label("Size:"), 0, 0);
-        grid.add(sizeChoice, 1, 0);
-        grid.add(new Label("Quantity:"), 0, 1);
-        grid.add(qty, 1, 1);
+        grid.add(priceLabel, 0, 0, 2, 1);
+        grid.add(new Label("Size:"), 0, 1);
+        grid.add(sizeChoice, 1, 1);
+        grid.add(new Label("Quantity:"), 0, 2);
+        grid.add(qtySpinner, 1, 2);
+        grid.add(totalLabel, 0, 3, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
         dialog.setResultConverter(btn -> {
-            if (btn == ButtonType.OK) {
-                int idx = sizeChoice.getSelectionModel().getSelectedIndex();
-                if (idx >= 0 && idx < representative.size()) {
-                    Item chosen = representative.get(idx);
-                    return chosen;
-                }
+            if (btn == addButtonType) {
+                return qtySpinner.getValue();
             }
             return null;
         });
 
-        dialog.showAndWait().ifPresent(chosen -> {
-            // After selecting size, show quantity dialog via existing handler using the selected variant
-            handleAddToCart(chosen);
+        dialog.showAndWait().ifPresent(quantity -> {
+            int idx = sizeChoice.getSelectionModel().getSelectedIndex();
+            if (idx >= 0 && idx < representative.size()) {
+                Item chosen = representative.get(idx);
+                
+                // Check if item already in cart
+                CartItem existingCartItem = cart.stream()
+                    .filter(cartItem -> cartItem.getItem().getCode() == chosen.getCode() && 
+                                       cartItem.getItem().getSize().equals(chosen.getSize()))
+                    .findFirst()
+                    .orElse(null);
+                
+                if (existingCartItem != null) {
+                    existingCartItem.setQuantity(existingCartItem.getQuantity() + quantity);
+                } else {
+                    CartItem cartItem = new CartItem(chosen, quantity);
+                    cart.add(cartItem);
+                }
+                
+                // Update cart badge
+                if (cartUpdateCallback != null) {
+                    cartUpdateCallback.run();
+                }
+                
+                // Persist cart
+                persistCart();
+            }
         });
     }
 
@@ -1590,16 +1693,10 @@ public class StudentDashboardController {
                 // Item already in cart - increment quantity
                 int newQuantity = existingCartItem.getQuantity() + quantity;
                 existingCartItem.setQuantity(newQuantity);
-                AlertHelper.showSuccess("Cart Updated", 
-                    "Added " + quantity + " more " + item.getName() + " (" + item.getSize() + ")\n" +
-                    "New quantity in cart: " + newQuantity);
             } else {
                 // New item - add to cart
                 CartItem cartItem = new CartItem(item, quantity);
                 cart.add(cartItem);
-                AlertHelper.showSuccess("Added to Cart", 
-                    quantity + "x " + item.getName() + " (" + item.getSize() + ") added to cart!\n" +
-                    "Cart items: " + cart.size());
             }
             
             // Update cart badge if callback is set
@@ -1607,10 +1704,6 @@ public class StudentDashboardController {
                 cartUpdateCallback.run();
             }
             
-            // Refresh cart view to show updated quantities
-            if (refreshCallback != null) {
-                refreshCallback.run();
-            }
             // Persist cart
             persistCart();
         });
@@ -2272,13 +2365,92 @@ public class StudentDashboardController {
             scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
             VBox.setVgrow(scrollPane, Priority.ALWAYS);
             
-            // Create filter and search controls
-            VBox controlsBox = createReservationFilterControls(deduplicatedReservations, reservationsList);
+            // Pagination setup (5 items per page for reservations)
+            final int reservationsPerPage = 5;
+            final int[] currentReservationPage = new int[]{1};
+            final List<Reservation>[] workingFilteredReservations = new List[]{deduplicatedReservations};
+            
+            Label reservationPageLabel = new Label();
+            Button reservationPrevBtn = new Button("← Previous");
+            Button reservationNextBtn = new Button("Next →");
+            
+            reservationPrevBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+            reservationNextBtn.setStyle("-fx-padding: 6 12; -fx-font-size: 12; -fx-cursor: hand;");
+            
+            HBox reservationPaginationBar = new HBox(12);
+            reservationPaginationBar.setAlignment(Pos.CENTER);
+            reservationPaginationBar.setPadding(new Insets(12, 0, 0, 0));
+            reservationPageLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+            reservationPaginationBar.getChildren().addAll(reservationPrevBtn, reservationPageLabel, reservationNextBtn);
+            reservationPaginationBar.setMaxWidth(Region.USE_PREF_SIZE);
+            
+            HBox reservationPaginationWrapper = new HBox();
+            reservationPaginationWrapper.setAlignment(Pos.CENTER);
+            reservationPaginationWrapper.setPrefWidth(Double.MAX_VALUE);
+            reservationPaginationWrapper.getChildren().add(reservationPaginationBar);
+            
+            // Update pagination
+            Runnable updateReservationPagination = () -> {
+                List<Reservation> filtered = workingFilteredReservations[0];
+                int totalPages = Math.max(1, (int) Math.ceil((double) filtered.size() / reservationsPerPage));
+                if (currentReservationPage[0] > totalPages) currentReservationPage[0] = totalPages;
+                
+                int from = (currentReservationPage[0] - 1) * reservationsPerPage;
+                int to = Math.min(filtered.size(), from + reservationsPerPage);
+                List<Reservation> pageData = filtered.subList(Math.max(0, from), Math.max(0, to));
+                
+                // Clear and populate reservations list
+                reservationsList.getChildren().clear();
+                if (pageData.isEmpty()) {
+                    VBox emptyBox = new VBox(20);
+                    emptyBox.setAlignment(Pos.CENTER);
+                    emptyBox.setPadding(new Insets(50));
+                    
+                    Label emptyLabel = new Label("📋 No reservations found");
+                    emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+                    emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+                    
+                    Label hintLabel = new Label("Try adjusting your filters or search terms.");
+                    hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+                    
+                    emptyBox.getChildren().addAll(emptyLabel, hintLabel);
+                    reservationsList.getChildren().add(emptyBox);
+                } else {
+                    for (Reservation r : pageData) {
+                        VBox reservationCard = createReservationCard(r);
+                        reservationsList.getChildren().add(reservationCard);
+                    }
+                }
+                
+                reservationPageLabel.setText("Page " + currentReservationPage[0] + " of " + totalPages + " (" + filtered.size() + " items)");
+                reservationPrevBtn.setDisable(currentReservationPage[0] <= 1);
+                reservationNextBtn.setDisable(currentReservationPage[0] >= totalPages);
+            };
+            
+            reservationPrevBtn.setOnAction(e -> {
+                if (currentReservationPage[0] > 1) {
+                    currentReservationPage[0]--;
+                    updateReservationPagination.run();
+                }
+            });
+            
+            reservationNextBtn.setOnAction(e -> {
+                int totalPages = Math.max(1, (int) Math.ceil((double) workingFilteredReservations[0].size() / reservationsPerPage));
+                if (currentReservationPage[0] < totalPages) {
+                    currentReservationPage[0]++;
+                    updateReservationPagination.run();
+                }
+            });
+            
+            // Create filter and search controls with pagination callback
+            VBox controlsBox = createReservationFilterControls(deduplicatedReservations, reservationsList, 
+                currentReservationPage, workingFilteredReservations, updateReservationPagination);
             
             // Display all reservations initially (filtered by "COMPLETED" as default)
-            displayFilteredReservations(deduplicatedReservations, reservationsList, "COMPLETED", "", null, null);
+            displayFilteredReservationsWithPagination(deduplicatedReservations, "COMPLETED", "", null, null, 
+                currentReservationPage, workingFilteredReservations, updateReservationPagination);
             
-            container.getChildren().addAll(titleLabel, controlsBox, scrollPane);
+            container.getChildren().addAll(titleLabel, controlsBox, scrollPane, reservationPaginationWrapper);
         }
         
         return container;
@@ -2287,7 +2459,8 @@ public class StudentDashboardController {
     /**
      * Create filter controls for reservations
      */
-    private VBox createReservationFilterControls(List<Reservation> allReservations, VBox reservationsList) {
+    private VBox createReservationFilterControls(List<Reservation> allReservations, VBox reservationsList, 
+            int[] currentPage, List<Reservation>[] workingFiltered, Runnable updatePagination) {
         VBox mainControlsBox = new VBox(10);
         mainControlsBox.setPadding(new Insets(10));
         mainControlsBox.setStyle("-fx-border-color: -color-bg-tertiary; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: -color-bg-secondary;");
@@ -2362,8 +2535,8 @@ public class StudentDashboardController {
                 selectedStatus = buttonStatusMap.get(selectedBtn);
             }
             
-            displayFilteredReservations(allReservations, reservationsList, selectedStatus, searchField.getText(), 
-                startDatePicker.getValue(), endDatePicker.getValue());
+            displayFilteredReservationsWithPagination(allReservations, selectedStatus, searchField.getText(), 
+                startDatePicker.getValue(), endDatePicker.getValue(), currentPage, workingFiltered, updatePagination);
         };
         
         // Create toggle buttons for status filters
@@ -2408,8 +2581,9 @@ public class StudentDashboardController {
     /**
      * Display filtered reservations based on status, search query, and date range
      */
-    private void displayFilteredReservations(List<Reservation> allReservations, VBox reservationsList, String statusFilter, String searchQuery, LocalDate startDate, LocalDate endDate) {
-        reservationsList.getChildren().clear();
+    private void displayFilteredReservationsWithPagination(List<Reservation> allReservations, String statusFilter, 
+            String searchQuery, LocalDate startDate, LocalDate endDate, int[] currentPage, 
+            List<Reservation>[] workingFiltered, Runnable updatePagination) {
         
         List<Reservation> filtered = allReservations.stream()
             .filter(r -> {
@@ -2452,28 +2626,14 @@ public class StudentDashboardController {
             })
             .collect(Collectors.toList());
         
-        if (filtered.isEmpty()) {
-            VBox emptyBox = new VBox(20);
-            emptyBox.setAlignment(Pos.CENTER);
-            emptyBox.setPadding(new Insets(50));
-            
-            Label emptyLabel = new Label("📋 No reservations found");
-            emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-            emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
-            
-            Label hintLabel = new Label("Try adjusting your filters or search terms.");
-            hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
-            
-            emptyBox.getChildren().addAll(emptyLabel, hintLabel);
-            reservationsList.getChildren().add(emptyBox);
-        } else {
-            for (Reservation r : filtered) {
-                VBox reservationCard = createReservationCard(r);
-                reservationsList.getChildren().add(reservationCard);
-            }
-        }
+        // Update working filtered list and reset to page 1
+        workingFiltered[0] = filtered;
+        currentPage[0] = 1;
+        
+        // Update pagination display
+        updatePagination.run();
     }
-    
+
     /**
      * Get display label for reservation status
      */
@@ -2501,29 +2661,28 @@ public class StudentDashboardController {
     }
     
     /**
-     * Create claim items view - Shows items that need pickup request or are ready for pickup
+     * Create request pickup view - Shows items awaiting pickup request or pending staff approval
      */
-    public Node createClaimItemsView() {
+    public Node createRequestPickupView() {
         VBox container = new VBox(20);
         container.setPadding(new Insets(20));
         
-        Label titleLabel = new Label("Claim Items");
+        Label titleLabel = new Label("Request Pickup");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
         titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
         
-        Label subtitleLabel = new Label("Request pickup approval or claim approved items");
+        Label subtitleLabel = new Label("Request pickup for paid items and track approval status");
         subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
         subtitleLabel.setWrapText(true);
         
         // Reload reservations from file to ensure we have latest data
         List<Reservation> allReservations = FileStorage.loadReservations();
         
-        // Get student's reservations in various pickup-related statuses
+        // Get student's reservations awaiting pickup request or pending staff approval
         List<Reservation> pickupItems = allReservations.stream()
             .filter(r -> r.getStudentId().equals(student.getStudentId()))
-            .filter(r -> "PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus()) || 
-                        "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()) ||
-                        "APPROVED FOR PICKUP".equals(r.getStatus()))
+            .filter(r -> "AWAITING PICKUP REQUEST".equals(r.getStatus()) || 
+                        "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
             .filter(r -> {
                 // For bundles, verify all items in the bundle have the same status
                 if (r.isPartOfBundle()) {
@@ -2537,8 +2696,99 @@ public class StudentDashboardController {
             })
             .collect(Collectors.toList());
         
-        // Sort by reservation time (most recent first) BEFORE deduplicating — null-safe and fallback to reservationId
+        // Sort by reservation time (most recent first) BEFORE deduplicating
         pickupItems.sort((r1, r2) -> {
+            if (r1.getReservationTime() == null && r2.getReservationTime() == null) {
+                return Integer.compare(r2.getReservationId(), r1.getReservationId());
+            } else if (r1.getReservationTime() == null) {
+                return 1;
+            } else if (r2.getReservationTime() == null) {
+                return -1;
+            } else {
+                int cmp = r2.getReservationTime().compareTo(r1.getReservationTime());
+                return cmp != 0 ? cmp : Integer.compare(r2.getReservationId(), r1.getReservationId());
+            }
+        });
+        
+        // Deduplicate bundles
+        List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(pickupItems);
+        
+        if (deduplicatedReservations.isEmpty()) {
+            VBox emptyBox = new VBox(20);
+            emptyBox.setAlignment(Pos.CENTER);
+            emptyBox.setPadding(new Insets(50));
+            
+            Label emptyLabel = new Label("📦 No items awaiting pickup request");
+            emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+            emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
+            
+            Label hintLabel = new Label("Complete payment for your reservations first, then request pickup here.");
+            hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+            hintLabel.setWrapText(true);
+            
+            emptyBox.getChildren().addAll(emptyLabel, hintLabel);
+            container.getChildren().addAll(titleLabel, subtitleLabel, new Separator(), emptyBox);
+        } else {
+            VBox itemsList = new VBox(15);
+            
+            Map<String, List<Reservation>> claimGroups = pickupItems.stream()
+                .collect(Collectors.groupingBy(res -> res.isPartOfBundle() ? res.getBundleId() : "SINGLE-" + res.getReservationId(), LinkedHashMap::new, Collectors.toList()));
+
+            for (Reservation r : deduplicatedReservations) {
+                String key = r.isPartOfBundle() ? r.getBundleId() : "SINGLE-" + r.getReservationId();
+                List<Reservation> group = claimGroups.getOrDefault(key, Collections.singletonList(r));
+                VBox requestCard = createRequestPickupCard(r, group);
+                itemsList.getChildren().add(requestCard);
+            }
+            
+            ScrollPane scrollPane = new ScrollPane(itemsList);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+            VBox.setVgrow(scrollPane, Priority.ALWAYS);
+            
+            container.getChildren().addAll(titleLabel, subtitleLabel, new Separator(), scrollPane);
+        }
+        
+        return container;
+    }
+    
+    /**
+     * Create claim items view - Shows ONLY items approved for pickup (ready to claim)
+     */
+    public Node createClaimItemsView() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(20));
+        
+        Label titleLabel = new Label("Claim Items");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        titleLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        
+        Label subtitleLabel = new Label("Claim your approved items");
+        subtitleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+        subtitleLabel.setWrapText(true);
+        
+        // Reload reservations from file to ensure we have latest data
+        List<Reservation> allReservations = FileStorage.loadReservations();
+        
+        // Get student's reservations that are APPROVED FOR PICKUP only
+        List<Reservation> claimableItems = allReservations.stream()
+            .filter(r -> r.getStudentId().equals(student.getStudentId()))
+            .filter(r -> "APPROVED FOR PICKUP".equals(r.getStatus()))
+            .filter(r -> {
+                // For bundles, verify all items in the bundle have the same status
+                if (r.isPartOfBundle()) {
+                    String bundleId = r.getBundleId();
+                    String expectedStatus = r.getStatus();
+                    return allReservations.stream()
+                        .filter(res -> bundleId.equals(res.getBundleId()))
+                        .allMatch(res -> expectedStatus.equals(res.getStatus()));
+                }
+                return true;
+            })
+            .collect(Collectors.toList());
+        
+        // Sort by reservation time (most recent first) BEFORE deduplicating
+        claimableItems.sort((r1, r2) -> {
             if (r1.getReservationTime() == null && r2.getReservationTime() == null) {
                 return Integer.compare(r2.getReservationId(), r1.getReservationId());
             } else if (r1.getReservationTime() == null) {
@@ -2552,10 +2802,10 @@ public class StudentDashboardController {
         });
         
         // Deduplicate bundles - show only one card per bundle (will keep first, which is newest due to sort above)
-        List<Reservation> deduplicatedReservations = ControllerUtils.getDeduplicatedReservations(pickupItems);
+        List<Reservation> deduplicatedClaim = ControllerUtils.getDeduplicatedReservations(claimableItems);
         
         // Sort by reservation time (most recent first) — null-safe with ID fallback
-        deduplicatedReservations.sort((r1, r2) -> {
+        deduplicatedClaim.sort((r1, r2) -> {
             if (r1.getReservationTime() == null && r2.getReservationTime() == null) {
                 return Integer.compare(r2.getReservationId(), r1.getReservationId());
             } else if (r1.getReservationTime() == null) {
@@ -2568,16 +2818,16 @@ public class StudentDashboardController {
             }
         });
         
-        if (deduplicatedReservations.isEmpty()) {
+        if (deduplicatedClaim.isEmpty()) {
             VBox emptyBox = new VBox(20);
             emptyBox.setAlignment(Pos.CENTER);
             emptyBox.setPadding(new Insets(50));
             
-            Label emptyLabel = new Label("📦 No items ready for pickup");
+            Label emptyLabel = new Label("📦 No items ready to claim");
             emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
             emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
             
-            Label hintLabel = new Label("Complete payment for your reservations first, then items will appear here for claiming.");
+            Label hintLabel = new Label("Request pickup first, then after staff approval, items will appear here.");
             hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
             hintLabel.setWrapText(true);
             
@@ -2586,10 +2836,10 @@ public class StudentDashboardController {
         } else {
             VBox itemsList = new VBox(15);
             
-            Map<String, List<Reservation>> claimGroups = pickupItems.stream()
+            Map<String, List<Reservation>> claimGroups = claimableItems.stream()
                 .collect(Collectors.groupingBy(res -> res.isPartOfBundle() ? res.getBundleId() : "SINGLE-" + res.getReservationId(), LinkedHashMap::new, Collectors.toList()));
 
-            for (Reservation r : deduplicatedReservations) {
+            for (Reservation r : deduplicatedClaim) {
                 String key = r.isPartOfBundle() ? r.getBundleId() : "SINGLE-" + r.getReservationId();
                 List<Reservation> group = claimGroups.getOrDefault(key, Collections.singletonList(r));
                 VBox claimCard = createClaimItemCard(r, group);
@@ -2605,6 +2855,13 @@ public class StudentDashboardController {
         }
         
         return container;
+    }
+    
+    /**
+     * Create request pickup card - card for requesting pickup
+     */
+    private VBox createRequestPickupCard(Reservation r, List<Reservation> group) {
+        return createClaimItemCard(r, group); // Use same card for now, just different action button logic
     }
     
     /**
@@ -2695,7 +2952,7 @@ public class StudentDashboardController {
         String status = r.getStatus();
         VBox actionBox = new VBox(10);
         
-        if ("PAID - AWAITING PICKUP APPROVAL".equals(status)) {
+        if ("AWAITING PICKUP REQUEST".equals(status)) {
             // Student needs to request pickup
             Label awaitingLabel = new Label("📋 Status: Payment Completed");
             awaitingLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold;");
@@ -2748,6 +3005,15 @@ public class StudentDashboardController {
             Label approvedLabel = new Label("✅ Status: Approved for Pickup");
             approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-weight: bold;");
             
+            // Show scheduled pickup datetime if staff provided one
+            if (r.getScheduledPickupDateTime() != null) {
+                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
+                Label scheduledLabel = new Label("📅 Pickup scheduled: " + r.getScheduledPickupDateTime().format(fmt));
+                scheduledLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+                scheduledLabel.setWrapText(true);
+                actionBox.getChildren().add(scheduledLabel);
+            }
+
             Button claimBtn = new Button("✓ Claim Item");
             claimBtn.setMaxWidth(Double.MAX_VALUE);
             claimBtn.setPrefHeight(40);
@@ -2825,32 +3091,163 @@ public class StudentDashboardController {
             representative.getItemName() + " - " + representative.getSize();
         double totalPaid = group.stream().mapToDouble(Reservation::getTotalPrice).sum();
         
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Claim Item");
-        confirmAlert.setHeaderText("Confirm Item Claim");
-        confirmAlert.setContentText(
-            "Are you sure you want to claim this " + itemDescription + "?\n\n" +
+        // Create custom dialog for claim with image upload
+        Dialog<ButtonType> claimDialog = new Dialog<>();
+        claimDialog.setTitle("Claim Item");
+        claimDialog.setHeaderText("Confirm Item Claim & Upload Proof");
+        
+        ButtonType claimButtonType = new ButtonType("Claim Item", ButtonBar.ButtonData.OK_DONE);
+        claimDialog.getDialogPane().getButtonTypes().addAll(claimButtonType, ButtonType.CANCEL);
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: -color-bg-default;");
+        
+        // Item details section
+        VBox detailsSection = new VBox(8);
+        detailsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 6;");
+        
+        Label detailsHeader = new Label("📦 ITEM DETAILS");
+        detailsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: -color-fg-default;");
+        
+        Label itemLabel = new Label("Item: " + itemDescription);
+        itemLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 12px;");
+        itemLabel.setWrapText(true);
+        
+        Label totalLabel = new Label("Total Paid: ₱" + String.format("%.2f", totalPaid));
+        totalLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 13px; -fx-font-weight: bold;");
+        
+        detailsSection.getChildren().addAll(detailsHeader, itemLabel, totalLabel);
+        
+        // Confirmation checklist
+        VBox confirmSection = new VBox(8);
+        confirmSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 6;");
+        
+        Label confirmHeader = new Label("✓ CONFIRMATION");
+        confirmHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: -color-fg-default;");
+        
+        Label confirmText = new Label(
             "By claiming, you confirm that:\n" +
-            "• You have received the item(s)\n" +
+            "• You have received the item(s) from staff\n" +
             "• The item(s) are in good condition\n" +
-            "• You have 10 days to request a return if there are any issues\n\n" +
-            "Total: ₱" + String.format("%.2f", totalPaid)
+            "• You have 10 days to request a return if there are any issues"
         );
-
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
+        confirmText.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        confirmText.setWrapText(true);
+        
+        confirmSection.getChildren().addAll(confirmHeader, confirmText);
+        
+        // Image upload section
+        VBox imageSection = new VBox(10);
+        imageSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 6;");
+        
+        Label imageHeader = new Label("📷 PROOF OF CLAIM (Optional but Recommended)");
+        imageHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: -color-fg-default;");
+        
+        Label imageHint = new Label("Upload a photo of the received item(s) for your records and business protection.");
+        imageHint.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+        imageHint.setWrapText(true);
+        
+        // Image preview container
+        VBox imagePreview = new VBox(5);
+        imagePreview.setAlignment(Pos.CENTER);
+        imagePreview.setStyle("-fx-border-color: -color-border-default; -fx-border-width: 2; -fx-border-style: dashed; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 10; -fx-background-color: -color-bg-default;");
+        imagePreview.setMinHeight(150);
+        
+        Label previewPlaceholder = new Label("No image selected");
+        previewPlaceholder.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        imagePreview.getChildren().add(previewPlaceholder);
+        
+        // Store selected image path
+        final String[] selectedImagePath = {null};
+        
+        Button selectImageBtn = new Button("📁 Select Image");
+        selectImageBtn.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-cursor: hand;" +
+            "-fx-padding: 8 16;"
+        );
+        
+        selectImageBtn.setOnAction(e -> {
+            javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
+            fileChooser.setTitle("Select Claim Proof Image");
+            fileChooser.getExtensionFilters().addAll(
+                new javafx.stage.FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp")
+            );
+            
+            java.io.File selectedFile = fileChooser.showOpenDialog(claimDialog.getOwner());
+            if (selectedFile != null) {
+                selectedImagePath[0] = selectedFile.getAbsolutePath();
+                
+                // Update preview
+                imagePreview.getChildren().clear();
+                try {
+                    javafx.scene.image.Image image = new javafx.scene.image.Image(selectedFile.toURI().toString());
+                    javafx.scene.image.ImageView imageView = new javafx.scene.image.ImageView(image);
+                    imageView.setFitWidth(200);
+                    imageView.setFitHeight(120);
+                    imageView.setPreserveRatio(true);
+                    imageView.setSmooth(true);
+                    
+                    Label fileName = new Label(selectedFile.getName());
+                    fileName.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 11px; -fx-font-weight: bold;");
+                    
+                    Button removeBtn = new Button("✖ Remove");
+                    removeBtn.setStyle(
+                        "-fx-background-color: #CF222E;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-size: 10px;" +
+                        "-fx-background-radius: 3;" +
+                        "-fx-cursor: hand;" +
+                        "-fx-padding: 4 8;"
+                    );
+                    removeBtn.setOnAction(ev -> {
+                        selectedImagePath[0] = null;
+                        imagePreview.getChildren().clear();
+                        imagePreview.getChildren().add(previewPlaceholder);
+                    });
+                    
+                    imagePreview.getChildren().addAll(imageView, fileName, removeBtn);
+                } catch (Exception ex) {
+                    Label errorLabel = new Label("Failed to load image");
+                    errorLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 11px;");
+                    imagePreview.getChildren().add(errorLabel);
+                }
+            }
+        });
+        
+        imageSection.getChildren().addAll(imageHeader, imageHint, imagePreview, selectImageBtn);
+        
+        content.getChildren().addAll(detailsSection, confirmSection, imageSection);
+        
+        claimDialog.getDialogPane().setContent(content);
+        claimDialog.getDialogPane().setPrefWidth(550);
+        
+        claimDialog.showAndWait().ifPresent(response -> {
+            if (response == claimButtonType) {
                 boolean success = true;
+                
+                // Save image proof if provided
+                String imagePath = selectedImagePath[0];
+                
                 for (Reservation item : group) {
-                    if (!reservationManager.markAsPickedUp(item.getReservationId())) {
+                    if (!reservationManager.markAsPickedUp(item.getReservationId(), imagePath)) {
                         success = false;
                         break;
                     }
                 }
                 
                 if (success) {
+                    String proofMessage = imagePath != null ? 
+                        "\n✓ Claim proof image saved for your records." : 
+                        "";
                     AlertHelper.showSuccess("Success",
                         "Item claimed successfully! ✓\n\n" +
-                        "The item has been marked as picked up.\n" +
+                        "The item has been marked as picked up." + proofMessage + "\n" +
                         "You have 10 days to request a return if there are any issues.\n\n" +
                         "Check 'My Reservations' to view status or request a return.");
                     if (refreshCallback != null) {
@@ -3012,7 +3409,7 @@ public class StudentDashboardController {
             Label pendingLabel = new Label("⏳ Click to view details or cancel");
             pendingLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 12px; -fx-font-style: italic;");
             card.getChildren().add(pendingLabel);
-        } else if ("PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus())) {
+        } else if ("AWAITING PICKUP REQUEST".equals(r.getStatus())) {
             Label pickupLabel = new Label("📋 Payment completed! Go to 'Claim Items' to request pickup");
             pickupLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-style: italic; -fx-font-weight: bold;");
             card.getChildren().add(pickupLabel);
@@ -3025,7 +3422,7 @@ public class StudentDashboardController {
             approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-style: italic; -fx-font-weight: bold;");
             card.getChildren().add(approvedLabel);
         } else if ("COMPLETED".equals(r.getStatus()) && r.isEligibleForReturn()) {
-            Label returnLabel = new Label("↩ Click to request replacement (" + r.getDaysUntilReturnExpires() + " days left)");
+            Label returnLabel = new Label("↩ Click to request item replacement (" + r.getDaysUntilReturnExpires() + " days left)");
             returnLabel.setStyle("-fx-text-fill: #0969DA; -fx-font-size: 12px; -fx-font-weight: bold; -fx-font-style: italic;");
             card.getChildren().add(returnLabel);
         } else if (r.isPartOfBundle() && hasCompletedItems(r.getBundleId())) {
@@ -3086,61 +3483,64 @@ public class StudentDashboardController {
         }
         
         Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle("Request Replacement");
-        dialog.setHeaderText("Request Replacement for: " + itemDescription);
+        dialog.setTitle("Request Item Replacement");
+        dialog.setHeaderText("Request Item Replacement for: " + itemDescription);
 
         ButtonType submitButtonType = new ButtonType("Submit Request", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20));
+        VBox mainContent = new VBox(20);
+        mainContent.setPadding(new Insets(20));
 
         // Create checkboxes and quantity spinners for selecting items to return (for bundles only)
         Map<CheckBox, Reservation> itemCheckBoxMap = new HashMap<>();
         Map<Reservation, Spinner<Integer>> quantitySpinners = new HashMap<>();
         
+        // SECTION 1: Items to Replace
         if (r.isPartOfBundle()) {
-            Label selectLabel = new Label("Select items to return:");
-            selectLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
-            
-            VBox itemsList = new VBox(8);
-            itemsList.setPadding(new Insets(10));
-            itemsList.setStyle(
-                "-fx-background-color: -color-bg-default;" +
+            VBox itemsSection = new VBox(12);
+            itemsSection.setStyle(
+                "-fx-background-color: -color-bg-subtle;" +
                 "-fx-border-color: -color-border-default;" +
                 "-fx-border-width: 1px;" +
-                "-fx-border-radius: 6px;" +
-                "-fx-background-radius: 6px;"
+                "-fx-border-radius: 3px;" +
+                "-fx-background-radius: 3px;" +
+                "-fx-padding: 15;"
             );
+            
+            Label selectLabel = new Label("📦 Select Items to Replace");
+            selectLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
             
             // Select All / Deselect All buttons
             HBox selectAllBox = new HBox(10);
-            selectAllBox.setPadding(new Insets(0, 0, 8, 0));
+            selectAllBox.setPadding(new Insets(8, 0, 8, 0));
             
             Button selectAllBtn = new Button("Select All");
-            selectAllBtn.setStyle("-fx-font-size: 11px; -fx-padding: 3 8 3 8;");
+            selectAllBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10; -fx-cursor: hand;");
             Button deselectAllBtn = new Button("Deselect All");
-            deselectAllBtn.setStyle("-fx-font-size: 11px; -fx-padding: 3 8 3 8;");
+            deselectAllBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10; -fx-cursor: hand;");
             
             selectAllBox.getChildren().addAll(selectAllBtn, deselectAllBtn);
-            itemsList.getChildren().add(selectAllBox);
+            
+            VBox itemsList = new VBox(8);
             
             // Create checkbox with quantity spinner for each item
             for (Reservation item : availableItems) {
                 HBox itemRow = new HBox(10);
                 itemRow.setAlignment(Pos.CENTER_LEFT);
+                itemRow.setStyle("-fx-padding: 8; -fx-background-color: -color-bg-default; -fx-background-radius: 3px;");
                 
                 CheckBox checkBox = new CheckBox(
                     item.getItemName() + " - " + item.getSize() +
                     " - ₱" + String.format("%.2f", item.getTotalPrice())
                 );
-                checkBox.setSelected(true); // Select all by default
+                checkBox.setSelected(true);
                 checkBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
                 itemCheckBoxMap.put(checkBox, item);
                 
-                // Add quantity spinner
+                Region spacer = new Region();
+                HBox.setHgrow(spacer, Priority.ALWAYS);
+                
                 Label qtyLabel = new Label("Qty:");
                 qtyLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
                 
@@ -3150,17 +3550,15 @@ public class StudentDashboardController {
                 qtySpinner.setStyle("-fx-font-size: 12px;");
                 quantitySpinners.put(item, qtySpinner);
                 
-                // Disable spinner when checkbox is unchecked
                 qtySpinner.setDisable(!checkBox.isSelected());
                 checkBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
                     qtySpinner.setDisable(!newVal);
                 });
                 
-                itemRow.getChildren().addAll(checkBox, qtyLabel, qtySpinner);
+                itemRow.getChildren().addAll(checkBox, spacer, qtyLabel, qtySpinner);
                 itemsList.getChildren().add(itemRow);
             }
             
-            // Select/Deselect All functionality
             selectAllBtn.setOnAction(e -> {
                 for (CheckBox cb : itemCheckBoxMap.keySet()) {
                     cb.setSelected(true);
@@ -3173,37 +3571,201 @@ public class StudentDashboardController {
                 }
             });
             
-            grid.add(selectLabel, 0, 0);
-            grid.add(itemsList, 0, 1);
+            itemsSection.getChildren().addAll(selectLabel, selectAllBox, itemsList);
+            mainContent.getChildren().add(itemsSection);
         }
 
-        Label infoLabel = new Label("Please provide a reason for the replacement:");
-        infoLabel.setStyle("-fx-font-weight: bold;");
-
+        // SECTION 2: Reason Selection
+        VBox reasonSection = new VBox(12);
+        reasonSection.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
+            "-fx-padding: 15;"
+        );
+        
+        Label reasonLabel = new Label("📝 Reason for Replacement (Select all that apply)");
+        reasonLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
+        
+        // Reason checkboxes
+        CheckBox wrongSizeBox = new CheckBox("❌ Wrong size received");
+        CheckBox damagedBox = new CheckBox("🔨 Item is damaged or defective");
+        CheckBox wrongItemBox = new CheckBox("📦 Wrong item received");
+        CheckBox qualityBox = new CheckBox("⚠️ Poor quality or material issue");
+        CheckBox colorBox = new CheckBox("🎨 Color/design not as expected");
+        CheckBox sizeIssueBox = new CheckBox("📏 Size doesn't fit properly");
+        CheckBox otherBox = new CheckBox("✏️ Other reason (please specify below)");
+        
+        wrongSizeBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        damagedBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        wrongItemBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        qualityBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        colorBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        sizeIssueBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        otherBox.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px; -fx-padding: 5 0;");
+        
+        VBox reasonCheckboxes = new VBox(8);
+        reasonCheckboxes.getChildren().addAll(
+            wrongSizeBox, damagedBox, wrongItemBox, qualityBox, 
+            colorBox, sizeIssueBox, otherBox
+        );
+        
+        reasonSection.getChildren().addAll(reasonLabel, reasonCheckboxes);
+        mainContent.getChildren().add(reasonSection);
+        
+        // SECTION 3: Additional Details
+        VBox detailsSection = new VBox(10);
+        detailsSection.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
+            "-fx-padding: 15;"
+        );
+        
+        Label detailsLabel = new Label("💬 Additional Details (Optional)");
+        detailsLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
+        
         TextArea reasonArea = new TextArea();
-        reasonArea.setPromptText("e.g., Item is damaged, wrong size, defective, etc.");
-        reasonArea.setPrefRowCount(4);
+        reasonArea.setPromptText("Please provide any additional information that will help staff process your request...");
+        reasonArea.setPrefRowCount(3);
         reasonArea.setWrapText(true);
+        reasonArea.setStyle("-fx-font-size: 13px;");
+        
+        detailsSection.getChildren().addAll(detailsLabel, reasonArea);
+        mainContent.getChildren().add(detailsSection);
+        
+        // SECTION 4: Image Upload (Proof of Damage)
+        VBox imageSection = new VBox(10);
+        imageSection.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
+            "-fx-padding: 15;"
+        );
+        
+        Label imageLabel = new Label("📷 Upload Proof (Recommended for damage claims)");
+        imageLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
+        
+        HBox imageUploadBox = new HBox(10);
+        imageUploadBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Button uploadBtn = new Button("📎 Choose Image");
+        uploadBtn.setStyle(
+            "-fx-background-color: #0969DA;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-padding: 6 12;" +
+            "-fx-cursor: hand;" +
+            "-fx-background-radius: 3px;"
+        );
+        
+        Label fileNameLabel = new Label("No file selected");
+        fileNameLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        
+        final String[] selectedImagePath = {null};
+        
+        uploadBtn.setOnAction(e -> {
+            javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
+            fileChooser.setTitle("Select Image Proof");
+            fileChooser.getExtensionFilters().addAll(
+                new javafx.stage.FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+            );
+            java.io.File file = fileChooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
+            if (file != null) {
+                selectedImagePath[0] = file.getAbsolutePath();
+                fileNameLabel.setText("✓ " + file.getName());
+                fileNameLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-weight: bold;");
+            }
+        });
+        
+        Label imageHint = new Label("💡 Tip: Clear photos help staff process your request faster");
+        imageHint.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+        
+        imageUploadBox.getChildren().addAll(uploadBtn, fileNameLabel);
+        imageSection.getChildren().addAll(imageLabel, imageUploadBox, imageHint);
+        mainContent.getChildren().add(imageSection);
+        
+        // Important Notice
+        VBox noticeBox = new VBox(5);
+        noticeBox.setStyle(
+            "-fx-background-color: rgba(191, 135, 0, 0.1);" +
+            "-fx-border-color: #BF8700;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
+            "-fx-padding: 12;"
+        );
+        
+        Label noticeTitle = new Label("⚠️ Important Information");
+        noticeTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #BF8700; -fx-font-size: 12px;");
+        
+        Label noticeText = new Label(
+            "• Replacement requests must be approved by staff\n" +
+            "• Items can only be replaced once\n" +
+            "• You have " + r.getDaysUntilReturnExpires() + " days left to request replacement\n" +
+            "• Processing time: 1-3 business days"
+        );
+        noticeText.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 11px;");
+        noticeText.setWrapText(true);
+        
+        noticeBox.getChildren().addAll(noticeTitle, noticeText);
+        mainContent.getChildren().add(noticeBox);
+        
+        ScrollPane scrollPane = new ScrollPane(mainContent);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-        Label noteLabel = new Label("⚠ Important: Replacement requests must be approved by staff. Items can only be replaced once.");
-        noteLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
-        noteLabel.setWrapText(true);
-
-        int currentRow = r.isPartOfBundle() ? 2 : 0;
-        grid.add(infoLabel, 0, currentRow);
-        grid.add(reasonArea, 0, currentRow + 1);
-        grid.add(noteLabel, 0, currentRow + 2);
-
-        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().setContent(scrollPane);
+        dialog.getDialogPane().setPrefWidth(600);
+        dialog.getDialogPane().setPrefHeight(650);
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == submitButtonType) {
-                String reason = reasonArea.getText().trim();
-                if (reason.isEmpty()) {
-                    AlertHelper.showError("Error", "Please provide a reason for the replacement.");
+                // Build reason string from checkboxes
+                StringBuilder reasonBuilder = new StringBuilder();
+                
+                if (wrongSizeBox.isSelected()) reasonBuilder.append("[Wrong size] ");
+                if (damagedBox.isSelected()) reasonBuilder.append("[Damaged/Defective] ");
+                if (wrongItemBox.isSelected()) reasonBuilder.append("[Wrong item] ");
+                if (qualityBox.isSelected()) reasonBuilder.append("[Poor quality] ");
+                if (colorBox.isSelected()) reasonBuilder.append("[Color/design issue] ");
+                if (sizeIssueBox.isSelected()) reasonBuilder.append("[Size fit issue] ");
+                if (otherBox.isSelected()) reasonBuilder.append("[Other] ");
+                
+                String additionalDetails = reasonArea.getText().trim();
+                if (!additionalDetails.isEmpty()) {
+                    reasonBuilder.append("Details: ").append(additionalDetails);
+                }
+                
+                String finalReason = reasonBuilder.toString().trim();
+                
+                // Validation: At least one reason must be selected
+                if (finalReason.isEmpty() || 
+                    (!wrongSizeBox.isSelected() && !damagedBox.isSelected() && 
+                     !wrongItemBox.isSelected() && !qualityBox.isSelected() && 
+                     !colorBox.isSelected() && !sizeIssueBox.isSelected() && !otherBox.isSelected())) {
+                    AlertHelper.showError("Error", "Please select at least one reason for the replacement.");
                     return null;
                 }
-                return reason;
+                
+                // If Other is selected, additional details should be provided
+                if (otherBox.isSelected() && additionalDetails.isEmpty()) {
+                    AlertHelper.showError("Error", "Please provide details in the text area when selecting 'Other reason'.");
+                    return null;
+                }
+                
+                // Append image path if uploaded
+                if (selectedImagePath[0] != null) {
+                    finalReason += " [Image proof attached: " + selectedImagePath[0] + "]";
+                }
+                
+                return finalReason;
             }
             return null;
         });
@@ -3429,7 +3991,7 @@ public class StudentDashboardController {
             "-fx-border-radius: 6px;" +
             "-fx-background-radius: 6px;"
         );
-        
+
         Label itemsTitle = new Label("Items:");
         itemsTitle.setStyle("-fx-font-weight: bold;");
         itemsBox.getChildren().add(itemsTitle);

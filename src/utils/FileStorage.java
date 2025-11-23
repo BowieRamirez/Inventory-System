@@ -676,7 +676,7 @@ public class FileStorage {
     
     /**
      * Parse reservation from file format
-     * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline|replacementItemCode|replacementItemName|replacementSize
+    * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline|scheduledPickup|replacementItemCode|replacementItemName|replacementSize|replacementNote
      */
     private static Reservation parseReservation(String line) {
         String[] parts = line.split("\\|", -1); // -1 to keep empty trailing fields
@@ -701,11 +701,14 @@ public class FileStorage {
             String reason = parts[14];
             String bundleId = (parts.length > 15 && !parts[15].isEmpty()) ? parts[15] : null;
             String paymentDeadlineStr = (parts.length > 16 && !parts[16].isEmpty()) ? parts[16] : "";
+            String scheduledPickupStr = (parts.length > 17 && !parts[17].isEmpty()) ? parts[17] : "";
             
-            // Parse replacement item info
-            int replacementItemCode = (parts.length > 17 && !parts[17].isEmpty()) ? Integer.parseInt(parts[17]) : 0;
-            String replacementItemName = (parts.length > 18 && !parts[18].isEmpty()) ? parts[18] : "";
-            String replacementSize = (parts.length > 19 && !parts[19].isEmpty()) ? parts[19] : "";
+            // Parse replacement item info (indices shifted by scheduledPickup)
+            int replacementItemCode = (parts.length > 18 && !parts[18].isEmpty()) ? Integer.parseInt(parts[18]) : 0;
+            String replacementItemName = (parts.length > 19 && !parts[19].isEmpty()) ? parts[19] : "";
+            String replacementSize = (parts.length > 20 && !parts[20].isEmpty()) ? parts[20] : "";
+            String replacementNote = (parts.length > 21 && !parts[21].isEmpty()) ? parts[21] : "";
+            String claimProofImagePath = (parts.length > 22 && !parts[22].isEmpty()) ? parts[22] : "";
 
             // Create reservation with bundleId
             Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
@@ -732,6 +735,13 @@ public class FileStorage {
                 reservation.setCompletedDate(completedDate);
             }
 
+            // Set scheduled pickup if exists
+            if (!scheduledPickupStr.isEmpty()) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime scheduled = LocalDateTime.parse(scheduledPickupStr, formatter);
+                reservation.setScheduledPickupDateTime(scheduled);
+            }
+
             // Set payment deadline if exists
             if (!paymentDeadlineStr.isEmpty()) {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -747,6 +757,14 @@ public class FileStorage {
             // Set replacement item if exists
             if (replacementItemCode > 0 && !replacementItemName.isEmpty()) {
                 reservation.setReplacementItem(replacementItemCode, replacementItemName, replacementSize);
+                if (replacementNote != null && !replacementNote.isEmpty()) {
+                    reservation.setReplacementNote(replacementNote);
+                }
+            }
+            
+            // Set claim proof image path if exists
+            if (!claimProofImagePath.isEmpty()) {
+                reservation.setClaimProofImagePath(claimProofImagePath);
             }
 
             return reservation;
@@ -800,10 +818,13 @@ public class FileStorage {
                                       String.valueOf(reservation.getReplacementItemCode()) : "";
         String replacementItemName = reservation.getReplacementItemName() != null ? 
                                       reservation.getReplacementItemName() : "";
-        String replacementSize = reservation.getReplacementSize() != null ? 
-                                 reservation.getReplacementSize() : "";
+         String replacementSize = reservation.getReplacementSize() != null ? 
+                         reservation.getReplacementSize() : "";
+         String replacementNote = reservation.getReplacementNote() != null ? reservation.getReplacementNote() : "";
+         String scheduledPickup = reservation.getScheduledPickupDateTime() != null ? reservation.getScheduledPickupDateTime().format(formatter) : "";
+         String claimProofImagePath = reservation.getClaimProofImagePath() != null ? reservation.getClaimProofImagePath() : "";
         
-        return reservation.getReservationId() + "|" +
+         return reservation.getReservationId() + "|" +
                reservation.getStudentName() + "|" +
                reservation.getStudentId() + "|" +
                reservation.getCourse() + "|" +
@@ -818,11 +839,14 @@ public class FileStorage {
                reservationTime + "|" +
                completedDate + "|" +
                reason + "|" +
-               bundleId + "|" +
-               paymentDeadline + "|" +
-               replacementItemCode + "|" +
-               replacementItemName + "|" +
-               replacementSize;
+                             bundleId + "|" +
+                             paymentDeadline + "|" +
+                             scheduledPickup + "|" +
+                         replacementItemCode + "|" +
+                         replacementItemName + "|" +
+                         replacementSize + "|" +
+                         replacementNote + "|" +
+                         claimProofImagePath;
     }
     
     /**

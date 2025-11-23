@@ -1,0 +1,62 @@
+/* Table styling adjustments for spacing and column alignment */
+.table-view {
+  -fx-font-size: 13px;
+  -fx-padding: 6 12; /* extra side margin around table */
+}
+
+.table-view .table-row-cell {
+  -fx-padding: 12 8 12 8; /* symmetric vertical padding */
+  -fx-background-insets: 0;
+  -fx-alignment: CENTER_LEFT; /* ensure row content is centered vertically */
+}
+
+.table-view .table-cell {
+  -fx-padding: 12 8 12 8; /* cell padding (top right bottom left) */
+  -fx-alignment: CENTER_LEFT; /* center vertically and align left horizontally */
+}
+
+.table-view .column-header .label {
+  -fx-padding: 10 12; /* header breathing room */
+  -fx-font-weight: 600;
+  -fx-alignment: CENTER_LEFT; /* align header text consistently */
+}
+
+/* Price/number column alignment */
+.table-view .price-cell {
+  -fx-alignment: CENTER_LEFT; /* left-align price cells per user preference */
+  -fx-padding: 12 8 12 16; /* extra left padding so price text isn't flush to cell edge */
+}
+
+/* Actions / Manage button styling */
+.manage-btn {
+  -fx-background-color: #0a84ff;
+  -fx-text-fill: white;
+  -fx-font-weight: 600;
+  -fx-background-radius: 6px;
+  -fx-padding: 6 10;
+  -fx-cursor: hand;
+  -fx-min-height: 28px; /* consistent button height to vertically center inside row */
+}
+.manage-btn:hover { -fx-background-color: #006fe0; }
+.manage-btn:pressed { -fx-background-color: #005bbd; }
+
+/* Compact icon + text style */
+.manage-btn .label {
+  -fx-padding: 0 4 0 0;
+}
+
+/* Small gap between actions if multiple buttons are used elsewhere */
+.action-gap {
+  -fx-spacing: 10; /* 8-10px gap requested */
+}
+
+/* Dark theme adjustments (will apply when root has .dark) */
+.table-view:focused, .table-view.dark {
+  -fx-selection-bar: rgba(10,132,255,0.12);
+}
+.table-view.dark .table-cell {
+  -fx-text-fill: #e6eef9;
+}
+.table-view.dark .column-header .label {
+  -fx-text-fill: #d6dae0;
+}

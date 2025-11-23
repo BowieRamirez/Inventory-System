@@ -1,11 +1,11 @@
 package gui.utils;
 
 import javafx.application.Platform;
+import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.Pane;
-import javafx.scene.Group;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 /**
@@ -31,6 +31,20 @@ public class SceneManager {
         rootContainer = new StackPane();
         currentScene = new Scene(rootContainer);
         primaryStage.setScene(currentScene);
+
+        // Load shared UI stylesheets so popups and dialogs inherit application styles
+        try {
+            String dialogCss = SceneManager.class.getResource("/gui/styles/dialog-compact.css").toExternalForm();
+            if (dialogCss != null && !rootContainer.getStylesheets().contains(dialogCss)) rootContainer.getStylesheets().add(dialogCss);
+        } catch (Exception ex) { /* ignore */ }
+        try {
+            String comboCss = SceneManager.class.getResource("/gui/styles/combobox-dark.css").toExternalForm();
+            if (comboCss != null && !rootContainer.getStylesheets().contains(comboCss)) rootContainer.getStylesheets().add(comboCss);
+        } catch (Exception ex) { /* ignore */ }
+        try {
+            String tableCss = SceneManager.class.getResource("/gui/styles/table-style.css").toExternalForm();
+            if (tableCss != null && !rootContainer.getStylesheets().contains(tableCss)) rootContainer.getStylesheets().add(tableCss);
+        } catch (Exception ex) { /* ignore */ }
     }
 
     /**

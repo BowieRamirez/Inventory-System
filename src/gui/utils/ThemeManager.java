@@ -1,6 +1,12 @@
 package gui.utils;
 
-import atlantafx.base.theme.*;
+import atlantafx.base.theme.CupertinoDark;
+import atlantafx.base.theme.CupertinoLight;
+import atlantafx.base.theme.Dracula;
+import atlantafx.base.theme.NordDark;
+import atlantafx.base.theme.NordLight;
+import atlantafx.base.theme.PrimerDark;
+import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 
 /**
@@ -66,6 +72,14 @@ public class ThemeManager {
             }
         } catch (Exception ex) {
             // ignore
+        }
+        // After notifying listeners, attempt to refresh the current scene so UI updates immediately
+        try {
+            if (SceneManager.getCurrentScene() != null) {
+                ThemeUtils.refreshScene(SceneManager.getCurrentScene());
+            }
+        } catch (Exception ex) {
+            // Best-effort: do not fail theme change if refresh isn't possible
         }
     }
 

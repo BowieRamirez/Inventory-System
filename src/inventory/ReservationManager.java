@@ -162,11 +162,13 @@ public class ReservationManager {
         if (r != null && !r.isPaid() && "APPROVED - WAITING FOR PAYMENT".equals(r.getStatus())) {
             r.setPaid(true);
             r.setPaymentMethod(paymentMethod);
-            
+
             // Deduct stock from inventory when payment is processed
             boolean deducted = inventoryManager.deductStockOnApproval(r.getItemCode(), r.getSize(), r.getQuantity());
             if (deducted) {
-                r.setStatus("PAID - AWAITING PICKUP APPROVAL");
+                // After payment, mark reservation as paid but WAITING for the student
+                // to request pickup. Staff should NOT see this as a pickup approval yet.
+                r.setStatus("AWAITING PICKUP REQUEST");
                 saveReservations();
                 return true;
             } else {
@@ -191,11 +193,11 @@ public class ReservationManager {
 
     /**
      * Student requests pickup - changes status to awaiting staff approval
-     * Changes status from "PAID - AWAITING PICKUP APPROVAL" to "PICKUP REQUESTED - AWAITING STAFF APPROVAL"
+     * Changes status from "AWAITING PICKUP REQUEST" to "PICKUP REQUESTED - AWAITING STAFF APPROVAL"
      */
     public boolean requestPickup(int reservationId) {
         Reservation r = findReservationById(reservationId);
-        if (r != null && "PAID - AWAITING PICKUP APPROVAL".equals(r.getStatus())) {
+        if (r != null && "AWAITING PICKUP REQUEST".equals(r.getStatus())) {
             r.setStatus("PICKUP REQUESTED - AWAITING STAFF APPROVAL");
             saveReservations();
             return true;
@@ -207,17 +209,18 @@ public class ReservationManager {
      * Staff approves pickup request
      * Changes status from "PICKUP REQUESTED - AWAITING STAFF APPROVAL" to "APPROVED FOR PICKUP"
      */
-    public boolean approvePickupRequest(int reservationId) {
+    public boolean approvePickupRequest(int reservationId, java.time.LocalDateTime scheduledPickup) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus())) {
-            // Mark as approved for pickup first (keeps existing status flow)
+            // Mark as approved for pickup and store scheduled pickup datetime
             r.setStatus("APPROVED FOR PICKUP");
+            r.setScheduledPickupDateTime(scheduledPickup);
             saveReservations();
 
-            // Immediately mark as picked up/completed so student does not
-            // need to confirm in their account. This will also update
-            // receipts and write stock logs (same as manual student confirmation).
-            return markAsPickedUp(reservationId);
+            // Do NOT auto-complete here — the student must still claim the item,
+            // which should call `markAsPickedUp(...)` to set COMPLETED and
+            // completedDate.
+            return true;
         }
         return false;
     }
@@ -234,11 +237,14 @@ public class ReservationManager {
      * Changes status from "APPROVED FOR PICKUP" to "COMPLETED"
      * Also updates receipt status and logs to stock_logs.txt
      */
-    public boolean markAsPickedUp(int reservationId) {
+    public boolean markAsPickedUp(int reservationId, String claimProofImagePath) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "APPROVED FOR PICKUP".equals(r.getStatus())) {
             r.setStatus("COMPLETED");
             r.setCompletedDate(java.time.LocalDateTime.now());
+            if (claimProofImagePath != null && !claimProofImagePath.isEmpty()) {
+                r.setClaimProofImagePath(claimProofImagePath);
+            }
             saveReservations();
 
             // Update receipt status from "PAID" to "COMPLETED"
@@ -386,7 +392,7 @@ public class ReservationManager {
     /**
      * Approve replacement with specific replacement item (does NOT restock - item is replaced with new one)
      */
-    public boolean approveReplacementWithItem(int reservationId, int replacementItemCode, String replacementItemName, String replacementSize) {
+    public boolean approveReplacementWithItem(int reservationId, int replacementItemCode, String replacementItemName, String replacementSize, String replacementNote) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "REPLACEMENT REQUESTED".equals(r.getStatus())) {
             // Restock the original item
@@ -402,8 +408,11 @@ public class ReservationManager {
                 return false; // Not enough stock for replacement
             }
 
-            // Track the replacement item
+            // Track the replacement item and optional note
             r.setReplacementItem(replacementItemCode, replacementItemName, replacementSize);
+            if (replacementNote != null && !replacementNote.trim().isEmpty()) {
+                r.setReplacementNote(replacementNote.trim());
+            }
             r.setStatus("REPLACED");
             r.setReason(r.getReason() != null ? r.getReason() : "Item replaced with new one");
             saveReservations();
@@ -416,8 +425,12 @@ public class ReservationManager {
                 }
             }
 
-            // Log replacement to stock_logs.txt
-            String replacementInfo = "Replaced with: " + replacementItemName + " (Size: " + replacementSize + ")";
+            // Log replacement to stock_logs.txt (include note if provided)
+            StringBuilder replacementInfo = new StringBuilder();
+            replacementInfo.append("Replaced with: ").append(replacementItemName).append(" (Size: ").append(replacementSize).append(")");
+            if (replacementNote != null && !replacementNote.trim().isEmpty()) {
+                replacementInfo.append("; Note: ").append(replacementNote.trim());
+            }
             StockReturnLogger.logUserReturn(
                 r.getStudentId(),
                 r.getStudentName(),
@@ -426,7 +439,7 @@ public class ReservationManager {
                 r.getSize(),
                 r.getQuantity(),
                 r.getQuantity(), // Original item restocked
-                replacementInfo
+                replacementInfo.toString()
             );
 
             return true;

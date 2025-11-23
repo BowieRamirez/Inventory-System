@@ -1,32 +1,15 @@
 Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
-2025-11-15 20:35:44|staff|1005|IT/Eng RTW Pants (Female)|S|+99/100|ITEM_UPDATED|Adjusted by staff: 1 → 100
-2025-11-15 20:35:48|staff|1005|IT/Eng RTW Pants (Female)|M|+99/100|ITEM_UPDATED|Adjusted by staff: 1 → 100
-2025-11-15 21:02:02|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|-1/99|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
-2025-11-15 21:02:02|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|-1/99|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
-2025-11-15 21:02:02|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-1/98|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
-2025-11-15 21:37:25|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|+1/0|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: L)
-2025-11-15 21:59:37|Ramirez, Bowie|1095|PE White Shirt|XL|-1/79|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
-2025-11-15 22:00:25|Ramirez, Bowie|1095|PE White Shirt|XL|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: PE White Shirt (Size: L)
-2025-11-15 22:01:46|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|M|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: M)
-2025-11-17 23:12:50|Ramirez, Bowie|1095|PE White Shirt|L|-1/96|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
-2025-11-18 00:27:47|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: L)
-2025-11-18 00:28:06|Ramirez, Bowie|1095|PE White Shirt|L|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: PE White Shirt (Size: L)
-2025-11-18 00:30:28|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|-1/97|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
-2025-11-18 00:31:46|staff|1103|STI Tumbler|One Size|-30/30|ITEM_ADDED|New item added - Price: ₱600.00
-2025-11-18 01:34:13|Ramirez, Bowie|1003|IT/Eng Gray 3/4 Blouse (Female)|L|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: XL)
-2025-11-18 01:37:02|staff|1073|SHS White Blouse (Female)|XL|+25/75|ITEM_UPDATED|Adjusted by staff: 50 → 75
-2025-11-20 21:05:44|staff|1024|Business Blazer|M|-44/1|ITEM_UPDATED|Adjusted by staff: 45 → 1
-2025-11-20 21:13:48|staff|1024|Business Blazer|M|+4/5|ITEM_UPDATED|Adjusted by staff: 1 → 5
-2025-11-20 21:14:08|staff|1024|Business Blazer|M|+30/35|ITEM_UPDATED|Adjusted by staff: 5 → 35
-2025-11-21 01:28:23|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled
-2025-11-21 01:28:27|Admin|0||||MAINTENANCE_ACTIVATED|Maintenance mode enabled
-2025-11-21 01:33:46|Admin|0||||STUDENT_DEACTIVATED|Student: 020002100000 - Junela, Frigger
-2025-11-21 02:05:06|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled
-2025-11-22 20:29:17|Admin|0||||STUDENT_ACTIVATED|Student: 020002992999 - awdadawd, wadawd
-2025-11-22 20:29:19|Admin|0||||STUDENT_DEACTIVATED|Student: 020002992999 - awdadawd, wadawd
-2025-11-22 20:29:28|Admin|0||||MAINTENANCE_ACTIVATED|Maintenance mode enabled
-2025-11-22 20:29:34|Admin|0||||MAINTENANCE_DEACTIVATED|Maintenance mode disabled
-2025-11-22 22:22:45|staff|1024|Business Blazer|S|+1/31|ITEM_UPDATED|Added by staff: +1 (manual restock)
-2025-11-22 22:53:05|Admin|0||||STUDENT_DEACTIVATED|Student: 02000288888 - raslu, hashim
-2025-11-22 23:12:38|Admin|0||||STUDENT_ACTIVATED|Student: 020002992999 - awdadawd, wadawd
-2025-11-22 23:12:49|Admin|0||||STUDENT_DEACTIVATED|Student: 02000427327 - dela cruz, jhames
+2025-11-23 20:34:51|Admin|0||||STAFF_ADDED|Staff: staff - staff, staff (Staff)
+2025-11-23 20:36:09|Admin|0||||STAFF_ADDED|Staff: admin - admin, admin (Cashier)
+2025-11-23 20:36:47|Admin|0||||STAFF_ADDED|Staff: cashier - man, cash (Cashier)
+2025-11-23 21:15:43|raslu, hashim|1035|SHS White Polo (Male)|XL|-3/297|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+2025-11-23 21:15:43|raslu, hashim|1034|SHS Checkered Skirt|XL|-3/267|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+2025-11-23 21:54:18|raslu, hashim|1034|SHS Checkered Skirt|S|-1/299|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+2025-11-23 21:54:40|raslu, hashim|1033|SHS Vest (Female)|S|-1/299|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+2025-11-23 22:33:46|raslu, hashim|1034|SHS Checkered Skirt|S|-1/298|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+2025-11-23 22:33:46|raslu, hashim|1033|SHS Vest (Female)|S|-1/298|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+
+2025-11-24 08:55:12|staff|2002|STI Jacket|L|+10/20|ITEM_ADDED|Restocked jacket sizes L (receive batch #RK-20251124)
+2025-11-24 09:05:50|staff|2001|STI Polo|M|-1/24|USER_PICKUP|Student Juan Dela Cruz (2023001) picked up item
+2025-11-24 10:00:00|staff|2003|STI Cap|OneSize|+5/25|ITEM_UPDATED|Adjusted stock after QC - added 5 units
+2025-11-24 11:00:00|staff|2004|STI Hoodie|XL|-3/47|STAFF_RETURN|Processed returned hoodies (inspected)

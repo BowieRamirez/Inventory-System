@@ -1,0 +1,45 @@
+/* ComboBox popup styling for dialog-like ComboBoxes */
+.combo-box.dialog-combo .list-view {
+  -fx-background-color: -color-bg-default;
+  -fx-control-inner-background: -color-bg-default;
+  -fx-padding: 0;
+}
+
+.combo-box.dialog-combo .list-cell {
+  -fx-padding: 6 8;
+}
+
+/* Dark variant when controller marks control with .dark */
+.combo-box.dialog-combo.dark .list-view,
+.combo-box.dialog-combo.dark .list-cell {
+  -fx-background-color: rgba(255,255,255,0.04);
+  -fx-control-inner-background: rgba(255,255,255,0.04);
+  -fx-text-fill: white;
+}
+
+.combo-box.dialog-combo.dark .list-cell:filled:selected,
+.combo-box.dialog-combo.dark .list-cell:selected {
+  -fx-background-color: rgba(255,255,255,0.08);
+}
+
+/* Border / focus styles so switching to dark mode preserves highlight */
+.combo-box.dialog-combo {
+  -fx-border-color: rgba(0,0,0,0.08);
+  -fx-border-width: 1px;
+  -fx-border-radius: 6px;
+  -fx-background-radius: 6px;
+}
+
+.combo-box.dialog-combo:focused {
+  -fx-border-color: #0B5FFF; /* STI blue focus */
+  -fx-effect: dropshadow(gaussian, rgba(11,95,255,0.14), 8, 0, 0, 2);
+}
+
+.combo-box.dialog-combo.dark {
+  -fx-border-color: rgba(255,255,255,0.12);
+}
+
+.combo-box.dialog-combo.dark:focused {
+  -fx-border-color: #58A6FF; /* lighter blue for dark */
+  -fx-effect: dropshadow(gaussian, rgba(88,166,255,0.12), 8, 0, 0, 2);
+}

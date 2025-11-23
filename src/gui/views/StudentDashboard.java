@@ -1,11 +1,13 @@
 package gui.views;
 
+import java.io.File;
+
 import gui.controllers.StudentDashboardController;
 import gui.utils.ThemeManager;
+import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
-import javafx.animation.Interpolator;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
@@ -26,8 +28,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.util.Duration;
 import student.Student;
-
-import java.io.File;
 
 /**
  * StudentDashboard - Main dashboard for student users
@@ -50,6 +50,7 @@ public class StudentDashboard {
     private Button homeBtn;
     private Button shopBtn;
     private Button cartBtn;
+    private Button requestPickupBtn;
     private Button claimItemsBtn;
     private Button myReservationsBtn;
     
@@ -150,17 +151,27 @@ public class StudentDashboard {
             logoBox.getChildren().add(logoText);
         }
         
-        // Add company name label
-        Label companyNameLabel = new Label("STI ProWare\nNovaliches");
+        // Add company name and student name
+        VBox namesBox = new VBox(2);
+        namesBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label companyNameLabel = new Label("STI ProWare Novaliches");
         String textColor = "#ffffff";
-        companyNameLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 12px; -fx-line-spacing: 2;");
-        companyNameLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
-        logoBox.getChildren().add(companyNameLabel);
+        companyNameLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 11px; -fx-font-weight: bold;");
+        companyNameLabel.setFont(Font.font("System", FontWeight.BOLD, 11));
+        
+        Label studentNameLabel = new Label(student.getFirstName() + " " + student.getLastName());
+        studentNameLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 14px; -fx-font-weight: bold;");
+        studentNameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        
+        namesBox.getChildren().addAll(companyNameLabel, studentNameLabel);
+        logoBox.getChildren().add(namesBox);
         
         // Create navigation buttons/tabs
         homeBtn = createNavTab("Home", false);
         shopBtn = createNavTab("Shop", false);
         cartBtn = createNavTab("Cart", false);
+        requestPickupBtn = createNavTab("Request Pickup", false);
         claimItemsBtn = createNavTab("Claim Items", false);
         myReservationsBtn = createNavTab("My Reservations", false);
         
@@ -185,6 +196,11 @@ public class StudentDashboard {
             showCart();
         });
         
+        requestPickupBtn.setOnAction(e -> {
+            setActiveTab(requestPickupBtn);
+            showRequestPickup();
+        });
+        
         claimItemsBtn.setOnAction(e -> {
             setActiveTab(claimItemsBtn);
             showClaimItems();
@@ -201,13 +217,14 @@ public class StudentDashboard {
         // Navigation container (centered)
         HBox navContainer = new HBox(30);
         navContainer.setAlignment(Pos.CENTER);
-        navContainer.getChildren().addAll(homeBtn, shopBtn, cartBtn, claimItemsBtn, myReservationsBtn);
+        navContainer.getChildren().addAll(homeBtn, shopBtn, cartBtn, requestPickupBtn, claimItemsBtn, myReservationsBtn);
         HBox.setHgrow(navContainer, Priority.ALWAYS);
 
         // Apply the active tab based on last selection
         switch (activeTabName) {
             case "Shop": setActiveTab(shopBtn); break;
             case "Cart": setActiveTab(cartBtn); break;
+            case "Request Pickup": setActiveTab(requestPickupBtn); break;
             case "Claim Items": setActiveTab(claimItemsBtn); break;
             case "My Reservations": setActiveTab(myReservationsBtn); break;
             default: setActiveTab(homeBtn); break;
@@ -399,7 +416,7 @@ public class StudentDashboard {
         if (activeBtn != null) {
             activeTabName = activeBtn.getText();
         }
-        Button[] buttons = {homeBtn, shopBtn, cartBtn, claimItemsBtn, myReservationsBtn};
+        Button[] buttons = {homeBtn, shopBtn, cartBtn, requestPickupBtn, claimItemsBtn, myReservationsBtn};
         
         for (Button btn : buttons) {
             if (btn == activeBtn) {
@@ -492,6 +509,15 @@ public class StudentDashboard {
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createMyReservationsView());
         currentViewRefresher = this::showMyReservations;
+    }
+    
+    /**
+     * Show request pickup view
+     */
+    private void showRequestPickup() {
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(controller.createRequestPickupView());
+        currentViewRefresher = this::showRequestPickup;
     }
     
     /**
