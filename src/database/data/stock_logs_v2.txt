@@ -13,3 +13,5 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-24 09:05:50|staff|2001|STI Polo|M|-1/24|USER_PICKUP|Student Juan Dela Cruz (2023001) picked up item
 2025-11-24 10:00:00|staff|2003|STI Cap|OneSize|+5/25|ITEM_UPDATED|Adjusted stock after QC - added 5 units
 2025-11-24 11:00:00|staff|2004|STI Hoodie|XL|-3/47|STAFF_RETURN|Processed returned hoodies (inspected)
+2025-11-24 16:16:15|Ramirez, Bowie|1056|IT/Eng RTW Skirt (Female)|S|-1/138|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-24 16:19:31|Ramirez, Bowie|1056|IT/Eng RTW Skirt (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng RTW Skirt (Female) (Size: M); Note: hi
