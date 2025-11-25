@@ -47,10 +47,12 @@ public class ReportController {
         return ThemeManager.isDarkMode() ? "#a0a0c0" : "#666666";
     }
     
+    @SuppressWarnings("unused")
     private String getStatBoxBgColor() {
         return ThemeManager.isDarkMode() ? "rgba(255,255,255,0.05)" : "#f5f5f5";
     }
     
+    @SuppressWarnings("unused")
     private String getStatBoxBorderColor() {
         return ThemeManager.isDarkMode() ? "rgba(255,255,255,0.1)" : "#e0e0e0";
     }
@@ -59,6 +61,7 @@ public class ReportController {
         return "#1e3c72";
     }
     
+    @SuppressWarnings("unused")
     private String getButtonHoverBgColor() {
         return "#0d1f3c";
     }
