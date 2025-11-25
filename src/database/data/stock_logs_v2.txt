@@ -15,3 +15,16 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-24 11:00:00|staff|2004|STI Hoodie|XL|-3/47|STAFF_RETURN|Processed returned hoodies (inspected)
 2025-11-24 16:16:15|Ramirez, Bowie|1056|IT/Eng RTW Skirt (Female)|S|-1/138|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
 2025-11-24 16:19:31|Ramirez, Bowie|1056|IT/Eng RTW Skirt (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng RTW Skirt (Female) (Size: M); Note: hi
+2025-11-25 01:01:15|Ramirez, Bowie|1057|IT/Eng RTW Pants (Female)|S|-1/98|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-25 01:02:29|Ramirez, Bowie|1057|IT/Eng RTW Pants (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng RTW Pants (Female) (Size: S)
+2025-11-25 01:13:25|raslu, hashim|1034|SHS Checkered Skirt|S|+1/1|USER_RETURN|Student raslu, hashim (02000288888) returned - Reason: Replaced with: SHS Checkered Skirt (Size: S)
+2025-11-25 20:49:30|staff|1025|Tourism Blue Skirt (Female)|L|+10/50|ITEM_UPDATED|Added by staff: +10 (manual restock)
+2025-11-25 23:59:30|Ramirez, Bowie|1044|PE Blue Jogging Pants|S|-1/68|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-25 23:59:32|Ramirez, Bowie|1047|Anniversary Shirt|S|-1/73|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-26 00:06:48|Ramirez, Bowie|1046|NSTP Gray Shirt (Female)|S|-1/58|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-26 00:06:50|Ramirez, Bowie|1055|IT/Eng Gray 3/4 Blouse (Female)|S|-1/193|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-26 00:07:37|staff|1024|Tourism Blazer (Female)|S||PRICE_UPDATED|Price changed: ₱650.00 -> ₱600.00
+2025-11-26 00:07:37|staff|1024|Tourism Blazer (Female)|M||PRICE_UPDATED|Price changed: ₱650.00 -> ₱600.00
+2025-11-26 00:07:37|staff|1024|Tourism Blazer (Female)|L||PRICE_UPDATED|Price changed: ₱650.00 -> ₱600.00
+2025-11-26 00:07:37|staff|1024|Tourism Blazer (Female)|XL||PRICE_UPDATED|Price changed: ₱650.00 -> ₱600.00
+2025-11-26 00:07:46|staff|1024|Tourism Blazer (Female)|M|+30/31|ITEM_UPDATED|Added by staff: +30 (manual restock)

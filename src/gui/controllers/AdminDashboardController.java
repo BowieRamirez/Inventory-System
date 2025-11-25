@@ -1156,51 +1156,46 @@ public class AdminDashboardController {
      * Handle reject reservation
      */
     private void handleRejectReservation(Reservation reservation, TableView<Reservation> table) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Reject Reservation");
-        
+        String header;
         if (reservation.isPartOfBundle()) {
             String bundleId = reservation.getBundleId();
             long itemCount = reservationManager.getAllReservations().stream()
                 .filter(r -> bundleId.equals(r.getBundleId()))
                 .count();
-            dialog.setHeaderText("Reject BUNDLE ORDER for: " + reservation.getStudentName() + 
-                               "\nBundle contains " + itemCount + " item type(s)");
+            header = "Reject BUNDLE ORDER for: " + reservation.getStudentName() +
+                     "\nBundle contains " + itemCount + " item type(s)";
         } else {
-            dialog.setHeaderText("Reject reservation for: " + reservation.getStudentName());
+            header = "Reject reservation for: " + reservation.getStudentName();
         }
-        
-        dialog.setContentText("Reason:");
 
-        dialog.showAndWait().ifPresent(reason -> {
-            if (!reason.isEmpty()) {
-                boolean allSuccess = true;
-                
-                if (reservation.isPartOfBundle()) {
-                    // Reject all items in the bundle
-                    String bundleId = reservation.getBundleId();
-                    List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
-                        .filter(r -> bundleId.equals(r.getBundleId()))
-                        .collect(java.util.stream.Collectors.toList());
-                    
-                    for (Reservation item : bundleItems) {
-                        boolean success = reservationManager.cancelReservation(item.getReservationId(), reason);
-                        if (!success) {
-                            allSuccess = false;
-                        }
+        String reason = AlertHelper.showInputDialog("Reject Reservation", header, "Reason:");
+        if (reason != null && !reason.isEmpty()) {
+            boolean allSuccess = true;
+
+            if (reservation.isPartOfBundle()) {
+                // Reject all items in the bundle
+                String bundleId = reservation.getBundleId();
+                List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId.equals(r.getBundleId()))
+                    .collect(java.util.stream.Collectors.toList());
+
+                for (Reservation item : bundleItems) {
+                    boolean success = reservationManager.cancelReservation(item.getReservationId(), reason);
+                    if (!success) {
+                        allSuccess = false;
                     }
-                } else {
-                    allSuccess = reservationManager.cancelReservation(reservation.getReservationId(), reason);
                 }
-                
-                if (allSuccess) {
-                    table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
-                    AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
-                } else {
-                    AlertHelper.showError("Error", "Failed to reject reservation");
-                }
+            } else {
+                allSuccess = reservationManager.cancelReservation(reservation.getReservationId(), reason);
             }
-        });
+
+            if (allSuccess) {
+                table.setItems(FXCollections.observableArrayList(ControllerUtils.getDeduplicatedReservations(reservationManager.getAllReservations())));
+                AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
+            } else {
+                AlertHelper.showError("Error", "Failed to reject reservation");
+            }
+        }
     }
 
     /**
@@ -3594,6 +3589,21 @@ public class AdminDashboardController {
         container.getChildren().addAll(titleLabel, maintenanceCard);
         
         return container;
+    }
+    
+    /**
+     * Getter methods for managers (used by reporting and other features)
+     */
+    public InventoryManager getInventoryManager() {
+        return inventoryManager;
+    }
+    
+    public ReservationManager getReservationManager() {
+        return reservationManager;
+    }
+    
+    public ReceiptManager getReceiptManager() {
+        return receiptManager;
     }
 }
 

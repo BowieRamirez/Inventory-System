@@ -15,6 +15,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -53,6 +54,7 @@ public class StudentDashboard {
     private Button requestPickupBtn;
     private Button claimItemsBtn;
     private Button myReservationsBtn;
+    private Button helpBtn;
     
     // Top bar elements
     private StackPane toggleSwitch;
@@ -174,6 +176,7 @@ public class StudentDashboard {
         requestPickupBtn = createNavTab("Request Pickup", false);
         claimItemsBtn = createNavTab("Claim Items", false);
         myReservationsBtn = createNavTab("My Reservations", false);
+        helpBtn = createNavTab("Help", false);
         
         // Preserve previously active tab if set, otherwise default to Home
         if (activeTabName == null) {
@@ -210,6 +213,11 @@ public class StudentDashboard {
             setActiveTab(myReservationsBtn);
             showMyReservations();
         });
+
+        helpBtn.setOnAction(e -> {
+            setActiveTab(helpBtn);
+            showHelp();
+        });
         
         // Set up cart update callback
         controller.setCartUpdateCallback(this::updateCartBadge);
@@ -217,7 +225,7 @@ public class StudentDashboard {
         // Navigation container (centered)
         HBox navContainer = new HBox(30);
         navContainer.setAlignment(Pos.CENTER);
-        navContainer.getChildren().addAll(homeBtn, shopBtn, cartBtn, requestPickupBtn, claimItemsBtn, myReservationsBtn);
+        navContainer.getChildren().addAll(homeBtn, shopBtn, cartBtn, requestPickupBtn, claimItemsBtn, myReservationsBtn, helpBtn);
         HBox.setHgrow(navContainer, Priority.ALWAYS);
 
         // Apply the active tab based on last selection
@@ -227,6 +235,7 @@ public class StudentDashboard {
             case "Request Pickup": setActiveTab(requestPickupBtn); break;
             case "Claim Items": setActiveTab(claimItemsBtn); break;
             case "My Reservations": setActiveTab(myReservationsBtn); break;
+            case "Help": setActiveTab(helpBtn); break;
             default: setActiveTab(homeBtn); break;
         }
         
@@ -416,7 +425,7 @@ public class StudentDashboard {
         if (activeBtn != null) {
             activeTabName = activeBtn.getText();
         }
-        Button[] buttons = {homeBtn, shopBtn, cartBtn, requestPickupBtn, claimItemsBtn, myReservationsBtn};
+        Button[] buttons = {homeBtn, shopBtn, cartBtn, requestPickupBtn, claimItemsBtn, myReservationsBtn, helpBtn};
         
         for (Button btn : buttons) {
             if (btn == activeBtn) {
@@ -443,6 +452,192 @@ public class StudentDashboard {
                 );
             }
         }
+    }
+
+    private void showHelp() {
+        contentArea.getChildren().clear();
+        
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-control-inner-background: transparent; -fx-padding: 10;");
+        
+        VBox mainBox = new VBox(20);
+        mainBox.setPadding(new Insets(20));
+        mainBox.setStyle("-fx-border-color: transparent;");
+        mainBox.setId("help-content");
+        
+        // ====== WELCOME SECTION ======
+        VBox welcomeSection = createHelpCard(
+            "👋 Welcome to STI ProWear Shop",
+            "Your Complete Merchandise Guide",
+            "This is your one-stop shop for all official STI merchandise including uniforms, jerseys, and special items. Follow this guide to browse, reserve, and pickup your merchandise."
+        );
+        
+        // ====== GETTING STARTED ======
+        VBox startedSection = createHelpCard(
+            "🚀 Getting Started",
+            "First Time Shopping?",
+            ""
+        );
+        startedSection.getChildren().add(createBulletPoint("Create your account with email and password"));
+        startedSection.getChildren().add(createBulletPoint("Verify your student course (only items for your course available)"));
+        startedSection.getChildren().add(createBulletPoint("Review Terms and Conditions before proceeding"));
+        startedSection.getChildren().add(createBulletPoint("Browse items, select sizes, and make reservations"));
+        startedSection.getChildren().add(createBulletPoint("Pay at cashier and pickup your items"));
+        
+        // ====== NAVIGATION GUIDE ======
+        VBox navSection = createHelpCard(
+            "🧭 Navigation Guide",
+            "Finding Your Way Around",
+            ""
+        );
+        navSection.getChildren().add(createBulletPoint("Home: Dashboard with quick access to key features"));
+        navSection.getChildren().add(createBulletPoint("Shop: Browse items by category or search by code"));
+        navSection.getChildren().add(createBulletPoint("My Reservations: Track your orders and their status"));
+        navSection.getChildren().add(createBulletPoint("Account: Update profile, change password, view history"));
+        navSection.getChildren().add(createBulletPoint("Help: Access this guide anytime"));
+        
+        // ====== SHOPPING BASICS ======
+        VBox shoppingSection = createHelpCard(
+            "🛍️ Shopping Basics",
+            "How to Browse & Reserve Items",
+            ""
+        );
+        shoppingSection.getChildren().add(createBulletPoint("Tap 'Shop' to browse available merchandise"));
+        shoppingSection.getChildren().add(createBulletPoint("Filter by category: Course Items or STI Special Items"));
+        shoppingSection.getChildren().add(createSubBullet("Course Items: Available only for your enrolled course"));
+        shoppingSection.getChildren().add(createSubBullet("STI Special Items: Available to ALL students"));
+        shoppingSection.getChildren().add(createBulletPoint("Select item to view details: Price, sizes, available stock"));
+        shoppingSection.getChildren().add(createBulletPoint("Choose your size: XS, S, M, L, XL, XXL, One Size"));
+        shoppingSection.getChildren().add(createBulletPoint("Enter quantity desired (check stock availability first)"));
+        shoppingSection.getChildren().add(createBulletPoint("Review total price before confirming reservation"));
+        
+        // ====== RESERVATION STATUS ======
+        VBox statusSection = createHelpCard(
+            "📊 Understanding Reservation Status",
+            "Track Your Order Progress",
+            ""
+        );
+        statusSection.getChildren().add(createStatusBullet("🔵 PENDING", "Admin is reviewing your request"));
+        statusSection.getChildren().add(createStatusBullet("✅ APPROVED - READY FOR PICKUP", "Items are ready! Go to cashier to pay and collect"));
+        statusSection.getChildren().add(createStatusBullet("✓ COMPLETED", "You have successfully picked up your items"));
+        statusSection.getChildren().add(createStatusBullet("❌ CANCELLED", "Your reservation was cancelled (check reason)"));
+        statusSection.getChildren().add(createStatusBullet("🔄 RETURN REQUEST", "You've requested to return/exchange items"));
+        
+        // ====== PAYMENT PROCESS ======
+        VBox paymentSection = createHelpCard(
+            "💳 Payment Process",
+            "How to Pay for Your Items",
+            ""
+        );
+        paymentSection.getChildren().add(createBulletPoint("Wait for admin approval of your reservation"));
+        paymentSection.getChildren().add(createBulletPoint("Once approved, go to cashier desk with your student ID"));
+        paymentSection.getChildren().add(createBulletPoint("Provide your Reservation ID to cashier"));
+        paymentSection.getChildren().add(createBulletPoint("Cashier will verify items and total amount"));
+        paymentSection.getChildren().add(createBulletPoint("Make payment (currently cash only) to cashier"));
+        paymentSection.getChildren().add(createBulletPoint("Receive receipt and pickup your merchandise"));
+        paymentSection.getChildren().add(createBulletPoint("Verify items match your reservation before leaving"));
+        
+        // ====== RETURNS & REPLACEMENTS ======
+        VBox returnSection = createHelpCard(
+            "🔄 Returns & Replacements",
+            "Handling Issues with Your Purchase",
+            ""
+        );
+        returnSection.getChildren().add(createBulletPoint("Item damaged or defective? Request replacement immediately"));
+        returnSection.getChildren().add(createBulletPoint("Wrong size received? Initiate exchange within 7 days"));
+        returnSection.getChildren().add(createBulletPoint("Go to 'Request Pickup' in your account"));
+        returnSection.getChildren().add(createBulletPoint("Select reason: Damage, Wrong Size, Incorrect Item, Other"));
+        returnSection.getChildren().add(createBulletPoint("Upload clear photos of the issue (required for damage claims)"));
+        returnSection.getChildren().add(createBulletPoint("Provide detailed explanation in text area"));
+        returnSection.getChildren().add(createBulletPoint("Select replacement item (if applicable)"));
+        returnSection.getChildren().add(createBulletPoint("Wait for staff approval - usually within 24-48 hours"));
+        
+        // ====== TIPS FOR SUCCESS ======
+        VBox tipsSection = createHelpCard(
+            "💡 Tips for Success",
+            "Shop Smart & Avoid Issues",
+            ""
+        );
+        tipsSection.getChildren().add(createTipBullet("Check available stock BEFORE reserving - avoid disappointment"));
+        tipsSection.getChildren().add(createTipBullet("Double-check your size - sizes run differently per item"));
+        tipsSection.getChildren().add(createTipBullet("Save your Reservation ID - you'll need it for payment"));
+        tipsSection.getChildren().add(createTipBullet("Pickup within 7 days - items are held for limited time"));
+        tipsSection.getChildren().add(createTipBullet("Bring student ID - required to claim merchandise"));
+        tipsSection.getChildren().add(createTipBullet("Check item condition before leaving cashier"));
+        tipsSection.getChildren().add(createTipBullet("Report issues immediately - don't wait days to complain"));
+        
+        // ====== SEARCH & CATEGORIES ======
+        VBox searchSection = createHelpCard(
+            "🔍 Search & Categories",
+            "Finding Items Faster",
+            ""
+        );
+        searchSection.getChildren().add(createBulletPoint("Search by item code: 1000-9999 range"));
+        searchSection.getChildren().add(createBulletPoint("Browse by category: Course, Gender, Type"));
+        searchSection.getChildren().add(createBulletPoint("Filter by size to see current stock"));
+        searchSection.getChildren().add(createBulletPoint("Sort by price, newest, or popularity"));
+        searchSection.getChildren().add(createBulletPoint("Use 'View Similar' to find related items"));
+        
+        // ====== ACCOUNT MANAGEMENT ======
+        VBox accountSection = createHelpCard(
+            "👤 Account Management",
+            "Your Profile & Settings",
+            ""
+        );
+        accountSection.getChildren().add(createBulletPoint("View your profile information and course"));
+        accountSection.getChildren().add(createBulletPoint("Change your password from Account tab"));
+        accountSection.getChildren().add(createBulletPoint("Update contact information as needed"));
+        accountSection.getChildren().add(createBulletPoint("View order history and past purchases"));
+        accountSection.getChildren().add(createBulletPoint("Check reservation activity log"));
+        
+        // ====== FAQ ======
+        VBox faqSection = createHelpCard(
+            "❓ Frequently Asked Questions",
+            "Quick Answers",
+            ""
+        );
+        faqSection.getChildren().add(createFAQItem("Q: Can I cancel my reservation?", "A: Yes, but only if it's PENDING. Contact admin if already APPROVED."));
+        faqSection.getChildren().add(createFAQItem("Q: My reservation was rejected. Why?", "A: Check the rejection reason. Could be: out of stock, invalid size, or course mismatch."));
+        faqSection.getChildren().add(createFAQItem("Q: How long can I hold my items?", "A: Once approved, items are held for 7 days. Pick them up before expiration."));
+        faqSection.getChildren().add(createFAQItem("Q: Can I reserve items for another student?", "A: No, items are personal. Each student must create their own account."));
+        faqSection.getChildren().add(createFAQItem("Q: What payment methods do you accept?", "A: Currently cash only. Card/digital payments coming soon."));
+        faqSection.getChildren().add(createFAQItem("Q: Can I change my order after reserving?", "A: No, you must cancel and create a new reservation."));
+        
+        // ====== IMPORTANT POLICIES ======
+        VBox policiesSection = createHelpCard(
+            "📜 Important Policies",
+            "Rules & Conditions",
+            ""
+        );
+        policiesSection.getChildren().add(createBulletPoint("Course-restricted items available ONLY to enrolled students"));
+        policiesSection.getChildren().add(createBulletPoint("One account per student - duplicates will be deactivated"));
+        policiesSection.getChildren().add(createBulletPoint("No refunds for completed purchases"));
+        policiesSection.getChildren().add(createBulletPoint("Items must be collected within 7 days of approval"));
+        policiesSection.getChildren().add(createBulletPoint("Damage claims require photo evidence"));
+        policiesSection.getChildren().add(createBulletPoint("Misuse of system may result in account termination"));
+        
+        // ====== NEED MORE HELP ======
+        VBox supportSection = createHelpCard(
+            "📞 Need More Help?",
+            "Contact Support",
+            ""
+        );
+        supportSection.getChildren().add(createBulletPoint("Visit Cashier Desk: Located at Student Services Center"));
+        supportSection.getChildren().add(createBulletPoint("Email: merch-support@sti.edu.ph"));
+        supportSection.getChildren().add(createBulletPoint("Chat with Staff: Message from your account"));
+        supportSection.getChildren().add(createBulletPoint("Phone: 1-800-STI-SHOP"));
+        supportSection.getChildren().add(createBulletPoint("Hours: Monday-Friday, 9 AM - 5 PM"));
+        
+        mainBox.getChildren().addAll(
+            welcomeSection, startedSection, navSection, shoppingSection, statusSection,
+            paymentSection, returnSection, tipsSection, searchSection, accountSection,
+            faqSection, policiesSection, supportSection
+        );
+        
+        scrollPane.setContent(mainBox);
+        contentArea.getChildren().add(scrollPane);
+        currentViewRefresher = this::showHelp;
     }
     
     /**
@@ -603,8 +798,10 @@ public class StudentDashboard {
         // Re-apply notification badge after recreating top bar
         updateNotificationBadge();
         
-        // Re-apply active tab
-        if (currentViewRefresher != null) {
+        // Refresh help if displayed, or re-apply current view
+        if (contentArea.lookup("#help-content") != null) {
+            showHelp();
+        } else if (currentViewRefresher != null) {
             currentViewRefresher.run();
         }
     }
@@ -661,6 +858,108 @@ public class StudentDashboard {
      */
     public BorderPane getView() {
         return view;
+    }
+    
+    // ===== HELP SECTION HELPER METHODS =====
+    
+    private VBox createHelpCard(String title, String subtitle, String description) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(16));
+        card.setStyle(
+            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#2a2a3e" : "#f5f5f5") + ";" +
+            "-fx-background-radius: 8px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#404054" : "#e0e0e0") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 8px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0, 0, 1);"
+        );
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72") + ";");
+        card.getChildren().add(titleLabel);
+        
+        if (subtitle != null && !subtitle.isEmpty()) {
+            Label subtitleLabel = new Label(subtitle);
+            subtitleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
+            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#a0a0c0" : "#4a5f8f") + ";");
+            card.getChildren().add(subtitleLabel);
+        }
+        
+        if (description != null && !description.isEmpty()) {
+            Label descLabel = new Label(description);
+            descLabel.setWrapText(true);
+            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + ";");
+            card.getChildren().add(descLabel);
+        }
+        
+        return card;
+    }
+    
+    private VBox createBulletPoint(String text) {
+        VBox box = new VBox(4);
+        box.setPadding(new Insets(4, 0, 4, 20));
+        Label bullet = new Label("• " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 11px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createSubBullet(String text) {
+        VBox box = new VBox(2);
+        box.setPadding(new Insets(2, 0, 2, 40));
+        Label bullet = new Label("  ◦ " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 10px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createTipBullet(String text) {
+        VBox box = new VBox(4);
+        box.setPadding(new Insets(4, 0, 4, 20));
+        Label bullet = new Label("✓ " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 11px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createStatusBullet(String status, String description) {
+        VBox box = new VBox(3);
+        box.setPadding(new Insets(6, 0, 6, 20));
+        Label statusLabel = new Label(status);
+        statusLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
+        statusLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0e0ff" : "#0d5fa8") + ";");
+        
+        Label descLabel = new Label(description);
+        descLabel.setWrapText(true);
+        descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 10px;");
+        
+        box.getChildren().addAll(statusLabel, descLabel);
+        return box;
+    }
+    
+    private HBox createFAQItem(String question, String answer) {
+        HBox faqBox = new HBox(12);
+        faqBox.setPadding(new Insets(8, 0, 8, 0));
+        
+        VBox qnaBox = new VBox(4);
+        Label qLabel = new Label(question);
+        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
+        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + ";");
+        qLabel.setWrapText(true);
+        
+        Label aLabel = new Label(answer);
+        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 10px;");
+        aLabel.setWrapText(true);
+        
+        qnaBox.getChildren().addAll(qLabel, aLabel);
+        faqBox.getChildren().add(qnaBox);
+        HBox.setHgrow(qnaBox, Priority.ALWAYS);
+        
+        return faqBox;
     }
 }
 

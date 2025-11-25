@@ -92,6 +92,49 @@ public class ReceiptManager {
         saveReceipts();
         return receipt;
     }
+
+    // Create a new receipt including paidAmount and change
+    public Receipt createReceipt(String paymentStatus, int quantity, double amount,
+                                 int itemCode, String itemName, String size, String buyerName,
+                                 double paidAmount, double change) {
+        int receiptId = nextReceiptId++;
+        String dateOrdered = Receipt.getCurrentDateTime();
+        Receipt receipt = new Receipt(receiptId, dateOrdered, paymentStatus,
+                                      quantity, amount, itemCode, itemName, size, buyerName);
+        // set paid and change
+        try {
+            java.lang.reflect.Field fPaid = Receipt.class.getDeclaredField("paidAmount");
+            java.lang.reflect.Field fChange = Receipt.class.getDeclaredField("change");
+            fPaid.setAccessible(true);
+            fChange.setAccessible(true);
+            fPaid.setDouble(receipt, paidAmount);
+            fChange.setDouble(receipt, change);
+        } catch (Exception ignored) {}
+        receipts.put(receiptId, receipt);
+        saveReceipts();
+        return receipt;
+    }
+
+    // Create a new receipt with bundleId including paidAmount and change
+    public Receipt createReceipt(String paymentStatus, int quantity, double amount,
+                                 int itemCode, String itemName, String size, String buyerName, String bundleId,
+                                 double paidAmount, double change) {
+        int receiptId = nextReceiptId++;
+        String dateOrdered = Receipt.getCurrentDateTime();
+        Receipt receipt = new Receipt(receiptId, dateOrdered, paymentStatus,
+                quantity, amount, itemCode, itemName, size, buyerName, bundleId);
+        try {
+            java.lang.reflect.Field fPaid = Receipt.class.getDeclaredField("paidAmount");
+            java.lang.reflect.Field fChange = Receipt.class.getDeclaredField("change");
+            fPaid.setAccessible(true);
+            fChange.setAccessible(true);
+            fPaid.setDouble(receipt, paidAmount);
+            fChange.setDouble(receipt, change);
+        } catch (Exception ignored) {}
+        receipts.put(receiptId, receipt);
+        saveReceipts();
+        return receipt;
+    }
     
     // Find receipt by ID
     public Receipt findReceiptById(int receiptId) {

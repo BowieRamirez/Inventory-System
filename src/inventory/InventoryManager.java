@@ -24,6 +24,17 @@ public class InventoryManager {
     }
 
     /**
+     * Reload items from the underlying storage file. This clears the in-memory
+     * inventory and reloads fresh data from `items.txt`.
+     * Call this if the file may have been changed outside the application.
+     */
+    public void reloadItems() {
+        inventory.clear();
+        itemByCodeMap.clear();
+        loadItemsFromFile();
+    }
+
+    /**
      * Load all items from file during initialization
      */
     private void loadItemsFromFile() {
@@ -227,8 +238,18 @@ public class InventoryManager {
 
     
     public Item findItemByCodeAndSize(int code, String size) {
+        String searchSizeTrimmed = size == null ? null : size.trim();
         for (Item item : inventory) {
-            if (item.getCode() == code && item.getSize().equalsIgnoreCase(size)) {
+            if (item.getCode() != code) continue;
+            String itemSize = item.getSize();
+            String itemSizeTrimmed = itemSize == null ? null : itemSize.trim();
+            
+            // Both null case
+            if (itemSizeTrimmed == null && searchSizeTrimmed == null) {
+                return item;
+            }
+            // Both non-null case - compare case-insensitive after trimming
+            if (itemSizeTrimmed != null && searchSizeTrimmed != null && itemSizeTrimmed.equalsIgnoreCase(searchSizeTrimmed)) {
                 return item;
             }
         }
@@ -276,18 +297,27 @@ public class InventoryManager {
     
     // ✅ Update item quantity by code and size
     public boolean updateItemQuantityBySize(int code, String size, int newQuantity) {
-        Item item = findItemByCodeAndSize(code, size);
-        if (item != null) {
+        try {
+            Item item = findItemByCodeAndSize(code, size);
+            if (item == null) {
+                System.err.println("[ERROR] Item not found: code=" + code + ", size='" + size + "'");
+                return false;
+            }
             int oldQuantity = item.getQuantity();
             item.setQuantity(newQuantity);
             // Save updated inventory to file
             FileStorage.saveItems(inventory);
             // Log stock adjustment
             int adjustment = newQuantity - oldQuantity;
-            SystemLogger.logStockAdjustment("Admin", item.getName() + " (" + size + ")", adjustment, newQuantity);
+            String sizeLabel = (size == null ? "" : " (" + size + ")");
+            SystemLogger.logStockAdjustment("Admin", item.getName() + sizeLabel, adjustment, newQuantity);
             return true;
+        } catch (Exception e) {
+            System.err.println("[ERROR] Failed to update item quantity: " + e.getMessage());
+            e.printStackTrace();
+            SystemLogger.logError("Failed to update item quantity by size", e);
+            return false;
         }
-        return false;
     }
     
     // ✅ Add new stock to existing item

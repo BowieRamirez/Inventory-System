@@ -1,0 +1,8 @@
+SALES & TRANSACTION REPORT
+Generated: 2025-11-25
+==========================================
+
+Sales Summary:
+Total Revenue: ₱1996.00
+Total Orders: 2
+Average Order Value: ₱998.00

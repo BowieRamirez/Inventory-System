@@ -634,6 +634,7 @@ public class StudentDashboardController {
     /**
      * Create a simplified item card for home view
      */
+    @SuppressWarnings("unused")
     private VBox createHomeItemCard(Item item) {
         // Slightly narrower so 6 cards fit in one row at 1920px while keeping full button labels
         VBox card = new VBox(10);
@@ -1026,6 +1027,7 @@ public class StudentDashboardController {
     /**
      * Create item card
      */
+    @SuppressWarnings("unused")
     private VBox createItemCard(Item item) {
         VBox card = new VBox(10);
         card.setPrefWidth(240);
@@ -2368,6 +2370,7 @@ public class StudentDashboardController {
             // Pagination setup (5 items per page for reservations)
             final int reservationsPerPage = 5;
             final int[] currentReservationPage = new int[]{1};
+            @SuppressWarnings("unchecked")
             final List<Reservation>[] workingFilteredReservations = new List[]{deduplicatedReservations};
             
             Label reservationPageLabel = new Label();

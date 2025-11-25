@@ -110,6 +110,13 @@ Four distinct user roles with specialized dashboards:
   - Keep good items while returning problematic ones
   - See [Selective Bundle Return Documentation](docs/features/SELECTIVE_BUNDLE_RETURN.md)
 
+- 📊 **Advanced Reporting System** (Latest)
+  - **Live Search**: Real-time filtering across all reports
+  - **Smart Filtering**: Threshold controls and dynamic updates
+  - **Multi-Format Export**: PDF and Excel export capabilities
+  - **11 Comprehensive Reports**: Stock, Transaction, and Student Activity reports
+  - See [Advanced Reporting Documentation](docs/features/ADVANCED_REPORTING_FEATURES.md)
+
 ---
 
 ## 📸 Screenshots

@@ -2,8 +2,13 @@ package gui.utils;
 
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.geometry.Insets;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 /**
  * AlertHelper - Utility class for displaying dialogs and alerts
@@ -12,6 +17,7 @@ import java.util.Optional;
  * confirmations, and input dialogs with consistent styling.
  */
 public class AlertHelper {
+    private static final Logger LOGGER = Logger.getLogger(AlertHelper.class.getName());
     
     /**
      * Show an information dialog
@@ -53,6 +59,32 @@ public class AlertHelper {
         alert.setHeaderText("Success!");
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    /**
+     * Show a detailed receipt in a scrollable, fixed-height dialog.
+     * @param title dialog title
+     * @param receiptText the receipt text (monospaced)
+     */
+    public static void showReceiptDialog(String title, String receiptText) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText("Success!");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK);
+
+        javafx.scene.control.TextArea area = new javafx.scene.control.TextArea(receiptText);
+        area.setEditable(false);
+        area.setWrapText(false);
+        area.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 12px;");
+        area.setPrefWidth(520);
+        area.setPrefHeight(380);
+
+        dialog.getDialogPane().setContent(area);
+        // reduce overall dialog height by constraining the pane
+        dialog.getDialogPane().setPrefHeight(420);
+        dialog.getDialogPane().setPrefWidth(540);
+
+        dialog.showAndWait();
     }
     
     /**
@@ -113,13 +145,7 @@ public class AlertHelper {
      * @return The user's input, or null if cancelled
      */
     public static String showInputDialog(String title, String message, String defaultValue) {
-        TextInputDialog dialog = new TextInputDialog(defaultValue);
-        dialog.setTitle(title);
-        dialog.setHeaderText(null);
-        dialog.setContentText(message);
-        
-        Optional<String> result = dialog.showAndWait();
-        return result.orElse(null);
+        return showInputDialog(title, null, message, defaultValue);
     }
     
     /**
@@ -131,6 +157,50 @@ public class AlertHelper {
      */
     public static String showInputDialog(String title, String message) {
         return showInputDialog(title, message, "");
+    }
+
+    /**
+     * Show an input dialog with optional header.
+     * Adds logging when dialog is shown and when user input is null/cancelled.
+     */
+    public static String showInputDialog(String title, String header, String message, String defaultValue) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
+        ButtonType okBtn = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okBtn, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField inputField = new TextField(defaultValue == null ? "" : defaultValue);
+        inputField.setPromptText(message);
+        grid.add(inputField, 0, 0);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setOnShown(e -> LOGGER.fine(() -> "Input dialog shown: " + title + " / " + header));
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okBtn) {
+                String v = inputField.getText();
+                if (v == null || v.trim().isEmpty()) {
+                    LOGGER.fine(() -> "Input dialog returned empty for: " + title + " / " + header);
+                    return v == null ? null : v.trim();
+                }
+                return v.trim();
+            }
+            LOGGER.fine(() -> "Input dialog cancelled for: " + title + " / " + header);
+            return null;
+        });
+
+        Optional<String> result = dialog.showAndWait();
+        if (result.isEmpty()) {
+            LOGGER.fine(() -> "Input dialog result empty (user cancelled): " + title + " / " + header);
+        }
+        return result.orElse(null);
     }
     
     /**

@@ -9,6 +9,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -40,6 +41,8 @@ public class StaffDashboard {
     private Button reservationsBtn;
     private Button inventoryBtn;
     private Button stockLogsBtn;
+    private Button reportsBtn;
+    private Button helpBtn;
     private Button logoutBtn;
     private Button dashboardBtn;
     
@@ -52,11 +55,33 @@ public class StaffDashboard {
     private StackPane toggleCircle;
     private Label toggleIcon;
     
+    // Track currently active button for theme refresh
+    private Button activeButton;
+    
     public StaffDashboard() {
         controller = new StaffDashboardController();
         initializeView();
         // Listen for theme changes and reapply the sidebar styles to avoid stale styles
         javafx.application.Platform.runLater(() -> ThemeManager.addThemeChangeListener(() -> javafx.application.Platform.runLater(this::updateSidebarTheme)));
+        // Reload dashboard data when the window gains focus (useful if files were edited externally)
+        view.sceneProperty().addListener((sceneObs, oldScene, newScene) -> {
+            if (newScene != null) {
+                newScene.windowProperty().addListener((winObs, oldWin, newWin) -> {
+                    if (newWin != null) {
+                        newWin.focusedProperty().addListener((fObs, wasFocused, isNowFocused) -> {
+                            if (isNowFocused) {
+                                // Reload inventory from disk and refresh the dashboard
+                                try {
+                                    controller.reloadInventory();
+                                    // Rebuild the dashboard view to pick up new data
+                                    javafx.application.Platform.runLater(this::showDashboard);
+                                } catch (Exception ignored) {}
+                            }
+                        });
+                    }
+                });
+            }
+        });
     }
     
     private void initializeView() {
@@ -202,6 +227,8 @@ public class StaffDashboard {
         reservationsBtn = createNavButton("📋 Reservations", false);
         inventoryBtn = createNavButton("📦 Inventory", false);
         stockLogsBtn = createNavButton("📝 Stock Logs", false);
+        reportsBtn = createNavButton("📈 Reports", false);
+        helpBtn = createNavButton("❓ Help", false);
         
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
@@ -243,6 +270,16 @@ public class StaffDashboard {
             showStockLogs();
         });
         
+        reportsBtn.setOnAction(e -> {
+            setActiveButton(reportsBtn);
+            showReports();
+        });
+
+        helpBtn.setOnAction(e -> {
+            setActiveButton(helpBtn);
+            showHelp();
+        });
+        
         logoutBtn.setOnAction(e -> controller.handleLogout());
         
         sidebar.getChildren().addAll(
@@ -252,10 +289,164 @@ public class StaffDashboard {
             reservationsBtn,
             inventoryBtn,
             stockLogsBtn,
+            reportsBtn,
+            helpBtn,
             spacer,
             new Separator(),
             logoutBtn
         );
+    }
+
+    private void showHelp() {
+        titleLabel.setText("Help & Documentation");
+        contentArea.getChildren().clear();
+        
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-control-inner-background: transparent; -fx-padding: 10;");
+        
+        VBox mainBox = new VBox(20);
+        mainBox.setPadding(new Insets(20));
+        mainBox.setStyle("-fx-border-color: transparent;");
+        mainBox.setId("help-content");
+        
+        // ====== WELCOME SECTION ======
+        VBox welcomeSection = createHelpCard(
+            "👋 Welcome to Staff Dashboard",
+            "STI ProWear System - Merchandise Support Team",
+            "As staff, you manage reservations, inventory, and customer service. This guide covers all your responsibilities and how to use the system effectively."
+        );
+        
+        // ====== NAVIGATION BASICS ======
+        VBox navSection = createHelpCard(
+            "🧭 Navigation Basics",
+            "",
+            ""
+        );
+        navSection.getChildren().add(createBulletPoint("Dashboard: View pending requests and system overview"));
+        navSection.getChildren().add(createBulletPoint("Reservations: Handle student merchandise requests"));
+        navSection.getChildren().add(createBulletPoint("Inventory: Update stock and manage items"));
+        navSection.getChildren().add(createBulletPoint("Stock Logs: Track all inventory changes for auditing"));
+        
+        // ====== RESERVATION MANAGEMENT ======
+        VBox reservationSection = createHelpCard(
+            "📋 Reservation Management",
+            "Handling Student Requests",
+            ""
+        );
+        reservationSection.getChildren().add(createBulletPoint("View all pending student reservations from the dashboard"));
+        reservationSection.getChildren().add(createBulletPoint("Review request details: Student name, course, items, sizes, quantity"));
+        reservationSection.getChildren().add(createSubBullet("✓ Approve: After verifying payment or identity"));
+        reservationSection.getChildren().add(createSubBullet("✗ Reject: With reason if items unavailable or request invalid"));
+        reservationSection.getChildren().add(createBulletPoint("Track status: PENDING → APPROVED → COMPLETED"));
+        reservationSection.getChildren().add(createBulletPoint("Handle returns: Process customer return requests professionally"));
+        
+        // ====== INVENTORY MANAGEMENT ======
+        VBox inventorySection = createHelpCard(
+            "📦 Inventory Management",
+            "Stock Control & Organization",
+            ""
+        );
+        inventorySection.getChildren().add(createBulletPoint("View all items: See current stock levels by course/category"));
+        inventorySection.getChildren().add(createBulletPoint("Add items: Create new merchandise entries with all details"));
+        inventorySection.getChildren().add(createBulletPoint("Update quantities: Adjust stock when items arrive or are sold"));
+        inventorySection.getChildren().add(createBulletPoint("Modify prices: Change item prices with admin confirmation"));
+        inventorySection.getChildren().add(createBulletPoint("Remove items: Delete discontinued or damaged items"));
+        inventorySection.getChildren().add(createBulletPoint("Available sizes: XS, S, M, L, XL, XXL, One Size"));
+        
+        // ====== CUSTOMER SERVICE ======
+        VBox csSection = createHelpCard(
+            "🤝 Customer Service Best Practices",
+            "Creating Great Experiences",
+            ""
+        );
+        csSection.getChildren().add(createBulletPoint("Always greet customers professionally and helpfully"));
+        csSection.getChildren().add(createBulletPoint("Verify student ID before processing transactions"));
+        csSection.getChildren().add(createBulletPoint("Explain reservation status clearly to students"));
+        csSection.getChildren().add(createBulletPoint("Handle complaints with patience and empathy"));
+        csSection.getChildren().add(createBulletPoint("Escalate complex issues to admin/management"));
+        csSection.getChildren().add(createBulletPoint("Keep merchandise display organized and clean"));
+        
+        // ====== STOCK LOGS & AUDITING ======
+        VBox auditSection = createHelpCard(
+            "📊 Stock Logs & Auditing",
+            "Track Changes & Accountability",
+            ""
+        );
+        auditSection.getChildren().add(createBulletPoint("View complete history of all inventory changes"));
+        auditSection.getChildren().add(createBulletPoint("See who made changes, what changed, and when"));
+        auditSection.getChildren().add(createBulletPoint("Filter logs by staff member, date, or item code"));
+        auditSection.getChildren().add(createBulletPoint("Export logs for reports and audits"));
+        auditSection.getChildren().add(createBulletPoint("Identify discrepancies or suspicious activities"));
+        
+        // ====== REPLACEMENT REQUESTS ======
+        VBox replacementSection = createHelpCard(
+            "🔄 Handling Replacement Requests",
+            "Processing Returns and Swaps",
+            ""
+        );
+        replacementSection.getChildren().add(createBulletPoint("Review replacement request: Reason, original item, replacement item"));
+        replacementSection.getChildren().add(createBulletPoint("Verify original item condition if applicable"));
+        replacementSection.getChildren().add(createBulletPoint("Check replacement stock availability"));
+        replacementSection.getChildren().add(createSubBullet("✓ Approve: Swap items and update inventory"));
+        replacementSection.getChildren().add(createSubBullet("✗ Reject: With clear reason if unable to fulfill"));
+        replacementSection.getChildren().add(createBulletPoint("Update reservation status to reflect change"));
+        
+        // ====== TIPS & BEST PRACTICES ======
+        VBox tipsSection = createHelpCard(
+            "💡 Tips & Best Practices",
+            "Work Smarter, Serve Better",
+            ""
+        );
+        tipsSection.getChildren().add(createTipBullet("Process reservations quickly - students are waiting"));
+        tipsSection.getChildren().add(createTipBullet("Verify payment before approving high-value orders"));
+        tipsSection.getChildren().add(createTipBullet("Keep accurate notes when rejecting requests"));
+        tipsSection.getChildren().add(createTipBullet("Alert management when stock levels are low"));
+        tipsSection.getChildren().add(createTipBullet("Double-check item codes to avoid wrong items"));
+        tipsSection.getChildren().add(createTipBullet("Maintain professional conduct with all customers"));
+        
+        // ====== TROUBLESHOOTING ======
+        VBox troubleshootSection = createHelpCard(
+            "🔧 Troubleshooting",
+            "Common Issues & Solutions",
+            ""
+        );
+        troubleshootSection.getChildren().add(createFAQItem("Q: Can't approve a reservation?", "A: Check if payment is verified and stock is available. Ensure all details are correct."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Item showing wrong quantity?", "A: Refresh the inventory view or check Stock Logs to see if quantity was recently changed."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Student requesting return?", "A: Check the return/replacement request feature. Ensure original receipt is available."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Size not available?", "A: Contact admin to restock or mark size as temporarily unavailable."));
+        
+        // ====== KEYBOARD SHORTCUTS ======
+        VBox shortcutsSection = createHelpCard(
+            "⌨️ Keyboard Shortcuts",
+            "Speed Up Your Work",
+            ""
+        );
+        shortcutsSection.getChildren().add(createBulletPoint("Tab - Navigate between fields"));
+        shortcutsSection.getChildren().add(createBulletPoint("Enter - Confirm actions"));
+        shortcutsSection.getChildren().add(createBulletPoint("Esc - Cancel current operation"));
+        shortcutsSection.getChildren().add(createBulletPoint("Ctrl+F - Search inventory"));
+        
+        // ====== POLICIES & PROCEDURES ======
+        VBox policiesSection = createHelpCard(
+            "📜 Policies & Procedures",
+            "Important Guidelines",
+            ""
+        );
+        policiesSection.getChildren().add(createBulletPoint("Only approve payment after physical verification"));
+        policiesSection.getChildren().add(createBulletPoint("Never process requests without valid student ID"));
+        policiesSection.getChildren().add(createBulletPoint("Always maintain accurate records in the system"));
+        policiesSection.getChildren().add(createBulletPoint("Report system errors or suspicious activity immediately"));
+        policiesSection.getChildren().add(createBulletPoint("Keep shift operations log updated and detailed"));
+        
+        mainBox.getChildren().addAll(
+            welcomeSection, navSection, reservationSection, inventorySection, 
+            csSection, auditSection, replacementSection, tipsSection, 
+            troubleshootSection, shortcutsSection, policiesSection
+        );
+        
+        scrollPane.setContent(mainBox);
+        contentArea.getChildren().add(scrollPane);
     }
     
     private Button createNavButton(String text, boolean active) {
@@ -289,7 +480,8 @@ public class StaffDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {dashboardBtn, reservationsBtn, inventoryBtn, stockLogsBtn};
+        activeButton = activeBtn;
+        Button[] buttons = {dashboardBtn, reservationsBtn, inventoryBtn, stockLogsBtn, reportsBtn, helpBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -338,6 +530,26 @@ public class StaffDashboard {
         titleLabel.setText("Stock Logs");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createStockLogsView());
+    }
+    
+    /**
+     * Show reports and analytics
+     */
+    private void showReports() {
+        titleLabel.setText("Reports & Analytics");
+        contentArea.getChildren().clear();
+        try {
+            ReportView reportView = new ReportView(
+                controller.getInventoryManager(),
+                controller.getReservationManager(),
+                controller.getReceiptManager()
+            );
+            contentArea.getChildren().add(reportView.getView());
+        } catch (Exception e) {
+            Label errorLabel = new Label("Failed to load reports: " + e.getMessage());
+            errorLabel.setStyle("-fx-text-fill: red;");
+            contentArea.getChildren().add(errorLabel);
+        }
     }
     
     /**
@@ -492,10 +704,107 @@ public class StaffDashboard {
                 "-fx-cursor: hand;"
             );
         }
+        
+        // Refresh Help content if currently displayed
+        if (contentArea.lookup("#help-content") != null) {
+            showHelp();
+        }
+        
+        // Reapply active button styling for current theme
+        if (activeButton != null) {
+            setActiveButton(activeButton);
+        }
     }
     
     public BorderPane getView() {
         return view;
+    }
+    
+    // ===== HELP SECTION HELPER METHODS =====
+    
+    private VBox createHelpCard(String title, String subtitle, String description) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(16));
+        card.setStyle(
+            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#2a2a3e" : "#f5f5f5") + ";" +
+            "-fx-background-radius: 8px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#404054" : "#e0e0e0") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 8px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0, 0, 1);"
+        );
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72") + ";");
+        card.getChildren().add(titleLabel);
+        
+        if (subtitle != null && !subtitle.isEmpty()) {
+            Label subtitleLabel = new Label(subtitle);
+            subtitleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
+            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#a0a0c0" : "#4a5f8f") + ";");
+            card.getChildren().add(subtitleLabel);
+        }
+        
+        if (description != null && !description.isEmpty()) {
+            Label descLabel = new Label(description);
+            descLabel.setWrapText(true);
+            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + ";");
+            card.getChildren().add(descLabel);
+        }
+        
+        return card;
+    }
+    
+    private VBox createBulletPoint(String text) {
+        VBox box = new VBox(4);
+        box.setPadding(new Insets(4, 0, 4, 20));
+        Label bullet = new Label("• " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 11px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createSubBullet(String text) {
+        VBox box = new VBox(2);
+        box.setPadding(new Insets(2, 0, 2, 40));
+        Label bullet = new Label("  ◦ " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 10px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createTipBullet(String text) {
+        VBox box = new VBox(4);
+        box.setPadding(new Insets(4, 0, 4, 20));
+        Label bullet = new Label("✓ " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 11px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private HBox createFAQItem(String question, String answer) {
+        HBox faqBox = new HBox(12);
+        faqBox.setPadding(new Insets(8, 0, 8, 0));
+        
+        VBox qnaBox = new VBox(4);
+        Label qLabel = new Label(question);
+        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
+        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + ";");
+        qLabel.setWrapText(true);
+        
+        Label aLabel = new Label(answer);
+        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 10px;");
+        aLabel.setWrapText(true);
+        
+        qnaBox.getChildren().addAll(qLabel, aLabel);
+        faqBox.getChildren().add(qnaBox);
+        HBox.setHgrow(qnaBox, Priority.ALWAYS);
+        
+        return faqBox;
     }
 }
 

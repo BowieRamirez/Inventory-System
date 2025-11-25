@@ -60,7 +60,6 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
@@ -129,37 +128,62 @@ public class StaffDashboardController {
      * Handle price change for an item
      */
     private void handleChangePriceForItem(Item item, Runnable refreshAction) {
-        TextInputDialog priceDialog = new TextInputDialog(String.format("%.2f", item.getPrice()));
+        // Use a custom Dialog with explicit TextField so we can control focus and behavior.
+        Dialog<Double> priceDialog = new Dialog<>();
         priceDialog.setTitle("Change Price");
-        // Changing price here will apply to all sizes of the selected item code
         priceDialog.setHeaderText("Change price for: " + item.getName() + " (applies to all sizes)");
-        priceDialog.setContentText("Current Price: ₱" + String.format("%.2f", item.getPrice()) + "\nNew Price:");
+        ButtonType okBtn = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        priceDialog.getDialogPane().getButtonTypes().addAll(okBtn, ButtonType.CANCEL);
 
-        priceDialog.showAndWait().ifPresent(input -> {
-            try {
-                double newPrice = Double.parseDouble(input.trim());
-                if (newPrice < 0) {
-                    AlertHelper.showError("Invalid Input", "Price cannot be negative!");
-                    return;
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        Label currentLbl = new Label("Current Price: ₱" + String.format("%.2f", item.getPrice()));
+        TextField priceField = new TextField(String.format("%.2f", item.getPrice()));
+        priceField.setPromptText("New Price");
+
+        grid.add(currentLbl, 0, 0);
+        grid.add(priceField, 0, 1);
+
+        priceDialog.getDialogPane().setContent(grid);
+
+        // Request focus on the price field when the dialog is shown
+        priceDialog.setOnShown(e -> Platform.runLater(() -> priceField.requestFocus()));
+
+        priceDialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okBtn) {
+                try {
+                    return Double.parseDouble(priceField.getText().trim());
+                } catch (Exception ex) {
+                    return null;
                 }
+            }
+            return null;
+        });
 
-                double oldPrice = item.getPrice();
-                // Update price across all size variants (staff intent is to change price for the item, not a single size)
-                boolean success = inventoryManager.updateItemPriceByCode(item.getCode(), newPrice);
-                if (success) {
-                    // Refresh table
-                    refreshAction.run();
-
-                    AlertHelper.showSuccess("Price Updated",
-                        "Price updated successfully for all sizes!\n\n" +
-                        "Item: " + item.getName() + "\n" +
-                        "Old Price (example): ₱" + String.format("%.2f", oldPrice) + "\n" +
-                        "New Price: ₱" + String.format("%.2f", newPrice));
-                } else {
-                    AlertHelper.showError("Error", "Failed to update price!");
-                }
-            } catch (NumberFormatException ex) {
+        priceDialog.showAndWait().ifPresent(newPrice -> {
+            if (newPrice == null) {
                 AlertHelper.showError("Invalid Input", "Please enter a valid numeric price.");
+                return;
+            }
+            if (newPrice < 0) {
+                AlertHelper.showError("Invalid Input", "Price cannot be negative!");
+                return;
+            }
+
+            double oldPrice = item.getPrice();
+            boolean success = inventoryManager.updateItemPriceByCode(item.getCode(), newPrice);
+            if (success) {
+                refreshAction.run();
+                AlertHelper.showSuccess("Price Updated",
+                    "Price updated successfully for all sizes!\n\n" +
+                    "Item: " + item.getName() + "\n" +
+                    "Old Price (example): ₱" + String.format("%.2f", oldPrice) + "\n" +
+                    "New Price: ₱" + String.format("%.2f", newPrice));
+            } else {
+                AlertHelper.showError("Error", "Failed to update price!");
             }
         });
     }
@@ -259,7 +283,6 @@ public class StaffDashboardController {
         statusFilter.setPrefHeight(45);
         // Theme-aware styling matching inventory tab
         String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
-        String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
         String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
         // Use the same highlighted border style as the Inventory course filter so focus/border remains consistent
         String baseComboStyle =
@@ -283,7 +306,6 @@ public class StaffDashboardController {
         // Listen for theme changes so the ComboBox updates immediately when user toggles dark mode
         ThemeManager.addThemeChangeListener(() -> Platform.runLater(() -> {
             String fb = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
-            String fborder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
             String ftext = ThemeManager.isDarkMode() ? "white" : "#111827";
             String updatedStyle =
                 "-fx-font-size: 14px;" +
@@ -370,6 +392,9 @@ public class StaffDashboardController {
         // Create reservations table
         TableView<Reservation> table = new TableView<>();
         table.setStyle("-fx-background-color: -color-bg-subtle;");
+        // Use constrained resize policy so columns behave predictably, then
+        // pin a reasonable width for the actions column so both buttons fit.
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
         idCol.setCellValueFactory(data -> {
@@ -393,7 +418,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        idCol.setPrefWidth(250);
+        idCol.setPrefWidth(180);
 
         TableColumn<Reservation, String> studentCol = new TableColumn<>("Student");
         studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStudentName()));
@@ -410,7 +435,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        studentCol.setPrefWidth(220);
+        studentCol.setPrefWidth(160);
 
         TableColumn<Reservation, String> itemCol = new TableColumn<>("Item");
         itemCol.setCellValueFactory(data -> {
@@ -444,7 +469,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        itemCol.setPrefWidth(320);
+        itemCol.setPrefWidth(220);
 
         TableColumn<Reservation, String> sizeCol = new TableColumn<>("Size");
         sizeCol.setCellValueFactory(data -> {
@@ -479,7 +504,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        sizeCol.setPrefWidth(100);
+        sizeCol.setPrefWidth(80);
 
         TableColumn<Reservation, Integer> qtyCol = new TableColumn<>("Qty");
         qtyCol.setCellValueFactory(data -> {
@@ -508,7 +533,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        qtyCol.setPrefWidth(90);
+        qtyCol.setPrefWidth(60);
 
         TableColumn<Reservation, Double> priceCol = new TableColumn<>("Total");
         priceCol.setCellValueFactory(data -> {
@@ -537,11 +562,11 @@ public class StaffDashboardController {
                 }
             }
         });
-        priceCol.setPrefWidth(120);
+        priceCol.setPrefWidth(100);
 
         TableColumn<Reservation, String> statusCol = new TableColumn<>("Status");
         statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStatus()));
-        statusCol.setPrefWidth(220);
+        statusCol.setPrefWidth(140);
         // Render a colored badge so approved/completed/replaced/pending states are obvious
         statusCol.setCellFactory(col -> new TableCell<Reservation, String>() {
             @Override
@@ -631,7 +656,7 @@ public class StaffDashboardController {
                 }
             }
         });
-        dateCol.setPrefWidth(190);
+        dateCol.setPrefWidth(140);
 
         TableColumn<Reservation, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<Reservation, Void>() {
@@ -769,7 +794,9 @@ public class StaffDashboardController {
                 }
             }
         });
-        actionsCol.setPrefWidth(150);
+        actionsCol.setPrefWidth(120);
+        actionsCol.setMinWidth(110);
+        actionsCol.setMaxWidth(160);
 
         table.getColumns().addAll(idCol, studentCol, itemCol, sizeCol, qtyCol, priceCol, statusCol, dateCol, actionsCol);
         
@@ -1251,6 +1278,7 @@ public class StaffDashboardController {
     /**
      * Show bundle items dialog - displays all items in a bundle order
      */
+    @SuppressWarnings("unused")
     private void showBundleItemsDialog(Reservation reservation) {
         javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
         dialog.setTitle("Bundle Order Details");
@@ -1440,54 +1468,50 @@ public class StaffDashboardController {
      * Handle reject reservation
      */
     private void handleRejectReservation(Reservation reservation, TableView<Reservation> table) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Reject Reservation");
-        
+        String header;
         if (reservation.isPartOfBundle()) {
             String bundleId = reservation.getBundleId();
             long itemCount = reservationManager.getAllReservations().stream()
                 .filter(r -> bundleId.equals(r.getBundleId()))
                 .count();
-            dialog.setHeaderText("Reject BUNDLE ORDER for: " + reservation.getStudentName() + 
-                               "\nBundle contains " + itemCount + " item type(s)");
+            header = "Reject BUNDLE ORDER for: " + reservation.getStudentName() +
+                     "\nBundle contains " + itemCount + " item type(s)";
         } else {
-            dialog.setHeaderText("Reject reservation for: " + reservation.getStudentName());
+            header = "Reject reservation for: " + reservation.getStudentName();
         }
-        
-        dialog.setContentText("Reason:");
 
-        dialog.showAndWait().ifPresent(reason -> {
-            if (!reason.isEmpty()) {
-                boolean allSuccess = true;
-                
-                if (reservation.isPartOfBundle()) {
-                    // Reject all items in the bundle
-                    String bundleId = reservation.getBundleId();
-                    List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
-                        .filter(r -> bundleId.equals(r.getBundleId()))
-                        .collect(java.util.stream.Collectors.toList());
-                    
-                    for (Reservation item : bundleItems) {
-                        boolean success = reservationManager.cancelReservation(item.getReservationId(), reason);
-                        if (!success) {
-                            allSuccess = false;
-                        }
+        String reason = AlertHelper.showInputDialog("Reject Reservation", header, "Reason:");
+
+        if (reason != null && !reason.isEmpty()) {
+            boolean allSuccess = true;
+
+            if (reservation.isPartOfBundle()) {
+                // Reject all items in the bundle
+                String bundleId = reservation.getBundleId();
+                List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId.equals(r.getBundleId()))
+                    .collect(java.util.stream.Collectors.toList());
+
+                for (Reservation item : bundleItems) {
+                    boolean success = reservationManager.cancelReservation(item.getReservationId(), reason);
+                    if (!success) {
+                        allSuccess = false;
                     }
-                } else {
-                    allSuccess = reservationManager.cancelReservation(reservation.getReservationId(), reason);
                 }
-                
-                if (allSuccess) {
-                    // Call refresh callback to update the display with current filter applied
-                    if (refreshCallback != null) {
-                        refreshCallback.run();
-                    }
-                    AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
-                } else {
-                    AlertHelper.showError("Error", "Failed to reject reservation");
-                }
+            } else {
+                allSuccess = reservationManager.cancelReservation(reservation.getReservationId(), reason);
             }
-        });
+
+            if (allSuccess) {
+                // Call refresh callback to update the display with current filter applied
+                if (refreshCallback != null) {
+                    refreshCallback.run();
+                }
+                AlertHelper.showSuccess("Success", reservation.isPartOfBundle() ? "Bundle rejected" : "Reservation rejected");
+            } else {
+                AlertHelper.showError("Error", "Failed to reject reservation");
+            }
+        }
     }
 
     /**
@@ -2280,25 +2304,19 @@ public class StaffDashboardController {
      * Handle reject return request
      */
     private void handleRejectReturn(Reservation reservation, TableView<Reservation> table) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Reject Return");
-        dialog.setHeaderText("Reject return request for: " + reservation.getStudentName());
-        dialog.setContentText("Reason for rejection:");
-
-        dialog.showAndWait().ifPresent(reason -> {
-            if (!reason.isEmpty()) {
-                boolean success = reservationManager.rejectReturn(reservation.getReservationId(), reason);
-                if (success) {
-                    // Call refresh callback to update the display with current filter applied
-                    if (refreshCallback != null) {
-                        refreshCallback.run();
-                    }
-                    AlertHelper.showSuccess("Success", "Return request rejected");
-                } else {
-                    AlertHelper.showError("Error", "Failed to reject return request");
+        String reason = AlertHelper.showInputDialog("Reject Return", "Reject return request for: " + reservation.getStudentName(), "Reason for rejection:");
+        if (reason != null && !reason.isEmpty()) {
+            boolean success = reservationManager.rejectReturn(reservation.getReservationId(), reason);
+            if (success) {
+                // Call refresh callback to update the display with current filter applied
+                if (refreshCallback != null) {
+                    refreshCallback.run();
                 }
+                AlertHelper.showSuccess("Success", "Return request rejected");
+            } else {
+                AlertHelper.showError("Error", "Failed to reject return request");
             }
-        });
+        }
     }
 
     /**
@@ -2573,61 +2591,55 @@ public class StaffDashboardController {
      * Handle reject pickup request
      */
     private void handleRejectPickup(Reservation reservation, TableView<Reservation> table) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Reject Pickup Request");
-        dialog.setHeaderText("Reject pickup request for: " + reservation.getStudentName());
-        dialog.setContentText("Reason for rejection:");
-
-        dialog.showAndWait().ifPresent(reason -> {
-            if (!reason.isEmpty()) {
-                javafx.scene.control.Alert confirmAlert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
-                confirmAlert.setTitle("Confirm Rejection");
-                confirmAlert.setHeaderText("This will change status back to 'AWAITING PICKUP REQUEST'");
-                confirmAlert.setContentText("Student will need to request pickup again. Continue?");
-                
-                confirmAlert.showAndWait().ifPresent(response -> {
-                    if (response == javafx.scene.control.ButtonType.OK) {
-                        boolean allSuccess = true;
+        String reason = AlertHelper.showInputDialog("Reject Pickup Request", "Reject pickup request for: " + reservation.getStudentName(), "Reason for rejection:");
+        if (reason != null && !reason.isEmpty()) {
+            javafx.scene.control.Alert confirmAlert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
+            confirmAlert.setTitle("Confirm Rejection");
+            confirmAlert.setHeaderText("This will change status back to 'AWAITING PICKUP REQUEST'");
+            confirmAlert.setContentText("Student will need to request pickup again. Continue?");
+            
+            confirmAlert.showAndWait().ifPresent(response -> {
+                if (response == javafx.scene.control.ButtonType.OK) {
+                    boolean allSuccess = true;
+                    
+                    if (reservation.isPartOfBundle()) {
+                        // Reject all items in the bundle
+                        String bundleId = reservation.getBundleId();
+                        List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                            .filter(r -> bundleId.equals(r.getBundleId()))
+                            .filter(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
+                            .collect(java.util.stream.Collectors.toList());
                         
-                        if (reservation.isPartOfBundle()) {
-                            // Reject all items in the bundle
-                            String bundleId = reservation.getBundleId();
-                            List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
-                                .filter(r -> bundleId.equals(r.getBundleId()))
-                                .filter(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()))
-                                .collect(java.util.stream.Collectors.toList());
-                            
-                            for (Reservation item : bundleItems) {
-                                boolean success = reservationManager.updateReservationStatus(
-                                    item.getReservationId(), 
-                                    "AWAITING PICKUP REQUEST", 
-                                    "Pickup request rejected: " + reason
-                                );
-                                if (!success) {
-                                    allSuccess = false;
-                                }
-                            }
-                        } else {
-                            allSuccess = reservationManager.updateReservationStatus(
-                                reservation.getReservationId(), 
+                        for (Reservation item : bundleItems) {
+                            boolean success = reservationManager.updateReservationStatus(
+                                item.getReservationId(), 
                                 "AWAITING PICKUP REQUEST", 
                                 "Pickup request rejected: " + reason
                             );
-                        }
-                        
-                        if (allSuccess) {
-                            // Call refresh callback to update the display with current filter applied
-                            if (refreshCallback != null) {
-                                refreshCallback.run();
+                            if (!success) {
+                                allSuccess = false;
                             }
-                            AlertHelper.showSuccess("Success", "Pickup request rejected. Reason: " + reason);
-                        } else {
-                            AlertHelper.showError("Error", "Failed to reject pickup request");
                         }
+                    } else {
+                        allSuccess = reservationManager.updateReservationStatus(
+                            reservation.getReservationId(), 
+                            "AWAITING PICKUP REQUEST", 
+                            "Pickup request rejected: " + reason
+                        );
                     }
-                });
-            }
-        });
+                    
+                    if (allSuccess) {
+                        // Call refresh callback to update the display with current filter applied
+                        if (refreshCallback != null) {
+                            refreshCallback.run();
+                        }
+                        AlertHelper.showSuccess("Success", "Pickup request rejected. Reason: " + reason);
+                    } else {
+                        AlertHelper.showError("Error", "Failed to reject pickup request");
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -2820,7 +2832,6 @@ public class StaffDashboardController {
         courseCombo.setPrefHeight(45);
         // Theme-aware styling: slightly darker white for light theme to reduce plainness
         String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
-        String fieldBorder = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
         String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
         // Apply highlighted styling from the start (consistent with reservations filter)
         String comboStyle =
@@ -3108,11 +3119,11 @@ public class StaffDashboardController {
 
         TableColumn<InventoryRow, String> sizesCol = new TableColumn<>("Sizes");
         sizesCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSizesDisplay()));
-        sizesCol.setPrefWidth(160);
+        sizesCol.setPrefWidth(130);
 
         TableColumn<InventoryRow, Integer> qtyCol = new TableColumn<>("Total Qty");
         qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getTotalQuantity()));
-        qtyCol.setPrefWidth(120);
+        qtyCol.setPrefWidth(100);
 
         TableColumn<InventoryRow, String> priceCol = new TableColumn<>("Price");
         priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getPriceDisplay()));
@@ -3132,32 +3143,48 @@ public class StaffDashboardController {
         // Actions column - single Manage button that opens a small modal with actions
         TableColumn<InventoryRow, Void> actionsCol = new TableColumn<>("Actions");
         actionsCol.setCellFactory(col -> new TableCell<InventoryRow, Void>() {
-            private final Button manageBtn = new Button("⚙ Manage");
+            private final Button addStockBtn = new Button("➕ Add Stock");
+            private final Button priceBtn = new Button("₱ Change Price");
 
             {
-                manageBtn.getStyleClass().add("manage-btn");
-                manageBtn.setMaxWidth(Double.MAX_VALUE);
-                manageBtn.setPrefHeight(32);
+                addStockBtn.getStyleClass().add("primary-btn");
+                addStockBtn.setMaxWidth(Double.MAX_VALUE);
+                addStockBtn.setPrefHeight(28);
+                priceBtn.getStyleClass().add("secondary-btn");
+                priceBtn.setMaxWidth(Double.MAX_VALUE);
+                priceBtn.setPrefHeight(28);
             }
 
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-                // center the graphic inside the cell
                 setAlignment(Pos.CENTER);
                 if (empty) {
                     setGraphic(null);
                 } else {
                     InventoryRow currentRow = getTableView().getItems().get(getIndex());
-                    manageBtn.setOnAction(e -> showManageItemDialog(currentRow, refreshBtn::fire));
-                    HBox wrapper = new HBox(manageBtn);
+                    // When adding stock, prompt for variant selection if multiple sizes exist
+                    addStockBtn.setOnAction(e -> showVariantSelectionDialog(currentRow, "Adjust Stock", selected -> {
+                        if (selected != null) {
+                            handleStockAdjustmentForItem(selected, refreshBtn::fire);
+                        }
+                    }));
+
+                    priceBtn.setOnAction(e -> {
+                        List<Item> vs = currentRow.getVariants();
+                        if (vs != null && !vs.isEmpty()) {
+                            handleChangePriceForItem(vs.get(0), refreshBtn::fire);
+                        } else {
+                            AlertHelper.showError("No Variants", "No variants available to change price.");
+                        }
+                    });
+
+                    HBox wrapper = new HBox(8, addStockBtn, priceBtn);
                     wrapper.getStyleClass().add("action-gap");
-                    // left-align the manage button inside the Actions column
+                    // left-align the action buttons inside the Actions column
                     wrapper.setAlignment(Pos.CENTER_LEFT);
                     setAlignment(Pos.CENTER_LEFT);
-                    // add left padding so button isn't flush against the column edge
                     wrapper.setPadding(new Insets(0, 12, 0, 8));
-                    // ensure wrapper fills cell height to center child vertically
                     wrapper.setPrefHeight(Region.USE_COMPUTED_SIZE);
                     setGraphic(wrapper);
                 }
@@ -3175,15 +3202,43 @@ public class StaffDashboardController {
 
         // Bind column widths as percentages of the table width so the table fills its box
         // Bind column widths as percentages of the table width so the table fills its box
-        // Actions column is small on the right, item name gets most space
-        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        actionsCol.setMinWidth(80);
+        // Reserve more space for the Actions column so buttons fit comfortably
+        actionsCol.prefWidthProperty().bind(table.widthProperty().multiply(0.16));
+        actionsCol.setMinWidth(140);
         codeCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.34));
+
+        // Make table rows clickable (double-click) to show full item details
+        table.setRowFactory(tv -> {
+            TableRow<InventoryRow> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty() && event.getClickCount() == 2) {
+                    InventoryRow rowData = row.getItem();
+                    // Show comprehensive details dialog
+                    Alert info = new Alert(Alert.AlertType.INFORMATION);
+                    info.setTitle("Item Details");
+                    info.setHeaderText(rowData.getName() + " (Code: " + rowData.getCode() + ")");
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Course: ").append(rowData.getCourse()).append("\n\n");
+                    sb.append("Variants:\n");
+                    for (Item it : rowData.getVariants()) {
+                        sb.append(" - Size: ").append(it.getSize())
+                          .append(" | Qty: ").append(it.getQuantity())
+                          .append(" | Price: ₱").append(String.format("%.2f", it.getPrice()))
+                          .append("\n");
+                    }
+                    sb.append("\nTotal Qty: ").append(rowData.getTotalQuantity()).append("\n");
+                    sb.append("Price (example): ").append(rowData.getPriceDisplay()).append("\n");
+                    info.setContentText(sb.toString());
+                    info.showAndWait();
+                }
+            });
+            return row;
+        });
+        nameCol.prefWidthProperty().bind(table.widthProperty().multiply(0.26));
         courseCol.prefWidthProperty().bind(table.widthProperty().multiply(0.08));
         sizesCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
         qtyCol.prefWidthProperty().bind(table.widthProperty().multiply(0.06));
-        priceCol.prefWidthProperty().bind(table.widthProperty().multiply(0.12));
+        priceCol.prefWidthProperty().bind(table.widthProperty().multiply(0.08));
 
         // Keep table visual size consistent when limiting rows: fix row height and pref height
         // (pref height will be set after itemsPerPage is declared below)
@@ -3283,6 +3338,14 @@ public class StaffDashboardController {
         updateInventoryTable(table, allItems, currentCourse, currentGender, currentPage, itemsPerPage, pageControls, statsBox, searchField, pageWindowStart);
 
         return container;
+    }
+
+    /**
+     * Reload inventory data from disk. Useful when external tools modify the
+     * underlying `items.txt` file and the UI should reflect changes.
+     */
+    public void reloadInventory() {
+        inventoryManager.reloadItems();
     }
 
     /**
@@ -3518,19 +3581,53 @@ public class StaffDashboardController {
         dialog.showAndWait().ifPresent(onVariantSelected);
     }
 
+    @SuppressWarnings("unused")
     private void showManageItemDialog(InventoryRow row, Runnable refreshAction) {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Manage Item");
         dialog.setHeaderText("Manage: " + row.getName() + " (Code: " + row.getCode() + ")");
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CLOSE);
 
+        // Variant selector (single dialog contains variant + actions)
+        List<Item> variants = row.getVariants();
+        ComboBox<Item> variantCombo = new ComboBox<>(FXCollections.observableArrayList(variants));
+        variantCombo.setPrefWidth(320);
+        variantCombo.setPrefHeight(36);
+        variantCombo.setPromptText("Select size / variant");
+        if (!variants.isEmpty()) variantCombo.getSelectionModel().selectFirst();
+
+        // Display meaningful text for each variant
+        variantCombo.setCellFactory(cb -> new javafx.scene.control.ListCell<Item>() {
+            @Override
+            protected void updateItem(Item item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getSize() + " — Qty: " + item.getQuantity() + " — ₱" + String.format("%.2f", item.getPrice()));
+                }
+            }
+        });
+        variantCombo.setButtonCell(new javafx.scene.control.ListCell<Item>() {
+            @Override
+            protected void updateItem(Item item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else setText(item.getSize() + " — Qty: " + item.getQuantity() + " — ₱" + String.format("%.2f", item.getPrice()));
+            }
+        });
+
         Button adjustBtn = new Button("📝 Adjust Stock");
         adjustBtn.getStyleClass().add("primary-btn");
         adjustBtn.setMaxWidth(Double.MAX_VALUE);
         adjustBtn.setOnAction(e -> {
+            Item selected = variantCombo.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                AlertHelper.showError("No Variant Selected", "Please select a size/variant first.");
+                return;
+            }
             dialog.close();
-            // Choose size then adjust
-            showVariantSelectionDialog(row, "Adjust Stock", selected -> handleStockAdjustmentForItem(selected, refreshAction));
+            handleStockAdjustmentForItem(selected, refreshAction);
         });
 
         Button priceBtn = new Button("₱ Change Price");
@@ -3538,33 +3635,47 @@ public class StaffDashboardController {
         priceBtn.setMaxWidth(Double.MAX_VALUE);
         priceBtn.setOnAction(e -> {
             dialog.close();
-            List<Item> variants = row.getVariants();
-            if (variants != null && !variants.isEmpty()) {
-                handleChangePriceForItem(variants.get(0), refreshAction);
+            // Change price applies to all sizes; use first variant as representative
+            List<Item> vs = row.getVariants();
+            if (vs != null && !vs.isEmpty()) {
+                handleChangePriceForItem(vs.get(0), refreshAction);
             }
         });
 
         Button detailsBtn = new Button("🔍 View Details");
         detailsBtn.setMaxWidth(Double.MAX_VALUE);
         detailsBtn.setOnAction(e -> {
-            dialog.close();
-            // Simple details dialog
+            Item selected = variantCombo.getSelectionModel().getSelectedItem();
+            // Show details for the selected variant or the row summary
             Alert info = new Alert(Alert.AlertType.INFORMATION);
             info.setTitle("Item Details");
             info.setHeaderText(row.getName());
             StringBuilder sb = new StringBuilder();
             sb.append("Code: ").append(row.getCode()).append("\n");
             sb.append("Course: ").append(row.getCourse()).append("\n");
-            sb.append("Sizes: ").append(row.getSizesDisplay()).append("\n");
-            sb.append("Total Qty: ").append(row.getTotalQuantity()).append("\n");
-            sb.append("Price (example): ").append(row.getPriceDisplay()).append("\n");
+            if (selected != null) {
+                sb.append("Size: ").append(selected.getSize()).append("\n");
+                sb.append("Qty: ").append(selected.getQuantity()).append("\n");
+                sb.append("Price: ₱").append(String.format("%.2f", selected.getPrice())).append("\n");
+            } else {
+                sb.append("Sizes: ").append(row.getSizesDisplay()).append("\n");
+                sb.append("Total Qty: ").append(row.getTotalQuantity()).append("\n");
+                sb.append("Price (example): ").append(row.getPriceDisplay()).append("\n");
+            }
             info.setContentText(sb.toString());
             info.showAndWait();
         });
 
-        VBox content = new VBox(10, adjustBtn, priceBtn, detailsBtn);
+        VBox content = new VBox(10);
         content.setPrefWidth(360);
+        content.getChildren().addAll(new Label("Variant:"), variantCombo, adjustBtn, priceBtn, detailsBtn);
         dialog.getDialogPane().setContent(content);
+
+        // Request focus on variant selector when shown so user can immediately interact
+        dialog.setOnShown(ev -> Platform.runLater(() -> {
+            if (!variants.isEmpty()) variantCombo.requestFocus();
+        }));
+
         dialog.showAndWait();
     }
 
@@ -3645,6 +3756,9 @@ public class StaffDashboardController {
         double overallSales = calculateSales(allReservations,
             reservation -> "COMPLETED".equals(reservation.getStatus()));
 
+        // Public helper to allow external callers (e.g., view focus listeners)
+        // to ask the controller to reload inventory from disk.
+
         long ordersToday = countOrders(allReservations, reservation ->
             "COMPLETED".equals(reservation.getStatus()) &&
             getRelevantDate(reservation).equals(today)
@@ -3662,25 +3776,21 @@ public class StaffDashboardController {
 
         int completedOrdersCount = completedReservations.size();
 
-        // Compute stock metrics per item code (sum quantities across sizes)
+        // Compute stock metrics per item *variant* (size) so the status bar reflects
+        // individual sizes rather than collapsing counts to a single product entry.
+        // Total products (unique codes) still shown, but the bar is based on variant counts.
         java.util.Map<Integer, java.util.List<Item>> groupedByCode = allItems.stream()
             .collect(Collectors.groupingBy(Item::getCode));
 
         int totalProducts = groupedByCode.size();
 
-        // For each product (code) compute total quantity across sizes
-        java.util.Map<Integer, Integer> totalQtyByCode = new java.util.HashMap<>();
-        for (java.util.Map.Entry<Integer, java.util.List<Item>> e : groupedByCode.entrySet()) {
-            int sum = e.getValue().stream().mapToInt(Item::getQuantity).sum();
-            totalQtyByCode.put(e.getKey(), sum);
-        }
+        // Count across all variants (sizes)
+        int totalVariants = allItems.size();
+        long lowStockCount = allItems.stream().filter(i -> i.getQuantity() > 0 && i.getQuantity() <= 15 && i.getQuantity() > 5).count();
+        long criticalStockCount = allItems.stream().filter(i -> i.getQuantity() > 0 && i.getQuantity() <= 5).count();
+        long outOfStockCount = allItems.stream().filter(i -> i.getQuantity() == 0).count();
 
-        // Determine stock status counts based on aggregated quantities per product
-        long lowStockCount = totalQtyByCode.values().stream().filter(q -> q <= 15 && q > 5).count();
-        long criticalStockCount = totalQtyByCode.values().stream().filter(q -> q > 0 && q <= 5).count();
-        long outOfStockCount = totalQtyByCode.values().stream().filter(q -> q == 0).count();
-
-        javafx.scene.control.Label productsLabel = new javafx.scene.control.Label(totalProducts + " Products");
+        javafx.scene.control.Label productsLabel = new javafx.scene.control.Label(totalProducts + " Products • " + totalVariants + " Variants");
         productsLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
 
         // Progress bar made from regions with proportional widths (Stock Status bar)
@@ -3734,10 +3844,10 @@ public class StaffDashboardController {
         Region legendCrit = new Region(); legendCrit.setPrefSize(12,12); legendCrit.setStyle("-fx-background-color: #CF222E; -fx-background-radius:2;");
         Region legendOut = new Region(); legendOut.setPrefSize(12,12); legendOut.setStyle("-fx-background-color: #6B5B95; -fx-background-radius:2;");
 
-        javafx.scene.control.Label lblIn = new javafx.scene.control.Label("In stock: " + inStockCount);
-        javafx.scene.control.Label lblLow = new javafx.scene.control.Label("Low stock: " + lowCount);
-        javafx.scene.control.Label lblCrit = new javafx.scene.control.Label("Critical: " + criticalCount);
-        javafx.scene.control.Label lblOut = new javafx.scene.control.Label("Out of stock: " + outOfStock);
+        javafx.scene.control.Label lblIn = new javafx.scene.control.Label("In stock (variants): " + inStockCount);
+        javafx.scene.control.Label lblLow = new javafx.scene.control.Label("Low stock (variants): " + lowCount);
+        javafx.scene.control.Label lblCrit = new javafx.scene.control.Label("Critical (variants): " + criticalCount);
+        javafx.scene.control.Label lblOut = new javafx.scene.control.Label("Out of stock (variants): " + outOfStock);
 
         HBox inItem = new HBox(6, legendIn, lblIn);
         HBox lowItem = new HBox(6, legendLow, lblLow);
@@ -3832,57 +3942,78 @@ public class StaffDashboardController {
      * Handle stock adjustment request for an item
      */
     private void handleStockAdjustmentForItem(Item item, Runnable refreshAction) {
-        // Change behavior: staff can only ADD stock (increase quantity), not remove.
-        TextInputDialog addQtyDialog = new TextInputDialog("0");
-        addQtyDialog.setTitle("Adjust Stock");
-        addQtyDialog.setHeaderText("Adjust stock for: " + item.getName() + " (" + item.getSize() + ")");
-        addQtyDialog.setContentText("Current Quantity: " + item.getQuantity() + "\nAdd Quantity:");
+        // Use a custom Dialog with an explicit TextField so focus and input work reliably.
+        Dialog<Integer> qtyDialog = new Dialog<>();
+        qtyDialog.setTitle("Adjust Stock");
+        qtyDialog.setHeaderText("Adjust stock for: " + item.getName() + " (" + item.getSize() + ")");
+        ButtonType okBtn = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        qtyDialog.getDialogPane().getButtonTypes().addAll(okBtn, ButtonType.CANCEL);
 
-        addQtyDialog.showAndWait().ifPresent(input -> {
-            try {
-                int addQuantity = Integer.parseInt(input.trim());
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
 
-                if (addQuantity < 0) {
-                    AlertHelper.showError("Invalid Input", "Added quantity cannot be negative!");
-                    return;
+        Label currentQty = new Label("Current Quantity: " + item.getQuantity());
+        TextField addField = new TextField("0");
+        addField.setPromptText("Add Quantity");
+        addField.setPrefWidth(120);
+
+        grid.add(currentQty, 0, 0);
+        grid.add(new Label("Add Quantity:"), 0, 1);
+        grid.add(addField, 1, 1);
+
+        qtyDialog.getDialogPane().setContent(grid);
+
+        // Ensure the text field gains focus when shown
+        qtyDialog.setOnShown(e -> Platform.runLater(() -> addField.requestFocus()));
+
+        qtyDialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okBtn) {
+                try {
+                    return Integer.parseInt(addField.getText().trim());
+                } catch (Exception ex) {
+                    return null;
                 }
+            }
+            return null;
+        });
 
-                if (addQuantity == 0) {
-                    AlertHelper.showInfo("No Change", "No quantity added.");
-                    return;
-                }
-
-                // Compute new total (only adding)
-                int oldQuantity = item.getQuantity();
-                int newQuantity = oldQuantity + addQuantity;
-
-                // Apply the change immediately (staff can adjust without admin approval)
-                boolean success = inventoryManager.updateItemQuantityBySize(
-                    item.getCode(),
-                    item.getSize(),
-                    newQuantity
-                );
-
-                if (success) {
-                    // Log the change into the legacy stock logs so Admin can see it in the Admin UI
-                    String details = String.format("Added by staff: +%d (manual restock)", addQuantity);
-                    StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), oldQuantity, newQuantity, details);
-
-                    // Refresh the table to show updated stock
-                    refreshAction.run();
-
-                    AlertHelper.showSuccess("Stock Updated",
-                        "Stock increased successfully!\n\n" +
-                        "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
-                        "Old Quantity: " + oldQuantity + "\n" +
-                        "Added: " + addQuantity + "\n" +
-                        "New Quantity: " + newQuantity + "\n");
-                } else {
-                    AlertHelper.showError("Error", "Failed to update stock!");
-                }
-
-            } catch (NumberFormatException e) {
+        qtyDialog.showAndWait().ifPresent(addQuantity -> {
+            if (addQuantity == null) {
                 AlertHelper.showError("Invalid Input", "Please enter a valid whole number!");
+                return;
+            }
+            if (addQuantity < 0) {
+                AlertHelper.showError("Invalid Input", "Added quantity cannot be negative!");
+                return;
+            }
+            if (addQuantity == 0) {
+                AlertHelper.showInfo("No Change", "No quantity added.");
+                return;
+            }
+
+            int oldQuantity = item.getQuantity();
+            int newQuantity = oldQuantity + addQuantity;
+
+            boolean success = inventoryManager.updateItemQuantityBySize(
+                item.getCode(),
+                item.getSize(),
+                newQuantity
+            );
+
+            if (success) {
+                String details = String.format("Added by staff: +%d (manual restock)", addQuantity);
+                StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), oldQuantity, newQuantity, details);
+                refreshAction.run();
+                AlertHelper.showSuccess("Stock Updated",
+                    "Stock increased successfully!\n\n" +
+                    "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
+                    "Old Quantity: " + oldQuantity + "\n" +
+                    "Added: " + addQuantity + "\n" +
+                    "New Quantity: " + newQuantity + "\n");
+            } else {
+                AlertHelper.showError("Error", "Failed to update stock!");
             }
         });
     }
@@ -4487,6 +4618,7 @@ public class StaffDashboardController {
     /**
      * Return a style string for course filter buttons honoring dark mode and selection
      */
+    @SuppressWarnings("unused")
     private String getCourseButtonStyle(boolean selected) {
         boolean dark = ThemeManager.isDarkMode();
         if (selected) {
@@ -4600,7 +4732,14 @@ public class StaffDashboardController {
 
     private TableView<ProductStat> buildProductBreakdownTable(List<Reservation> reservations) {
         TableView<ProductStat> table = new TableView<>();
-        table.setPrefHeight(260);
+        // Show 5 rows by default: use a fixed cell size and compute preferred height
+        table.setFixedCellSize(42);
+        double _rowsToShow = 5;
+        double _headerHeight = 36;
+        double _totalHeight = table.getFixedCellSize() * _rowsToShow + _headerHeight;
+        table.setPrefHeight(_totalHeight); // 5 rows + header
+        table.setMinHeight(_totalHeight);
+        table.setMaxHeight(_totalHeight);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         table.setStyle("-fx-background-color: -color-bg-subtle;");
 
@@ -4647,7 +4786,14 @@ public class StaffDashboardController {
 
     private TableView<Item> buildLowStockTable(List<Item> items) {
         TableView<Item> table = new TableView<>();
-        table.setPrefHeight(260);
+        // Show 5 rows by default: use a fixed cell size and compute preferred height
+        table.setFixedCellSize(42);
+        double _rowsToShow2 = 5;
+        double _headerHeight2 = 36;
+        double _totalHeight2 = table.getFixedCellSize() * _rowsToShow2 + _headerHeight2;
+        table.setPrefHeight(_totalHeight2); // 5 rows + header
+        table.setMinHeight(_totalHeight2);
+        table.setMaxHeight(_totalHeight2);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         table.setStyle("-fx-background-color: -color-bg-subtle;");
         table.setPlaceholder(new javafx.scene.control.Label("No items between 0-15 units."));
@@ -5841,6 +5987,7 @@ public class StaffDashboardController {
     /**
      * Show dialog to select replacement item with search and filter options
      */
+    @SuppressWarnings("unused")
     private Item showReplacementItemSelection(Reservation originalItem) {
         Dialog<Item> dialog = new Dialog<>();
         dialog.setTitle("Select Replacement Item");
@@ -6114,6 +6261,21 @@ public class StaffDashboardController {
             alert.setContentText("Failed to open image: " + ex.getMessage());
             alert.showAndWait();
         }
+    }
+    
+    /**
+     * Getter methods for managers (used by reporting and other features)
+     */
+    public InventoryManager getInventoryManager() {
+        return inventoryManager;
+    }
+    
+    public ReservationManager getReservationManager() {
+        return reservationManager;
+    }
+    
+    public ReceiptManager getReceiptManager() {
+        return receiptManager;
     }
 
 }

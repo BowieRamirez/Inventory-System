@@ -32,6 +32,7 @@ public class CashierDashboard {
     
     private Button paymentsBtn;
     private Button receiptsBtn;
+    private Button helpBtn;
     private Button logoutBtn;
     private Label logoLabel;
     private Label subtitleLabel;
@@ -188,6 +189,7 @@ public class CashierDashboard {
         
         paymentsBtn = createNavButton("💳 Process Payments", true);
         receiptsBtn = createNavButton("🧾 Receipts", false);
+        helpBtn = createNavButton("❓ Help", false);
         
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
@@ -216,6 +218,11 @@ public class CashierDashboard {
             setActiveButton(receiptsBtn);
             showReceipts();
         });
+
+        helpBtn.setOnAction(e -> {
+            setActiveButton(helpBtn);
+            showHelp();
+        });
         
         logoutBtn.setOnAction(e -> controller.handleLogout());
         
@@ -224,6 +231,7 @@ public class CashierDashboard {
             new Separator(),
             paymentsBtn,
             receiptsBtn,
+            helpBtn,
             spacer,
             new Separator(),
             logoutBtn
@@ -261,7 +269,7 @@ public class CashierDashboard {
     }
     
     private void setActiveButton(Button activeBtn) {
-        Button[] buttons = {paymentsBtn, receiptsBtn};
+        Button[] buttons = {paymentsBtn, receiptsBtn, helpBtn};
         
         String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
         String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
@@ -298,6 +306,177 @@ public class CashierDashboard {
         titleLabel.setText("Receipts");
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createReceiptsView());
+    }
+
+    private void showHelp() {
+        titleLabel.setText("Help & Documentation");
+        contentArea.getChildren().clear();
+        
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-control-inner-background: transparent; -fx-padding: 10;");
+        
+        VBox mainBox = new VBox(20);
+        mainBox.setPadding(new Insets(20));
+        mainBox.setStyle("-fx-border-color: transparent;");
+        mainBox.setId("help-content");
+        
+        // ====== WELCOME SECTION ======
+        VBox welcomeSection = createHelpCard(
+            "👋 Welcome to Cashier Station",
+            "STI ProWear System - Payment Processing",
+            "As a cashier, you handle customer payments, generate receipts, and process transactions. This guide covers all payment procedures and best practices."
+        );
+        
+        // ====== NAVIGATION BASICS ======
+        VBox navSection = createHelpCard(
+            "🧭 Navigation Basics",
+            "",
+            ""
+        );
+        navSection.getChildren().add(createBulletPoint("Dashboard: View today's transactions and pending payments"));
+        navSection.getChildren().add(createBulletPoint("Payments: Process customer payments securely"));
+        navSection.getChildren().add(createBulletPoint("Receipts: Generate and manage payment receipts"));
+        navSection.getChildren().add(createBulletPoint("Help: Access this documentation anytime"));
+        
+        // ====== PAYMENT PROCESSING ======
+        VBox paymentSection = createHelpCard(
+            "💳 Payment Processing",
+            "Handling Customer Transactions",
+            ""
+        );
+        paymentSection.getChildren().add(createBulletPoint("Receive customer with approved reservation ID"));
+        paymentSection.getChildren().add(createBulletPoint("Verify customer identity with valid student ID"));
+        paymentSection.getChildren().add(createBulletPoint("Confirm reservation details and total amount"));
+        paymentSection.getChildren().add(createBulletPoint("Accept payment (cash currently supported)"));
+        paymentSection.getChildren().add(createBulletPoint("Calculate and provide change accurately"));
+        paymentSection.getChildren().add(createBulletPoint("Generate and provide receipt to customer"));
+        paymentSection.getChildren().add(createBulletPoint("Record transaction in system with receipt number"));
+        
+        // ====== CASH HANDLING ======
+        VBox cashSection = createHelpCard(
+            "💰 Cash Handling & Accuracy",
+            "Critical for Security & Trust",
+            ""
+        );
+        cashSection.getChildren().add(createBulletPoint("Count cash drawer at START of shift"));
+        cashSection.getChildren().add(createBulletPoint("Record opening balance in cash register"));
+        cashSection.getChildren().add(createBulletPoint("Use calculator for change calculations"));
+        cashSection.getChildren().add(createBulletPoint("Double-check all transactions for accuracy"));
+        cashSection.getChildren().add(createBulletPoint("Count cash drawer at END of shift"));
+        cashSection.getChildren().add(createBulletPoint("Report any discrepancies to supervisor immediately"));
+        cashSection.getChildren().add(createBulletPoint("Never leave cash drawer unattended"));
+        cashSection.getChildren().add(createBulletPoint("Secure all cash in designated safe/lockbox"));
+        
+        // ====== RECEIPT MANAGEMENT ======
+        VBox receiptSection = createHelpCard(
+            "🧾 Receipt Management",
+            "Documentation & Records",
+            ""
+        );
+        receiptSection.getChildren().add(createBulletPoint("Generate receipt for every payment transaction"));
+        receiptSection.getChildren().add(createBulletPoint("Include: Customer name, items, amount paid, change, date/time"));
+        receiptSection.getChildren().add(createBulletPoint("Keep receipt numbers sequential"));
+        receiptSection.getChildren().add(createBulletPoint("Provide receipt to customer - always keep copy"));
+        receiptSection.getChildren().add(createBulletPoint("Store receipts in designated file/folder"));
+        receiptSection.getChildren().add(createBulletPoint("Never discard or destroy original receipts"));
+        receiptSection.getChildren().add(createBulletPoint("Report lost receipts to supervisor"));
+        
+        // ====== CUSTOMER SERVICE ======
+        VBox csSection = createHelpCard(
+            "🤝 Customer Service Excellence",
+            "Professional & Courteous Service",
+            ""
+        );
+        csSection.getChildren().add(createBulletPoint("Greet every customer with a smile and warm greeting"));
+        csSection.getChildren().add(createBulletPoint("Speak clearly and confirm payment details"));
+        csSection.getChildren().add(createBulletPoint("Handle complaints professionally and empathetically"));
+        csSection.getChildren().add(createBulletPoint("Never rush customers - take time for accuracy"));
+        csSection.getChildren().add(createBulletPoint("Thank customers and encourage them to return"));
+        csSection.getChildren().add(createBulletPoint("Maintain clean and organized work area"));
+        csSection.getChildren().add(createBulletPoint("Escalate complex issues to supervisor"));
+        
+        // ====== PAYMENT METHODS ======
+        VBox methodSection = createHelpCard(
+            "📋 Supported Payment Methods",
+            "Current Options",
+            ""
+        );
+        methodSection.getChildren().add(createBulletPoint("Cash: Primary payment method"));
+        methodSection.getChildren().add(createBulletPoint("Verify cash denominations: ₱1, ₱5, ₱10, ₱20, ₱50, ₱100, ₱500, ₱1000"));
+        methodSection.getChildren().add(createBulletPoint("Check for counterfeit or damaged bills"));
+        methodSection.getChildren().add(createBulletPoint("Future updates may include card/digital payments"));
+        
+        // ====== REJECTED PAYMENTS ======
+        VBox rejectSection = createHelpCard(
+            "❌ Handling Payment Issues",
+            "When Payment Can't Be Processed",
+            ""
+        );
+        rejectSection.getChildren().add(createBulletPoint("Insufficient funds: Politely inform customer and inform staff"));
+        rejectSection.getChildren().add(createBulletPoint("Reservation expired: Check with staff before accepting"));
+        rejectSection.getChildren().add(createBulletPoint("Customer disputes amount: Verify reservation and confirm with customer"));
+        rejectSection.getChildren().add(createBulletPoint("Missing documentation: Request valid student ID"));
+        rejectSection.getChildren().add(createBulletPoint("System error: Call supervisor - never guess or force transaction"));
+        
+        // ====== TIPS & BEST PRACTICES ======
+        VBox tipsSection = createHelpCard(
+            "💡 Tips & Best Practices",
+            "Work Efficiently & Safely",
+            ""
+        );
+        tipsSection.getChildren().add(createTipBullet("Always use calculator - mental math causes errors"));
+        tipsSection.getChildren().add(createTipBullet("Count change back to customer - never rush"));
+        tipsSection.getChildren().add(createTipBullet("Verify receipts print correctly before handing to customer"));
+        tipsSection.getChildren().add(createTipBullet("Keep payment window visible - transparency builds trust"));
+        tipsSection.getChildren().add(createTipBullet("Regular cash counts prevent discrepancies"));
+        tipsSection.getChildren().add(createTipBullet("Good appearance and attitude improve customer experience"));
+        
+        // ====== TROUBLESHOOTING ======
+        VBox troubleshootSection = createHelpCard(
+            "🔧 Troubleshooting",
+            "Common Issues & Solutions",
+            ""
+        );
+        troubleshootSection.getChildren().add(createFAQItem("Q: Customer provided exact amount?", "A: Count carefully and process payment. Generate receipt confirming zero change."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Receipt printer not working?", "A: Contact IT or supervisor. Use manual receipt form as backup."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Cash drawer won't open?", "A: Call supervisor - do not force. May need key override."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Customer claims wrong change given?", "A: Review receipt and transaction. Report to supervisor if discrepancy found."));
+        troubleshootSection.getChildren().add(createFAQItem("Q: Reservation not found in system?", "A: Verify reservation ID and customer name. Consult with staff."));
+        
+        // ====== SAFETY & SECURITY ======
+        VBox securitySection = createHelpCard(
+            "🔒 Safety & Security",
+            "Protecting Assets & Data",
+            ""
+        );
+        securitySection.getChildren().add(createBulletPoint("Never share drawer keys or access codes"));
+        securitySection.getChildren().add(createBulletPoint("Report suspicious transactions immediately"));
+        securitySection.getChildren().add(createBulletPoint("Keep password confidential - don't write it down"));
+        securitySection.getChildren().add(createBulletPoint("Log out when stepping away from system"));
+        securitySection.getChildren().add(createBulletPoint("Report any system breaches or unauthorized access"));
+        securitySection.getChildren().add(createBulletPoint("Handle customer data confidentially"));
+        
+        // ====== SHIFT PROCEDURES ======
+        VBox shiftSection = createHelpCard(
+            "⏰ Shift Opening & Closing",
+            "Daily Procedures",
+            ""
+        );
+        shiftSection.getChildren().add(createBulletPoint("OPENING: Count drawer, record starting amount, log in"));
+        shiftSection.getChildren().add(createBulletPoint("DURING: Process payments, maintain records, help customers"));
+        shiftSection.getChildren().add(createBulletPoint("CLOSING: Count drawer, calculate balance, report discrepancies"));
+        shiftSection.getChildren().add(createBulletPoint("RECONCILIATION: Match receipts with cash and system records"));
+        shiftSection.getChildren().add(createBulletPoint("Document any issues on daily report"));
+        
+        mainBox.getChildren().addAll(
+            welcomeSection, navSection, paymentSection, cashSection, receiptSection, 
+            csSection, methodSection, rejectSection, tipsSection, troubleshootSection, 
+            securitySection, shiftSection
+        );
+        
+        scrollPane.setContent(mainBox);
+        contentArea.getChildren().add(scrollPane);
     }
     
     private void updateSidebarTheme() {
@@ -398,6 +577,11 @@ public class CashierDashboard {
                              "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
                              "-fx-alignment: center; -fx-font-size: 14px;");
         }
+        
+        // Refresh Help content if currently displayed
+        if (contentArea.lookup("#help-content") != null) {
+            showHelp();
+        }
     }
     
     /**
@@ -449,6 +633,93 @@ public class CashierDashboard {
     
     public BorderPane getView() {
         return view;
+    }
+    
+    // ===== HELP SECTION HELPER METHODS =====
+    
+    private VBox createHelpCard(String title, String subtitle, String description) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(16));
+        card.setStyle(
+            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#2a2a3e" : "#f5f5f5") + ";" +
+            "-fx-background-radius: 8px;" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#404054" : "#e0e0e0") + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 8px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0, 0, 1);"
+        );
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72") + ";");
+        card.getChildren().add(titleLabel);
+        
+        if (subtitle != null && !subtitle.isEmpty()) {
+            Label subtitleLabel = new Label(subtitle);
+            subtitleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
+            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#a0a0c0" : "#4a5f8f") + ";");
+            card.getChildren().add(subtitleLabel);
+        }
+        
+        if (description != null && !description.isEmpty()) {
+            Label descLabel = new Label(description);
+            descLabel.setWrapText(true);
+            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + ";");
+            card.getChildren().add(descLabel);
+        }
+        
+        return card;
+    }
+    
+    private VBox createBulletPoint(String text) {
+        VBox box = new VBox(4);
+        box.setPadding(new Insets(4, 0, 4, 20));
+        Label bullet = new Label("• " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 11px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createSubBullet(String text) {
+        VBox box = new VBox(2);
+        box.setPadding(new Insets(2, 0, 2, 40));
+        Label bullet = new Label("  ◦ " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 10px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private VBox createTipBullet(String text) {
+        VBox box = new VBox(4);
+        box.setPadding(new Insets(4, 0, 4, 20));
+        Label bullet = new Label("✓ " + text);
+        bullet.setWrapText(true);
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 11px;");
+        box.getChildren().add(bullet);
+        return box;
+    }
+    
+    private HBox createFAQItem(String question, String answer) {
+        HBox faqBox = new HBox(12);
+        faqBox.setPadding(new Insets(8, 0, 8, 0));
+        
+        VBox qnaBox = new VBox(4);
+        Label qLabel = new Label(question);
+        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
+        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + ";");
+        qLabel.setWrapText(true);
+        
+        Label aLabel = new Label(answer);
+        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 10px;");
+        aLabel.setWrapText(true);
+        
+        qnaBox.getChildren().addAll(qLabel, aLabel);
+        faqBox.getChildren().add(qnaBox);
+        HBox.setHgrow(qnaBox, Priority.ALWAYS);
+        
+        return faqBox;
     }
 }
 
