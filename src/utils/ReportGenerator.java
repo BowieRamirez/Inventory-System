@@ -1,16 +1,20 @@
 package utils;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import inventory.InventoryManager;
 import inventory.Item;
+import inventory.Receipt;
 import inventory.ReceiptManager;
 import inventory.Reservation;
 import inventory.ReservationManager;
-import inventory.Receipt;
 import student.Student;
-
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ReportGenerator - Aggregates data for reporting and analytics
@@ -45,6 +49,45 @@ public class ReportGenerator {
         
         return stockByCourse.entrySet().stream()
                 .map(e -> new StockReport(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get detailed item list grouped by course (for detailed PDF export)
+     */
+    public Map<String, List<DetailedItemReport>> getDetailedItemsByCourse() {
+        Map<String, List<DetailedItemReport>> itemsByCourse = new LinkedHashMap<>();
+        
+        for (Item item : inventoryManager.getAllItems()) {
+            String course = item.getCourse();
+            DetailedItemReport report = new DetailedItemReport(
+                item.getCode(),
+                item.getName(),
+                item.getCourse(),
+                item.getSize(),
+                item.getQuantity(),
+                item.getPrice()
+            );
+            
+            itemsByCourse.computeIfAbsent(course, k -> new ArrayList<>()).add(report);
+        }
+        
+        return itemsByCourse;
+    }
+    
+    /**
+     * Get all items as detailed reports
+     */
+    public List<DetailedItemReport> getAllDetailedItems() {
+        return inventoryManager.getAllItems().stream()
+                .map(item -> new DetailedItemReport(
+                    item.getCode(),
+                    item.getName(),
+                    item.getCourse(),
+                    item.getSize(),
+                    item.getQuantity(),
+                    item.getPrice()
+                ))
                 .collect(Collectors.toList());
     }
     
@@ -256,6 +299,37 @@ public class ReportGenerator {
     }
     
     // ==================== INNER DATA CLASSES ====================
+    
+    /**
+     * Detailed item report data class - includes all item details
+     */
+    public static class DetailedItemReport {
+        private int itemCode;
+        private String itemName;
+        private String course;
+        private String size;
+        private int quantity;
+        private double price;
+        private String status;
+        
+        public DetailedItemReport(int itemCode, String itemName, String course, String size, int quantity, double price) {
+            this.itemCode = itemCode;
+            this.itemName = itemName;
+            this.course = course;
+            this.size = size;
+            this.quantity = quantity;
+            this.price = price;
+            this.status = quantity == 0 ? "OUT OF STOCK" : quantity <= 10 ? "LOW STOCK" : "IN STOCK";
+        }
+        
+        public int getItemCode() { return itemCode; }
+        public String getItemName() { return itemName; }
+        public String getCourse() { return course; }
+        public String getSize() { return size; }
+        public int getQuantity() { return quantity; }
+        public double getPrice() { return price; }
+        public String getStatus() { return status; }
+    }
     
     /**
      * Stock report data class

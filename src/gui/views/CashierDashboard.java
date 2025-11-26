@@ -7,9 +7,17 @@ import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.util.Duration;
@@ -213,7 +221,7 @@ public class CashierDashboard {
             setActiveButton(paymentsBtn);
             showPayments();
         });
-        
+
         receiptsBtn.setOnAction(e -> {
             setActiveButton(receiptsBtn);
             showReceipts();
@@ -307,6 +315,8 @@ public class CashierDashboard {
         contentArea.getChildren().clear();
         contentArea.getChildren().add(controller.createReceiptsView());
     }
+    
+    
 
     private void showHelp() {
         titleLabel.setText("Help & Documentation");

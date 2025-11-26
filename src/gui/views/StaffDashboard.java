@@ -227,7 +227,7 @@ public class StaffDashboard {
         reservationsBtn = createNavButton("📋 Reservations", false);
         inventoryBtn = createNavButton("📦 Inventory", false);
         stockLogsBtn = createNavButton("📝 Stock Logs", false);
-        reportsBtn = createNavButton("📈 Reports", false);
+        reportsBtn = createNavButton("📈 Report", false);
         helpBtn = createNavButton("❓ Help", false);
         
         Region spacer = new Region();
@@ -536,13 +536,15 @@ public class StaffDashboard {
      * Show reports and analytics
      */
     private void showReports() {
-        titleLabel.setText("Reports & Analytics");
+        titleLabel.setText("Stock Availability Report");
         contentArea.getChildren().clear();
         try {
+            // Staff mode: show Stock Availability report directly (no selection screen)
             ReportView reportView = new ReportView(
                 controller.getInventoryManager(),
                 controller.getReservationManager(),
-                controller.getReceiptManager()
+                controller.getReceiptManager(),
+                true  // staffMode = true
             );
             contentArea.getChildren().add(reportView.getView());
         } catch (Exception e) {

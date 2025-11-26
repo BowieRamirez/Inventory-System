@@ -114,7 +114,7 @@ public class InventoryManager {
         String selNorm = normalizeCourse(rawSel);
 
         for (Item item : inventory) {
-            if (item.getQuantity() <= 0) continue;
+            // Show all items including out-of-stock for transparency
 
             String rawItemCourse = item.getCourse() == null ? "" : item.getCourse().trim();
             String itemNorm = normalizeCourse(rawItemCourse);

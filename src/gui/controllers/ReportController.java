@@ -1,21 +1,36 @@
 package gui.controllers;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import gui.utils.ThemeManager;
-import utils.ReportGenerator;
-import utils.ReportGenerator.*;
 import inventory.InventoryManager;
 import inventory.ReceiptManager;
 import inventory.ReservationManager;
-import javafx.scene.layout.VBox;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.Priority;
-import javafx.geometry.Insets;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.collections.FXCollections;
-import java.time.LocalDate;
-import java.util.*;
+import javafx.geometry.Insets;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import utils.ReportGenerator;
+import utils.ReportGenerator.ReservationReport;
+import utils.ReportGenerator.SalesSummaryReport;
+import utils.ReportGenerator.StockReport;
+import utils.ReportGenerator.StockValuationReport;
+import utils.ReportGenerator.StudentActivityReport;
 
 /**
  * ReportController - Manages report generation and display
@@ -116,14 +131,16 @@ public class ReportController {
     
     private void exportStockReport(String format) {
         try {
-            List<StockReport> data = reportGenerator.getStockByCourse();
-            String filename = "stock_report_" + LocalDate.now() + "." + (format.equals("PDF") ? "txt" : "csv");
+            String filename = "stock_report_" + LocalDate.now() + "." + (format.equals("PDF") ? "pdf" : "csv");
             String filepath = "reports/" + filename;
             
+            // Use detailed stock report with sizes and courses for both formats
+            Map<String, List<ReportGenerator.DetailedItemReport>> detailedData = reportGenerator.getDetailedItemsByCourse();
+            
             if (format.equals("PDF")) {
-                utils.PDFExporter.exportStockReportToPDF(data, filename);
+                utils.PDFExporter.exportDetailedStockReportToPDF(detailedData, filename);
             } else {
-                utils.ExcelExporter.exportStockReportToExcel(data, filename);
+                utils.ExcelExporter.exportDetailedStockReportToExcel(detailedData, filename);
             }
             
             showExportSuccess(filepath);
@@ -141,6 +158,7 @@ public class ReportController {
         // Search bar
         HBox searchBox = new HBox(10);
         searchBox.setPadding(new Insets(10));
+        searchBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         searchBox.setStyle("-fx-border-color: " + getSearchBoxBorderColor() + "; -fx-border-radius: 5; -fx-background-color: " + getSearchBoxBgColor() + ";");
         
         TextField searchField = new TextField();
@@ -156,10 +174,12 @@ public class ReportController {
         TableColumn<StockReport, String> categoryCol = new TableColumn<>("Course/Category");
         categoryCol.setCellValueFactory(new PropertyValueFactory<>("category"));
         categoryCol.setPrefWidth(200);
+        categoryCol.setStyle("-fx-alignment: CENTER;");
         
         TableColumn<StockReport, Integer> qtyCol = new TableColumn<>("Quantity");
         qtyCol.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         qtyCol.setPrefWidth(100);
+        qtyCol.setStyle("-fx-alignment: CENTER;");
         
         table.getColumns().add(categoryCol);
         table.getColumns().add(qtyCol);
@@ -197,6 +217,7 @@ public class ReportController {
         // Controls bar with search and filter
         HBox controlsBox = new HBox(15);
         controlsBox.setPadding(new Insets(10));
+        controlsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         controlsBox.setStyle("-fx-border-color: " + getSearchBoxBorderColor() + "; -fx-border-radius: 5; -fx-background-color: " + getSearchBoxBgColor() + ";");
         
         TextField searchField = new TextField();
@@ -213,10 +234,12 @@ public class ReportController {
         TableColumn<StockReport, String> itemCol = new TableColumn<>("Item Name");
         itemCol.setCellValueFactory(new PropertyValueFactory<>("category"));
         itemCol.setPrefWidth(200);
+        itemCol.setStyle("-fx-alignment: CENTER;");
         
         TableColumn<StockReport, Integer> quantityCol = new TableColumn<>("Stock Level");
         quantityCol.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         quantityCol.setPrefWidth(100);
+        quantityCol.setStyle("-fx-alignment: CENTER;");
         
         table.getColumns().add(itemCol);
         table.getColumns().add(quantityCol);
@@ -270,6 +293,7 @@ public class ReportController {
         TableColumn<StockReport, String> itemCol = new TableColumn<>("Item Name");
         itemCol.setCellValueFactory(new PropertyValueFactory<>("category"));
         itemCol.setPrefWidth(300);
+        itemCol.setStyle("-fx-alignment: CENTER;");
         
         table.getColumns().add(itemCol);
         table.setItems(FXCollections.observableArrayList(outOfStockItems));
@@ -294,18 +318,22 @@ public class ReportController {
         TableColumn<StockValuationReport, String> itemCol = new TableColumn<>("Item Name");
         itemCol.setCellValueFactory(new PropertyValueFactory<>("itemName"));
         itemCol.setPrefWidth(150);
+        itemCol.setStyle("-fx-alignment: CENTER;");
         
         TableColumn<StockValuationReport, Integer> quantityCol = new TableColumn<>("Quantity");
         quantityCol.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         quantityCol.setPrefWidth(100);
+        quantityCol.setStyle("-fx-alignment: CENTER;");
         
         TableColumn<StockValuationReport, Double> priceCol = new TableColumn<>("Unit Price");
         priceCol.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
         priceCol.setPrefWidth(100);
+        priceCol.setStyle("-fx-alignment: CENTER;");
         
         TableColumn<StockValuationReport, Double> valueCol = new TableColumn<>("Total Value");
         valueCol.setCellValueFactory(new PropertyValueFactory<>("totalValue"));
         valueCol.setPrefWidth(100);
+        valueCol.setStyle("-fx-alignment: CENTER;");
         
         table.getColumns().add(itemCol);
         table.getColumns().add(quantityCol);

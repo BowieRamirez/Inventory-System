@@ -1,0 +1,34 @@
+STOCK AVAILABILITY REPORT
+Generated: 2025-11-26
+==========================================
+
+Summary:
+Total Items: 8
+Total Quantity: 21970
+
+Item Details:
+==========================================
+Category: BMMA
+Quantity: 810
+-----------------------------------------
+Category: BSCS/BSIT/BSCpE
+Quantity: 4725
+-----------------------------------------
+Category: BSTM
+Quantity: 1299
+-----------------------------------------
+Category: BSHM
+Quantity: 1875
+-----------------------------------------
+Category: STI Special
+Quantity: 2353
+-----------------------------------------
+Category: BSBA/BSA
+Quantity: 1953
+-----------------------------------------
+Category: SHS
+Quantity: 8790
+-----------------------------------------
+Category: STEM
+Quantity: 165
+-----------------------------------------

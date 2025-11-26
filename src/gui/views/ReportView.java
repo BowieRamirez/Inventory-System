@@ -11,9 +11,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -26,6 +26,7 @@ public class ReportView {
     private ReportController controller;
     private StackPane contentArea;
     private Runnable themeRefreshListener;
+    private boolean staffMode; // If true, show only Stock report directly (no selection)
     
     // Track current report type
     private enum CurrentReport {
@@ -33,10 +34,25 @@ public class ReportView {
     }
     private CurrentReport currentReport = CurrentReport.SELECTION;
     
+    /**
+     * Constructor for Admin mode - shows all report types with selection screen
+     */
     public ReportView(InventoryManager inventoryManager,
                      ReservationManager reservationManager,
                      ReceiptManager receiptManager) {
+        this(inventoryManager, reservationManager, receiptManager, false);
+    }
+    
+    /**
+     * Constructor with mode selection
+     * @param staffMode if true, shows Stock Availability report directly (for Staff)
+     */
+    public ReportView(InventoryManager inventoryManager,
+                     ReservationManager reservationManager,
+                     ReceiptManager receiptManager,
+                     boolean staffMode) {
         this.controller = new ReportController(inventoryManager, reservationManager, receiptManager);
+        this.staffMode = staffMode;
         initializeView();
         registerThemeListener();
     }
@@ -55,8 +71,12 @@ public class ReportView {
         updateContentAreaStyles();
         VBox.setVgrow(contentArea, Priority.ALWAYS);
         
-        // Show report selection by default
-        showReportSelection();
+        // In staffMode, show Stock report directly; otherwise show selection
+        if (staffMode) {
+            showStockReportDirect();
+        } else {
+            showReportSelection();
+        }
         
         view.getChildren().addAll(header, new Separator(), contentArea);
     }
@@ -73,16 +93,21 @@ public class ReportView {
         themeRefreshListener = () -> {
             updateViewStyles();
             updateContentAreaStyles();
+            // In staffMode, always show stock report directly
+            if (staffMode) {
+                showStockReportDirect();
+                return;
+            }
             // Refresh based on which report is currently showing
             switch (currentReport) {
                 case STOCK:
                     showStockReport();
                     break;
-                case TRANSACTION:
-                    showTransactionReport();
-                    break;
                 case STUDENT:
                     showStudentReport();
+                    break;
+                case TRANSACTION:
+                    showTransactionReport();
                     break;
                 case SELECTION:
                 default:
@@ -100,11 +125,13 @@ public class ReportView {
             "-fx-background-color: linear-gradient(to right, #1e3c72 0%, #2a5298 50%, #1e3c72 100%);"
         );
         
-        Label titleLabel = new Label("📊 Reports & Analytics");
+        Label titleLabel = new Label(staffMode ? "📦 Stock Availability Report" : "📊 Reports & Analytics");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
         titleLabel.setStyle("-fx-text-fill: white;");
         
-        Label descLabel = new Label("Generate comprehensive reports on stock, sales, and student activity");
+        Label descLabel = new Label(staffMode 
+            ? "View current stock levels, low stock alerts, and inventory valuations"
+            : "Generate comprehensive reports on stock, sales, and student activity");
         descLabel.setStyle("-fx-text-fill: rgba(255,255,255,0.9); -fx-font-size: 12px;");
         
         header.getChildren().addAll(titleLabel, descLabel);
@@ -135,8 +162,8 @@ public class ReportView {
         );
         
         Button transactionBtn = createReportButton(
-            "💳 Transactions & Sales",
-            "View sales summaries, revenue\nand transaction reports",
+            "💳 Transaction & Sales",
+            "View sales summary, order\nhistory, and transaction reports",
             () -> showTransactionReport()
         );
         
@@ -258,6 +285,19 @@ public class ReportView {
         
         container.getChildren().addAll(backBar, report);
         contentArea.getChildren().add(container);
+    }
+    
+    /**
+     * Show Stock report directly without back button (for Staff mode)
+     */
+    private void showStockReportDirect() {
+        currentReport = CurrentReport.STOCK;
+        contentArea.getChildren().clear();
+        
+        VBox report = controller.createStockAvailabilityReport();
+        VBox.setVgrow(report, Priority.ALWAYS);
+        
+        contentArea.getChildren().add(report);
     }
     
     private void showTransactionReport() {

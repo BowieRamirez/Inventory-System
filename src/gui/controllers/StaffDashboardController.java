@@ -4825,7 +4825,15 @@ public class StaffDashboardController {
 
         TableColumn<Item, String> statusCol = new TableColumn<>("Status");
         statusCol.setCellValueFactory(data -> {
-            String status = data.getValue().getQuantity() <= 5 ? "CRITICAL" : "LOW";
+            int q = data.getValue().getQuantity();
+            String status;
+            if (q == 0) {
+                status = "OUT OF STOCK";
+            } else if (q <= 5) {
+                status = "CRITICAL";
+            } else {
+                status = "LOW";
+            }
             return new javafx.beans.property.SimpleStringProperty(status);
         });
         statusCol.setCellFactory(col -> new TableCell<Item, String>() {
@@ -4837,8 +4845,16 @@ public class StaffDashboardController {
                     setStyle(null);
                 } else {
                     setText(status);
-                    String textColor = "CRITICAL".equals(status) ? "#CF222E" : "#C69026";
-                    setStyle("-fx-text-fill: " + textColor + "; -fx-font-weight: bold;");
+                    // For CRITICAL, rely on the row background (light red) and keep text default.
+                    if ("CRITICAL".equals(status)) {
+                        setStyle("-fx-font-weight: bold;");
+                    } else if ("OUT OF STOCK".equals(status)) {
+                        // Keep OUT OF STOCK prominent with red text
+                        setStyle("-fx-text-fill: #CF222E; -fx-font-weight: bold;");
+                    } else {
+                        // LOW
+                        setStyle("-fx-text-fill: #C69026; -fx-font-weight: bold;");
+                    }
                 }
             }
         });

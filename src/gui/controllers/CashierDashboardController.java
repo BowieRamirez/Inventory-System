@@ -1,6 +1,7 @@
 package gui.controllers;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 import gui.utils.AlertHelper;
 import gui.utils.ControllerUtils;
@@ -12,6 +13,7 @@ import inventory.Receipt;
 import inventory.ReceiptManager;
 import inventory.Reservation;
 import inventory.ReservationManager;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -29,11 +31,9 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
-import java.util.function.UnaryOperator;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.application.Platform;
 import utils.SystemLogger;
  
 /**
@@ -1746,6 +1746,18 @@ public class CashierDashboardController {
             LoginView loginView = new LoginView();
             SceneManager.setRoot(loginView.getView());
         }
+    }
+    
+    /**
+     * Create Reports view - shows Transaction & Sales reports for Cashier
+     */
+    public javafx.scene.Node createReportsView() {
+        // Create a ReportController with the managers
+        gui.controllers.ReportController reportController = 
+            new gui.controllers.ReportController(inventoryManager, reservationManager, receiptManager);
+        
+        // Return the Transaction Report view directly (the primary cashier report)
+        return reportController.createTransactionReport();
     }
 }
 

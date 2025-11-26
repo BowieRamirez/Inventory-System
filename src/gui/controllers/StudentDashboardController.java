@@ -888,14 +888,10 @@ public class StudentDashboardController {
         itemsGrid.setPrefWrapLength(1200);
         itemsGrid.setAlignment(Pos.TOP_LEFT);
         
-        // Display items with available stock initially
-        List<Item> initialDisplayItems = allItems.stream()
-            .filter(item -> item.getQuantity() > 0)
-            .collect(Collectors.toList());
-
-        // Group by code and only include groups that have stock
+        // Display all items (including out-of-stock) for transparency
+        // Group by code to show all available item types
         java.util.Map<Integer, java.util.List<Item>> groupedAll = new java.util.LinkedHashMap<>();
-        for (Item it : initialDisplayItems) groupedAll.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+        for (Item it : allItems) groupedAll.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
 
         if (groupedAll.isEmpty()) {
             Label noItems = new Label("No items available for your course yet.");
@@ -1335,43 +1331,70 @@ public class StudentDashboardController {
         for (Item v : variants) if (variantAvailableToStudent(v)) courseVariants.add(v);
 
         Item rep = courseVariants.isEmpty() ? variants.get(0) : courseVariants.get(0);
+        
+        // Check if ANY size has stock
+        int totalQty = courseVariants.isEmpty() ? 0 : courseVariants.stream().mapToInt(Item::getQuantity).sum();
+        boolean hasAnyStock = totalQty > 0;
+        
         VBox card = new VBox(10);
         card.setPrefWidth(240);
         card.setPadding(new Insets(15));
-        card.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
-            "-fx-background-radius: 8px;" +
-            "-fx-border-color: -color-border-default;" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 8px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);"
-        );
+        
+        // Gray out entire card if completely out of stock
+        if (!hasAnyStock) {
+            card.setStyle(
+                "-fx-background-color: #F0F0F0;" +
+                "-fx-background-radius: 8px;" +
+                "-fx-border-color: #D0D0D0;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 8px;" +
+                "-fx-opacity: 0.7;"
+            );
+        } else {
+            card.setStyle(
+                "-fx-background-color: -color-bg-subtle;" +
+                "-fx-background-radius: 8px;" +
+                "-fx-border-color: -color-border-default;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 8px;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);"
+            );
+        }
 
         HBox titleRow = new HBox(8);
         titleRow.setAlignment(Pos.CENTER_LEFT);
         Label nameLabel = new Label(rep.getName());
         nameLabel.setFont(Font.font("System", FontWeight.BOLD, 15));
         nameLabel.setWrapText(true);
+        nameLabel.setStyle(hasAnyStock ? "-fx-text-fill: -color-fg-default;" : "-fx-text-fill: #888888;");
         HBox.setHgrow(nameLabel, Priority.ALWAYS);
         titleRow.getChildren().add(nameLabel);
 
         Label categoryBadge = new Label(rep.getCourse().equals("STI Special") ? "✨ Special" : "✓ Uniform");
         categoryBadge.setMaxWidth(Region.USE_PREF_SIZE);
-        categoryBadge.setStyle(
-            "-fx-background-color: " + (rep.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
-            "-fx-text-fill: " + (rep.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
-            "-fx-padding: 4 10 4 10; -fx-background-radius: 10px; -fx-font-size: 12px; -fx-font-weight: bold;"
-        );
+        if (hasAnyStock) {
+            categoryBadge.setStyle(
+                "-fx-background-color: " + (rep.getCourse().equals("STI Special") ? "#DDF4FF" : "#DAFBE1") + ";" +
+                "-fx-text-fill: " + (rep.getCourse().equals("STI Special") ? "#0969DA" : "#1A7F37") + ";" +
+                "-fx-padding: 4 10 4 10; -fx-background-radius: 10px; -fx-font-size: 12px; -fx-font-weight: bold;"
+            );
+        } else {
+            categoryBadge.setStyle(
+                "-fx-background-color: #E0E0E0;" +
+                "-fx-text-fill: #888888;" +
+                "-fx-padding: 4 10 4 10; -fx-background-radius: 10px; -fx-font-size: 12px; -fx-font-weight: bold;"
+            );
+        }
 
         Label codeLabel = new Label("Code: " + rep.getCode());
-        codeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+        codeLabel.setStyle(hasAnyStock ? "-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;" : "-fx-text-fill: #AAAAAA; -fx-font-size: 12px;");
 
         // Build sizes info as chips with wrap
         FlowPane sizesBox = new FlowPane(8, 8);
         sizesBox.setPrefWrapLength(200);
         if (courseVariants.isEmpty()) {
             Label noSizes = new Label("No sizes available for your course");
-            noSizes.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+            noSizes.setStyle("-fx-text-fill: #AAAAAA; -fx-font-size: 12px;");
             sizesBox.getChildren().add(noSizes);
         } else {
             // Aggregate sizes to avoid duplicate chips and show combined quantities
@@ -1384,17 +1407,21 @@ public class StudentDashboardController {
             for (java.util.Map.Entry<String, Integer> e : sizeMap.entrySet()) {
                 String text = e.getKey() + " (" + e.getValue() + ")";
                 Label lbl = new Label(text);
-                lbl.setStyle("-fx-background-color: #E8E8E8; -fx-text-fill: #333333; -fx-padding: 6 12 6 12; -fx-background-radius: 12px; -fx-font-size: 12px; -fx-font-weight: bold;");
+                // Gray out individual sizes that are out of stock
+                if (e.getValue() > 0) {
+                    lbl.setStyle("-fx-background-color: #E8E8E8; -fx-text-fill: #333333; -fx-padding: 6 12 6 12; -fx-background-radius: 12px; -fx-font-size: 12px; -fx-font-weight: bold;");
+                } else {
+                    lbl.setStyle("-fx-background-color: #F5F5F5; -fx-text-fill: #AAAAAA; -fx-padding: 6 12 6 12; -fx-background-radius: 12px; -fx-font-size: 12px; -fx-font-weight: bold; -fx-strikethrough: true;");
+                }
                 sizesBox.getChildren().add(lbl);
             }
         }
 
         Label priceLabel = new Label("₱" + String.format("%.2f", rep.getPrice()));
         priceLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
-        priceLabel.setStyle("-fx-text-fill: #1A7F37;");
+        priceLabel.setStyle(hasAnyStock ? "-fx-text-fill: #1A7F37;" : "-fx-text-fill: #AAAAAA;");
 
         Label stockLabel = new Label();
-        int totalQty = courseVariants.isEmpty() ? 0 : courseVariants.stream().mapToInt(Item::getQuantity).sum();
         if (totalQty > 10) {
             stockLabel.setText("✓ In Stock (" + totalQty + ")");
             stockLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 11px;");
@@ -1402,8 +1429,8 @@ public class StudentDashboardController {
             stockLabel.setText("✓ In Stock (" + totalQty + ")");
             stockLabel.setStyle("-fx-text-fill: #BF8700; -fx-font-size: 11px;");
         } else {
-            stockLabel.setText("Out of Stock");
-            stockLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 11px;");
+            stockLabel.setText("✗ Out of Stock");
+            stockLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-size: 11px; -fx-font-weight: bold;");
         }
 
         // Flexible spacer so price + buttons align at bottom across cards
@@ -1414,24 +1441,27 @@ public class StudentDashboardController {
         buttonBox.setAlignment(Pos.CENTER);
         Button addBtn = new Button("Add");
         addBtn.setPrefWidth(110);
-        addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;");
-        addBtn.setOnMouseEntered(e -> addBtn.setStyle("-fx-background-color: #2D3A7A; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"));
-        addBtn.setOnMouseExited(e -> addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px;"));
+        addBtn.setPrefHeight(36);
         Button reserveBtn = new Button("Reserve");
         reserveBtn.setPrefWidth(110);
-        // Ensure consistent heights so buttons line up across cards with different content
-        addBtn.setPrefHeight(36);
         reserveBtn.setPrefHeight(36);
-        reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-font-weight: bold;");
-        reserveBtn.setOnMouseEntered(e -> reserveBtn.setStyle("-fx-background-color: #F6F8FA; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold;"));
-        reserveBtn.setOnMouseExited(e -> reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold;"));
 
-        if (courseVariants.isEmpty()) {
+        // Completely disable buttons if no stock at all
+        if (!hasAnyStock || courseVariants.isEmpty()) {
             addBtn.setDisable(true);
             reserveBtn.setDisable(true);
-            addBtn.setStyle("-fx-background-color: #D0D7DE; -fx-text-fill: #57606A; -fx-font-size: 12px; -fx-background-radius: 4px;");
-            reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #57606A; -fx-font-size: 12px; -fx-background-radius: 4px; -fx-border-color: #D0D7DE; -fx-border-width: 1px; -fx-border-radius: 4px;");
+            addBtn.setStyle("-fx-background-color: #D0D7DE; -fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-radius: 6px;");
+            reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-radius: 6px; -fx-border-color: #D0D7DE; -fx-border-width: 1px; -fx-border-radius: 6px;");
         } else {
+            // Has stock - enable buttons with hover effects
+            addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px; -fx-cursor: hand;");
+            addBtn.setOnMouseEntered(e -> addBtn.setStyle("-fx-background-color: #2D3A7A; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px; -fx-cursor: hand;"));
+            addBtn.setOnMouseExited(e -> addBtn.setStyle("-fx-background-color: #3E4C96; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6px; -fx-cursor: hand;"));
+            
+            reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-font-weight: bold; -fx-cursor: hand;");
+            reserveBtn.setOnMouseEntered(e -> reserveBtn.setStyle("-fx-background-color: #F6F8FA; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold; -fx-cursor: hand;"));
+            reserveBtn.setOnMouseExited(e -> reserveBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #3E4C96; -fx-border-color: #D0D7DE; -fx-border-radius: 6px; -fx-font-weight: bold; -fx-cursor: hand;"));
+            
             addBtn.setOnAction(e -> handleGroupedAddToCart(courseVariants));
             reserveBtn.setOnAction(e -> handleGroupedReserve(courseVariants));
         }
@@ -1575,9 +1605,15 @@ public class StudentDashboardController {
             return;
         }
 
-        Dialog<Item> dialog = new Dialog<>();
-        dialog.setTitle("Select Size to Reserve");
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        // Single combined dialog for size selection AND reservation
+        Dialog<Reservation> dialog = new Dialog<>();
+        dialog.setTitle("Reserve Item");
+        
+        String itemName = variants.get(0).getName();
+        dialog.setHeaderText("Reserve: " + itemName);
+
+        ButtonType reserveButtonType = new ButtonType("Reserve", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(reserveButtonType, ButtonType.CANCEL);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -1596,26 +1632,94 @@ public class StudentDashboardController {
                 sizeMapR.put(sz, sizeMapR.get(sz) + v.getQuantity());
             }
         }
+        
+        // Price display
+        Item firstItem = representativeR.get(0);
+        Label priceLabel = new Label("Price: ₱" + String.format("%.2f", firstItem.getPrice()));
+        priceLabel.setStyle("-fx-font-size: 13px;");
+        
+        // Size selector
         javafx.scene.control.ChoiceBox<String> sizeChoice = new javafx.scene.control.ChoiceBox<>();
         for (java.util.Map.Entry<String, Integer> e : sizeMapR.entrySet()) {
-            sizeChoice.getItems().add(e.getKey() + " (" + e.getValue() + ")");
+            sizeChoice.getItems().add(e.getKey() + " (" + e.getValue() + " available)");
         }
         sizeChoice.getSelectionModel().selectFirst();
+        
+        // Quantity spinner
+        int firstMax = sizeMapR.values().iterator().next();
+        Spinner<Integer> qtySpinner = new Spinner<>(1, Math.max(1, firstMax), 1);
+        qtySpinner.setEditable(true);
+        qtySpinner.setPrefWidth(100);
+        
+        // Total price label
+        Label totalLabel = new Label("Total: ₱" + String.format("%.2f", firstItem.getPrice()));
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        // Update quantity spinner max and total when size changes
+        sizeChoice.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
+            int idx = newV.intValue();
+            if (idx >= 0 && idx < representativeR.size()) {
+                String sz = representativeR.get(idx).getSize();
+                int max = sizeMapR.getOrDefault(sz, representativeR.get(idx).getQuantity());
+                qtySpinner.setValueFactory(new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(1, Math.max(1, max), 1));
+                double total = representativeR.get(idx).getPrice() * qtySpinner.getValue();
+                totalLabel.setText("Total: ₱" + String.format("%.2f", total));
+            }
+        });
+        
+        // Update total when quantity changes
+        qtySpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            int idx = sizeChoice.getSelectionModel().getSelectedIndex();
+            if (idx >= 0 && idx < representativeR.size()) {
+                double total = representativeR.get(idx).getPrice() * newVal;
+                totalLabel.setText("Total: ₱" + String.format("%.2f", total));
+            }
+        });
 
-        grid.add(new Label("Size:"), 0, 0);
-        grid.add(sizeChoice, 1, 0);
+        grid.add(priceLabel, 0, 0, 2, 1);
+        grid.add(new Label("Size:"), 0, 1);
+        grid.add(sizeChoice, 1, 1);
+        grid.add(new Label("Quantity:"), 0, 2);
+        grid.add(qtySpinner, 1, 2);
+        grid.add(totalLabel, 0, 3, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
-        dialog.setResultConverter(btn -> {
-            if (btn == ButtonType.OK) {
+        
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == reserveButtonType) {
                 int idx = sizeChoice.getSelectionModel().getSelectedIndex();
-                if (idx >= 0 && idx < representativeR.size()) return representativeR.get(idx);
+                if (idx >= 0 && idx < representativeR.size()) {
+                    Item chosen = representativeR.get(idx);
+                    int quantity = qtySpinner.getValue();
+                    double totalPrice = chosen.getPrice() * quantity;
+
+                    // Create reservation directly
+                    Reservation reservation = reservationManager.createReservation(
+                        student.getFullName(),
+                        student.getStudentId(),
+                        student.getCourse(),
+                        chosen.getCode(),
+                        chosen.getName(),
+                        chosen.getSize(),
+                        quantity,
+                        totalPrice
+                    );
+                    return reservation;
+                }
             }
             return null;
         });
 
-        dialog.showAndWait().ifPresent(chosen -> {
-            handleReserveItem(chosen);
+        dialog.showAndWait().ifPresent(reservation -> {
+            if (reservation != null) {
+                AlertHelper.showSuccess("Success",
+                    "Reservation created successfully!\n\n" +
+                    "Reservation ID: " + reservation.getReservationId() + "\n" +
+                    "Status: " + reservation.getStatus() + "\n\n" +
+                    "Please wait for staff approval.");
+            } else {
+                AlertHelper.showError("Error", "Failed to create reservation. Item may be out of stock.");
+            }
         });
     }
     

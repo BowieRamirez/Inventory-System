@@ -5,10 +5,8 @@
 020002992999|lolpogi123|HUMSS|wadawd|awdadawd|Male|false
 02000303030|stipin123|BSCS|stephen|curry|Male|true
 02000427327|123456|TVL-CA|jhames|dela cruz|Female|true
+02002966254|lolpogi123|TVL-ICT|karl|frias|Male|true
+029950295252|lolpogi123|BSBA|Karl|Frias|Male|true
 123123123123|123456|BSIT|Lucas|Ramirez|Male|true
-123456789123|123123|TVL-ICT|nate|higgerson|Male|true
+12312312345|123456|TVL-CA|Karl|Frias|Male|true
 2000296625|Karl1234|BSIT|Karl Luis|Frias|Male|true
-333333333333|123123|BSHM|sdtsdgsd|asdasda|Male|true
-555555555555|123123|BSCPE|awqeqwe|ewqeqwe|Male|true
-987654321123|123123|BSTM|wnasdas|edasda|Female|true
-9999999999|123123|BSBA|daigo|daigods|Male|true
