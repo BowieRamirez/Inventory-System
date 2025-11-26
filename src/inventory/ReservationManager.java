@@ -231,6 +231,22 @@ public class ReservationManager {
     public List<Reservation> getPickupRequestsAwaitingApproval() {
         return filterSorted(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equalsIgnoreCase(r.getStatus()));
     }
+    
+    /**
+     * Student requests reschedule after missing pickup time
+     * Changes status from "APPROVED FOR PICKUP" back to "PICKUP REQUESTED - AWAITING STAFF APPROVAL"
+     * Clears the previous scheduled pickup datetime so staff can set a new one
+     */
+    public boolean requestReschedule(int reservationId) {
+        Reservation r = findReservationById(reservationId);
+        if (r != null && "APPROVED FOR PICKUP".equals(r.getStatus())) {
+            r.setStatus("PICKUP REQUESTED - AWAITING STAFF APPROVAL");
+            r.setScheduledPickupDateTime(null); // Clear old schedule
+            saveReservations();
+            return true;
+        }
+        return false;
+    }
 
     /**
      * Mark reservation as picked up (student confirms pickup)

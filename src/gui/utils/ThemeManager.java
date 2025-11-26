@@ -204,5 +204,61 @@ public class ThemeManager {
     public static String getSTIBlue() {
         return "#0969DA";
     }
+
+    /**
+     * Get muted text color for secondary/hint text
+     */
+    public static String getMutedTextColor() {
+        return isDarkMode() ? "#8b949e" : "#656d76";
+    }
+
+    /**
+     * Get subtle background color for sections/cards
+     */
+    public static String getSubtleBackgroundColor() {
+        return isDarkMode() ? "#161b22" : "#f6f8fa";
+    }
+
+    /**
+     * Get border color
+     */
+    public static String getBorderColor() {
+        return isDarkMode() ? "#30363d" : "#d0d7de";
+    }
+
+    /**
+     * Get card style for dashboard cards
+     */
+    public static String getCardStyle() {
+        return "-fx-background-color: " + getSubtleBackgroundColor() + ";" +
+               "-fx-background-radius: 8;" +
+               "-fx-border-color: " + getBorderColor() + ";" +
+               "-fx-border-radius: 8;" +
+               "-fx-padding: 15;";
+    }
+
+    /**
+     * Get table style
+     */
+    public static String getTableStyle() {
+        return "-fx-background-color: " + getSubtleBackgroundColor() + ";";
+    }
+
+    /**
+     * Get content style for main content areas
+     */
+    public static String getContentStyle() {
+        return "-fx-background-color: " + getContentBackgroundColor() + ";" +
+               "-fx-padding: 20;";
+    }
+
+    /**
+     * Get section style for grouped sections
+     */
+    public static String getSectionStyle() {
+        return "-fx-background-color: " + getSubtleBackgroundColor() + ";" +
+               "-fx-background-radius: 8;" +
+               "-fx-padding: 15;";
+    }
 }
 

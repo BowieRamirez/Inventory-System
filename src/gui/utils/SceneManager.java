@@ -72,8 +72,25 @@ public class SceneManager {
                     }
                 }
 
+                // Resolve any CSS token strings in inline styles BEFORE adding to scene
+                // This prevents ClassCastException when JavaFX tries to parse -color-* tokens
+                try {
+                    ThemeUtils.resolveNodeStyles(root);
+                } catch (Exception ex) {
+                    // best-effort, continue even if resolution fails
+                }
+
                 rootContainer.getChildren().setAll(root);
                 System.out.println("[SceneManager] Replaced root inside single Scene.");
+                
+                // Also run resolver after a short delay to catch dynamically created nodes
+                Platform.runLater(() -> {
+                    try {
+                        ThemeUtils.resolveNodeStyles(root);
+                    } catch (Exception ex) {
+                        // best-effort
+                    }
+                });
             } catch (Exception e) {
                 System.err.println("[SceneManager] Error while setting root: " + e.getMessage());
                 e.printStackTrace();

@@ -116,7 +116,7 @@ public class AdminDashboardController {
         // Quick actions
         Label actionsLabel = new Label("Quick Actions");
         actionsLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        actionsLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        actionsLabel.setStyle("-fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         HBox actionsBox = new HBox(15);
         actionsBox.setAlignment(Pos.CENTER_LEFT);
@@ -128,22 +128,17 @@ public class AdminDashboardController {
         // Recent activity - Show only admin actions (password changes, deactivations, etc.)
         Label activityLabel = new Label("Recent Activity");
         activityLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        activityLabel.setStyle("-fx-text-fill: -color-fg-default;");
+        activityLabel.setStyle("-fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         VBox activityBox = new VBox(10);
         activityBox.setPadding(new Insets(15));
-        activityBox.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
-            "-fx-background-radius: 8px;" +
-            "-fx-border-color: -color-border-default;" +
-            "-fx-border-radius: 8px;"
-        );
+        activityBox.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-border-color: -color-border-default; -fx-border-radius: 8; -fx-padding: 15;");
         
         // Populate recent admin activity (show up to 5 latest entries)
         List<String[]> recentLogs = loadStockLogs();
         if (recentLogs == null || recentLogs.isEmpty()) {
             Label noActivity = new Label("No recent admin activities");
-            noActivity.setStyle("-fx-text-fill: -color-fg-muted;");
+            noActivity.setStyle("-fx-text-fill: " + "-color-fg-muted" + ";");
             activityBox.getChildren().add(noActivity);
         } else {
             int max = Math.min(5, recentLogs.size());
@@ -160,9 +155,9 @@ public class AdminDashboardController {
                 HBox row = new HBox(12);
                 row.setAlignment(Pos.CENTER_LEFT);
                 Label timeLabel = new Label(ts);
-                timeLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px;");
+                timeLabel.setStyle("-fx-text-fill: " + "-color-fg-muted" + "; -fx-font-size: 11px;");
                 Label msgLabel = new Label(String.format("%s — %s %s %s %s", by, action, itemName, stockChange, details));
-                msgLabel.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
+                msgLabel.setStyle("-fx-text-fill: " + ThemeManager.getTextColor() + "; -fx-font-size: 13px;");
                 row.getChildren().addAll(timeLabel, msgLabel);
                 activityBox.getChildren().add(row);
             }
@@ -191,7 +186,7 @@ public class AdminDashboardController {
         
         ScrollPane scrollPane = new ScrollPane(container);
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background: -color-bg-default; -fx-background-color: transparent;");
+        scrollPane.setStyle("-fx-background: " + ThemeManager.getBackgroundColor() + "; -fx-background-color: transparent;");
         
         return scrollPane;
     }
@@ -206,7 +201,7 @@ public class AdminDashboardController {
         card.setPadding(new Insets(20));
         card.setAlignment(Pos.CENTER);
         card.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-background-color: " + "-color-bg-subtle" + ";" +
             "-fx-background-radius: 12px;" +
             "-fx-border-color: " + color + ";" +
             "-fx-border-width: 2px;" +
@@ -215,7 +210,7 @@ public class AdminDashboardController {
         );
         
         Label titleLabel = new Label(title);
-        titleLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
+        titleLabel.setStyle("-fx-text-fill: " + "-color-fg-muted" + "; -fx-font-size: 14px;");
         
         Label valueLabel = new Label(value);
         valueLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
@@ -887,11 +882,11 @@ public class AdminDashboardController {
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
-        content.setStyle("-fx-background-color: -color-bg-default;");
+        content.setStyle("-fx-background-color: -color-bg-default; -fx-padding: 20;");
 
         // Customer Information Section
         VBox customerSection = new VBox(8);
-        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label customerHeader = new javafx.scene.control.Label("CUSTOMER INFORMATION");
         customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -903,7 +898,7 @@ public class AdminDashboardController {
 
         // Order Items Section
         VBox itemsSection = new VBox(8);
-        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label itemsHeader = new javafx.scene.control.Label("ORDER ITEMS");
         itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -967,7 +962,7 @@ public class AdminDashboardController {
 
         // Order Summary Section
         VBox summarySection = new VBox(8);
-        summarySection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        summarySection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label summaryHeader = new javafx.scene.control.Label("ORDER SUMMARY");
         summaryHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -1006,11 +1001,11 @@ public class AdminDashboardController {
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
-        content.setStyle("-fx-background-color: -color-bg-default;");
+        content.setStyle("-fx-background-color: -color-bg-default; -fx-padding: 20;");
 
         // Customer Information
         VBox customerSection = new VBox(8);
-        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        customerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         Label customerHeader = new Label("CUSTOMER INFORMATION");
         customerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -1024,7 +1019,7 @@ public class AdminDashboardController {
 
         // Bundle Items Section
         VBox itemsSection = new VBox(8);
-        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        itemsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         Label itemsHeader = new Label("BUNDLE ITEMS");
         itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #0969DA;");
@@ -2218,7 +2213,7 @@ public class AdminDashboardController {
         // Add info message if no pending changes
         if (pendingChanges.isEmpty()) {
             Label noDataLabel = new Label("No pending stock adjustments");
-            noDataLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: -color-fg-muted;");
+            noDataLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: " + "-color-fg-muted" + ";");
             VBox emptyState = new VBox(noDataLabel);
             emptyState.setAlignment(Pos.CENTER);
             VBox.setVgrow(emptyState, Priority.ALWAYS);
@@ -2803,11 +2798,11 @@ public class AdminDashboardController {
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
-        content.setStyle("-fx-background-color: -color-bg-default;");
+        content.setStyle("-fx-background-color: -color-bg-default; -fx-padding: 20;");
 
         // Timestamp Section
         VBox timestampSection = new VBox(8);
-        timestampSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        timestampSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label timestampHeader = new javafx.scene.control.Label("📅 TIMESTAMP");
         timestampHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -2819,7 +2814,7 @@ public class AdminDashboardController {
 
         // Staff/Admin Information Section
         VBox performerSection = new VBox(8);
-        performerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        performerSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label performerHeader = new javafx.scene.control.Label("👤 STAFF/ADMIN");
         performerHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -2831,7 +2826,7 @@ public class AdminDashboardController {
 
         // Item Details Section
         VBox itemSection = new VBox(8);
-        itemSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        itemSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label itemHeader = new javafx.scene.control.Label("📦 ITEM DETAILS");
         itemHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -2844,7 +2839,7 @@ public class AdminDashboardController {
 
         // Stock Change Section
         VBox changeSection = new VBox(8);
-        changeSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        changeSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label changeHeader = new javafx.scene.control.Label("📊 STOCK CHANGE");
         changeHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -2867,7 +2862,7 @@ public class AdminDashboardController {
 
         // Details Section
         VBox detailsSection = new VBox(8);
-        detailsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 15; -fx-background-radius: 5;");
+        detailsSection.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-padding: 15;");
         
         javafx.scene.control.Label detailsHeader = new javafx.scene.control.Label("📝 DETAILS");
         detailsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
@@ -3347,7 +3342,7 @@ public class AdminDashboardController {
         // Search and filter controls
         HBox searchBox = new HBox(10);
         searchBox.setPadding(new Insets(10));
-        searchBox.setStyle("-fx-border-color: -color-border-default; -fx-border-width: 0 0 1 0;");
+        searchBox.setStyle("-fx-border-color: " + "-color-border-default" + "; -fx-border-width: 0 0 1 0;");
         
         Label sizeLabel = new Label("Filter Size:");
         sizeLabel.setStyle("-fx-font-weight: bold;");
@@ -3428,28 +3423,22 @@ public class AdminDashboardController {
         
         // Title
         Label titleLabel = new Label("⚙️ System Configuration");
-        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         // Maintenance Mode Card
         VBox maintenanceCard = new VBox(15);
         maintenanceCard.setPadding(new Insets(20));
-        maintenanceCard.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
-            "-fx-border-color: -color-border-default;" +
-            "-fx-border-width: 1px;" +
-            "-fx-border-radius: 8px;" +
-            "-fx-background-radius: 8px;"
-        );
+        maintenanceCard.setStyle("-fx-background-color: -color-bg-subtle; -fx-background-radius: 8; -fx-border-color: -color-border-default; -fx-border-radius: 8; -fx-padding: 15;");
         
         Label maintenanceTitleLabel = new Label("🔧 Maintenance Mode");
-        maintenanceTitleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        maintenanceTitleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label maintenanceDescLabel = new Label(
             "When maintenance mode is activated, staff, cashiers, and students will be unable to log in to the system.\n" +
             "Administrators can still access the system during maintenance mode."
         );
         maintenanceDescLabel.setWrapText(true);
-        maintenanceDescLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 13px;");
+        maintenanceDescLabel.setStyle("-fx-text-fill: " + "-color-fg-muted" + "; -fx-font-size: 13px;");
         
         Separator separator = new Separator();
         
@@ -3461,7 +3450,7 @@ public class AdminDashboardController {
         statusBox.setAlignment(Pos.CENTER_LEFT);
         
         Label statusTitleLabel = new Label("Current Status:");
-        statusTitleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        statusTitleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label statusValueLabel = new Label(isActive ? "🔴 ACTIVE" : "🟢 INACTIVE");
         statusValueLabel.setStyle(
@@ -3474,14 +3463,14 @@ public class AdminDashboardController {
         
         // Message display
         Label messageLabel = new Label("Current Message:");
-        messageLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
+        messageLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label messageValueLabel = new Label("\"" + configManager.getMaintenanceMessage() + "\"");
         messageValueLabel.setWrapText(true);
         messageValueLabel.setStyle(
-            "-fx-text-fill: -color-fg-muted; " +
+            "-fx-text-fill: " + "-color-fg-muted" + "; " +
             "-fx-font-style: italic; " +
-            "-fx-background-color: -color-bg-default; " +
+            "-fx-background-color: " + ThemeManager.getBackgroundColor() + "; " +
             "-fx-padding: 10; " +
             "-fx-background-radius: 5;"
         );

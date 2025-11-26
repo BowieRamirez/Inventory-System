@@ -71,7 +71,7 @@ public class AdminDashboard {
         view = new BorderPane();
         view.setMaxWidth(Double.MAX_VALUE);
         view.setMaxHeight(Double.MAX_VALUE);
-        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        String bgColor = ThemeManager.getBackgroundColor();
         view.setStyle("-fx-background-color: " + bgColor + ";");
         
         // Create sidebar
@@ -87,7 +87,7 @@ public class AdminDashboard {
         contentArea.setPadding(new Insets(20));
         contentArea.setMaxWidth(Double.MAX_VALUE);
         contentArea.setMaxHeight(Double.MAX_VALUE);
-        String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        String contentBg = ThemeManager.getBackgroundColor();
         contentArea.setStyle("-fx-background-color: " + contentBg + ";");
         view.setCenter(contentArea);
         

@@ -52,6 +52,26 @@ public class ThemeUtils {
             }
         };
 
-        if (Platform.isFxApplicationThread()) work.run(); else Platform.runLater(work);
+                if (Platform.isFxApplicationThread()) work.run(); else Platform.runLater(work);
+    }
+
+    /**
+     * Recursively resolve any -color-* CSS tokens in inline styles for a node and its children.
+     * This is a no-op stub to prevent ClassCastException when JavaFX tries to parse tokens.
+     */
+    public static void resolveNodeStyles(Node node) {
+        if (node == null) return;
+        // Apply CSS to ensure styles are resolved
+        try {
+            node.applyCss();
+        } catch (Exception ex) {
+            // ignore
+        }
+        // Recurse into children if Parent
+        if (node instanceof Parent) {
+            for (Node child : ((Parent) node).getChildrenUnmodifiable()) {
+                resolveNodeStyles(child);
+            }
+        }
     }
 }

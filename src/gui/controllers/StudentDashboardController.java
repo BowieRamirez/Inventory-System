@@ -125,8 +125,44 @@ public class StudentDashboardController {
 
         // Link receipt manager to reservation manager for synchronization
         reservationManager.setReceiptManager(receiptManager);
-        // Initialize seen notifications in-memory only (do not use disk persistence)
+        // Load seen notifications from disk for this student
         this.seenNotifications = new java.util.HashSet<>();
+        loadSeenNotifications();
+    }
+
+    /**
+     * Load seen notification IDs from disk for persistence across sessions
+     */
+    private void loadSeenNotifications() {
+        try {
+            java.io.File file = new java.io.File("src/database/data/seen_notifications_" + student.getStudentId() + ".txt");
+            if (file.exists()) {
+                java.util.Scanner scanner = new java.util.Scanner(file);
+                while (scanner.hasNextLine()) {
+                    String line = scanner.nextLine().trim();
+                    if (!line.isEmpty()) {
+                        try {
+                            seenNotifications.add(Integer.parseInt(line));
+                        } catch (NumberFormatException e) { /* ignore */ }
+                    }
+                }
+                scanner.close();
+            }
+        } catch (Exception e) { /* ignore load errors */ }
+    }
+
+    /**
+     * Save seen notification IDs to disk for persistence across sessions
+     */
+    private void saveSeenNotifications() {
+        try {
+            java.io.File file = new java.io.File("src/database/data/seen_notifications_" + student.getStudentId() + ".txt");
+            java.io.PrintWriter writer = new java.io.PrintWriter(file);
+            for (Integer id : seenNotifications) {
+                writer.println(id);
+            }
+            writer.close();
+        } catch (Exception e) { /* ignore save errors */ }
     }
 
     // Determine if an item variant should be visible to the logged-in student
@@ -181,22 +217,29 @@ public class StudentDashboardController {
 
     /**
      * Get number of unread notifications for this student.
-     * Notifications are: reservation accepted (APPROVED - WAITING FOR PAYMENT) and replacement accepted (REPLACED).
+     * Notifications include:
+     * - Reservation accepted (APPROVED - WAITING FOR PAYMENT)
+     * - Replacement accepted (REPLACED)
+     * - Payment confirmed - can request pickup (AWAITING PICKUP REQUEST)
+     * - Pickup approved with schedule (APPROVED FOR PICKUP)
      */
     public int getUnreadNotificationCount() {
         try {
             // Refresh reservations from ReservationManager to pick up any external staff approvals
             reservationManager.refresh();
             java.util.List<inventory.Reservation> all = reservationManager.getAllReservations();
-            // Consider only the newest 5 interesting reservations
+            // Consider only the newest 10 interesting reservations
             java.util.List<inventory.Reservation> notes = all.stream()
                 .filter(r -> r.getStudentId() != null && r.getStudentId().equals(student.getStudentId()))
                 .filter(r -> {
                     String s = r.getStatus();
-                    return "APPROVED - WAITING FOR PAYMENT".equals(s) || "REPLACED".equals(s);
+                    return "APPROVED - WAITING FOR PAYMENT".equals(s) 
+                        || "REPLACED".equals(s)
+                        || "AWAITING PICKUP REQUEST".equals(s)
+                        || "APPROVED FOR PICKUP".equals(s);
                 })
                 .sorted(inventory.Reservation.newestFirstComparator())
-                .limit(5)
+                .limit(10)
                 .collect(java.util.stream.Collectors.toList());
 
             return (int) notes.stream().filter(r -> !seenNotifications.contains(r.getReservationId())).count();
@@ -211,8 +254,31 @@ public class StudentDashboardController {
     public void markNotificationSeen(int reservationId) {
         if (reservationId <= 0) return;
         seenNotifications.add(reservationId);
-        // Do not persist to disk - keep seen state in-memory only
+        // Persist to disk so notifications stay dismissed across sessions
+        saveSeenNotifications();
         if (notificationUpdateCallback != null) notificationUpdateCallback.run();
+    }
+
+    /**
+     * Clear all notifications (mark all as seen)
+     */
+    public void clearAllNotifications() {
+        try {
+            reservationManager.refresh();
+            java.util.List<inventory.Reservation> all = reservationManager.getAllReservations();
+            all.stream()
+                .filter(r -> r.getStudentId() != null && r.getStudentId().equals(student.getStudentId()))
+                .filter(r -> {
+                    String s = r.getStatus();
+                    return "APPROVED - WAITING FOR PAYMENT".equals(s) 
+                        || "REPLACED".equals(s)
+                        || "AWAITING PICKUP REQUEST".equals(s)
+                        || "APPROVED FOR PICKUP".equals(s);
+                })
+                .forEach(r -> seenNotifications.add(r.getReservationId()));
+            saveSeenNotifications();
+            if (notificationUpdateCallback != null) notificationUpdateCallback.run();
+        } catch (Exception e) { /* ignore */ }
     }
 
     /**
@@ -242,7 +308,10 @@ public class StudentDashboardController {
             .filter(r -> r.getStudentId() != null && r.getStudentId().equals(student.getStudentId()))
             .filter(r -> {
                 String s = r.getStatus();
-                return "APPROVED - WAITING FOR PAYMENT".equals(s) || "REPLACED".equals(s);
+                return "APPROVED - WAITING FOR PAYMENT".equals(s) 
+                    || "REPLACED".equals(s)
+                    || "AWAITING PICKUP REQUEST".equals(s)
+                    || "APPROVED FOR PICKUP".equals(s);
             })
             .sorted(inventory.Reservation.newestFirstComparator())
             .collect(java.util.stream.Collectors.toList());
@@ -270,7 +339,18 @@ public class StudentDashboardController {
             titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
             Region topSpacer = new Region();
             HBox.setHgrow(topSpacer, Priority.ALWAYS);
-            topControls.getChildren().addAll(titleLabel, topSpacer);
+            
+            // Clear All button
+            Button clearAllBtn = new Button("Clear All");
+            clearAllBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #CF222E; -fx-font-size: 12px; -fx-cursor: hand;");
+            clearAllBtn.setOnMouseEntered(ev -> clearAllBtn.setStyle("-fx-background-color: #FFEBE9; -fx-text-fill: #CF222E; -fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 4;"));
+            clearAllBtn.setOnMouseExited(ev -> clearAllBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #CF222E; -fx-font-size: 12px; -fx-cursor: hand;"));
+            clearAllBtn.setOnAction(ev -> {
+                clearAllNotifications();
+                dialog.close();
+            });
+            
+            topControls.getChildren().addAll(titleLabel, topSpacer, clearAllBtn);
             content.getChildren().add(topControls);
 
             for (java.util.Map.Entry<String, java.util.List<inventory.Reservation>> entry : entries) {
@@ -293,21 +373,44 @@ public class StudentDashboardController {
 
                 // Determine if this group is a bundle
                 boolean isBundle = rep.isPartOfBundle();
+                String timeStr = rep.getFormattedTime() != null ? rep.getFormattedTime() : "";
+                String status = rep.getStatus();
+                
                 if (isBundle) {
-                    // If any item in bundle is REPLACED, show replacement message; otherwise show accepted message
+                    // Bundle notifications
                     boolean anyReplaced = group.stream().anyMatch(g -> "REPLACED".equals(g.getStatus()));
-                    if (anyReplaced) {
-                        messageLabel.setText("Bundle replacement accepted — proceed to staff to get the replaced items.\nBundle (" + group.size() + " items)");
+                    boolean anyAwaitingPickup = group.stream().anyMatch(g -> "AWAITING PICKUP REQUEST".equals(g.getStatus()));
+                    boolean anyApprovedForPickup = group.stream().anyMatch(g -> "APPROVED FOR PICKUP".equals(g.getStatus()));
+                    
+                    if (anyApprovedForPickup) {
+                        String scheduleStr = "";
+                        if (rep.getScheduledPickupDateTime() != null) {
+                            scheduleStr = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"));
+                        }
+                        messageLabel.setText("✅ Pickup Approved! Your bundle is ready for pickup.\nBundle (" + group.size() + " items)\n📅 Scheduled: " + scheduleStr);
+                    } else if (anyAwaitingPickup) {
+                        messageLabel.setText("💳 Payment Confirmed! You can now request pickup for your bundle.\nBundle (" + group.size() + " items)\n📅 " + timeStr);
+                    } else if (anyReplaced) {
+                        messageLabel.setText("Bundle replacement accepted — proceed to staff to get the replaced items.\nBundle (" + group.size() + " items)\n📅 " + timeStr);
                     } else {
-                        messageLabel.setText("Bundle reservation accepted — proceed to cashier.\nBundle (" + group.size() + " items)");
+                        messageLabel.setText("Bundle reservation accepted — proceed to cashier.\nBundle (" + group.size() + " items)\n📅 " + timeStr);
                     }
                 } else {
-                    if ("APPROVED - WAITING FOR PAYMENT".equals(rep.getStatus())) {
-                        messageLabel.setText("Item reservation accepted — proceed to cashier.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity());
-                    } else if ("REPLACED".equals(rep.getStatus())) {
-                        messageLabel.setText("Item replacement accepted — proceed to staff to get the replaced item.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity());
+                    // Single item notifications
+                    if ("APPROVED FOR PICKUP".equals(status)) {
+                        String scheduleStr = "Not yet scheduled";
+                        if (rep.getScheduledPickupDateTime() != null) {
+                            scheduleStr = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"));
+                        }
+                        messageLabel.setText("✅ Pickup Approved! Your item is ready for pickup.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 Scheduled: " + scheduleStr);
+                    } else if ("AWAITING PICKUP REQUEST".equals(status)) {
+                        messageLabel.setText("💳 Payment Confirmed! You can now request pickup.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 " + timeStr);
+                    } else if ("APPROVED - WAITING FOR PAYMENT".equals(status)) {
+                        messageLabel.setText("Item reservation accepted — proceed to cashier.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 " + timeStr);
+                    } else if ("REPLACED".equals(status)) {
+                        messageLabel.setText("Item replacement accepted — proceed to staff to get the replaced item.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 " + timeStr);
                     } else {
-                        messageLabel.setText("Update for reservation #" + rep.getReservationId());
+                        messageLabel.setText("Update for reservation #" + rep.getReservationId() + "\n📅 " + timeStr);
                     }
                 }
 
@@ -334,6 +437,14 @@ public class StudentDashboardController {
                     header.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
                     dcontent.getChildren().add(header);
 
+                    // Get bundle status (check if any item has a post-payment status)
+                    String bundleStatus = rep.getStatus();
+                    boolean bundleApprovedForPickup = group.stream().anyMatch(r -> "APPROVED FOR PICKUP".equals(r.getStatus()));
+                    boolean bundleAwaitingPickup = group.stream().anyMatch(r -> "AWAITING PICKUP REQUEST".equals(r.getStatus()));
+                    boolean bundlePickupRequested = group.stream().anyMatch(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()));
+                    boolean bundleReplaced = group.stream().anyMatch(r -> "REPLACED".equals(r.getStatus()));
+                    boolean bundleCompleted = group.stream().anyMatch(r -> "COMPLETED".equals(r.getStatus()));
+                    
                     if (isBundle) {
                         Label itemsTitle = new Label("Items in bundle:");
                         dcontent.getChildren().add(itemsTitle);
@@ -342,12 +453,114 @@ public class StudentDashboardController {
                             li.setWrapText(true);
                             dcontent.getChildren().add(li);
                         }
+                        
+                        // Status label for bundle
+                        Label statusLabel = new Label("Status: " + bundleStatus);
+                        statusLabel.setStyle("-fx-padding: 8 0 0 0;");
+                        dcontent.getChildren().add(statusLabel);
+                        
+                        // Show different info based on bundle status
+                        if (bundleApprovedForPickup) {
+                            // Pickup approved - show scheduled time
+                            String scheduleStr = "Not yet scheduled";
+                            if (rep.getScheduledPickupDateTime() != null) {
+                                scheduleStr = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"));
+                            }
+                            Label scheduleLabel = new Label("📅 Scheduled Pickup: " + scheduleStr);
+                            scheduleLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(scheduleLabel);
+                        } else if (bundlePickupRequested) {
+                            // Waiting for staff to approve pickup
+                            Label waitingLabel = new Label("⏳ Waiting for staff to approve your pickup request...");
+                            waitingLabel.setStyle("-fx-text-fill: #9A6700; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(waitingLabel);
+                        } else if (bundleAwaitingPickup) {
+                            // Payment confirmed - can request pickup
+                            Label actionLabel = new Label("✅ Payment confirmed! You can now request pickup from the Pickup tab.");
+                            actionLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(actionLabel);
+                        } else if (bundleReplaced) {
+                            // Replacement accepted
+                            Label replacedLabel = new Label("🔄 Replacement accepted — proceed to staff to get the replaced items.");
+                            replacedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(replacedLabel);
+                        } else if (bundleCompleted) {
+                            // Completed
+                            Label completedLabel = new Label("✅ Order completed! Thank you for your purchase.");
+                            completedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(completedLabel);
+                        } else {
+                            // Waiting for payment - show approval time and deadline
+                            String approvalTime = rep.getFormattedTime() != null ? rep.getFormattedTime() : "N/A";
+                            Label approvedAt = new Label("Reservation Approved at: " + approvalTime);
+                            dcontent.getChildren().add(approvedAt);
+                            
+                            String deadlineStr = "Within 3 days of approval";
+                            try {
+                                if (rep.getReservationTime() != null) {
+                                    java.time.LocalDateTime deadline = rep.getReservationTime().plusDays(3);
+                                    deadlineStr = deadline.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                                }
+                            } catch (Exception e) { /* use default */ }
+                            Label deadlineLabel = new Label("⚠️ Payment Deadline: " + deadlineStr);
+                            deadlineLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(deadlineLabel);
+                        }
                     } else {
-                        Label status = new Label("Status: " + rep.getStatus());
+                        // Single item notifications
+                        Label statusLabel = new Label("Status: " + rep.getStatus());
                         Label qty = new Label("Quantity: " + rep.getQuantity());
                         Label size = new Label("Size: " + rep.getSize());
-                        Label time = new Label("Reserved: " + rep.getFormattedTime());
-                        dcontent.getChildren().addAll(status, qty, size, time);
+                        dcontent.getChildren().addAll(statusLabel, qty, size);
+                        
+                        String currentStatus = rep.getStatus();
+                        
+                        if ("APPROVED FOR PICKUP".equals(currentStatus)) {
+                            // Pickup approved - show scheduled time
+                            String scheduleStr = "Not yet scheduled";
+                            if (rep.getScheduledPickupDateTime() != null) {
+                                scheduleStr = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"));
+                            }
+                            Label scheduleLabel = new Label("📅 Scheduled Pickup: " + scheduleStr);
+                            scheduleLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(scheduleLabel);
+                        } else if ("PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(currentStatus)) {
+                            // Waiting for staff to approve pickup
+                            Label waitingLabel = new Label("⏳ Waiting for staff to approve your pickup request...");
+                            waitingLabel.setStyle("-fx-text-fill: #9A6700; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(waitingLabel);
+                        } else if ("AWAITING PICKUP REQUEST".equals(currentStatus)) {
+                            // Payment confirmed - can request pickup
+                            Label actionLabel = new Label("✅ Payment confirmed! You can now request pickup from the Pickup tab.");
+                            actionLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(actionLabel);
+                        } else if ("REPLACED".equals(currentStatus)) {
+                            // Replacement accepted
+                            Label replacedLabel = new Label("🔄 Replacement accepted — proceed to staff to get the replaced item.");
+                            replacedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(replacedLabel);
+                        } else if ("COMPLETED".equals(currentStatus)) {
+                            // Completed
+                            Label completedLabel = new Label("✅ Order completed! Thank you for your purchase.");
+                            completedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(completedLabel);
+                        } else {
+                            // Waiting for payment (APPROVED - WAITING FOR PAYMENT) - show approval time and deadline
+                            String approvalTime = rep.getFormattedTime() != null ? rep.getFormattedTime() : "N/A";
+                            Label approvedAt = new Label("Reservation Approved at: " + approvalTime);
+                            dcontent.getChildren().add(approvedAt);
+                            
+                            String deadlineStr = "Within 3 days of approval";
+                            try {
+                                if (rep.getReservationTime() != null) {
+                                    java.time.LocalDateTime deadline = rep.getReservationTime().plusDays(3);
+                                    deadlineStr = deadline.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                                }
+                            } catch (Exception e) { /* use default */ }
+                            Label deadlineLabel = new Label("⚠️ Payment Deadline: " + deadlineStr);
+                            deadlineLabel.setStyle("-fx-text-fill: #CF222E; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(deadlineLabel);
+                        }
                     }
 
                     d2.getDialogPane().setContent(dcontent);
@@ -2550,8 +2763,9 @@ public class StudentDashboardController {
             });
             
             // Create filter and search controls with pagination callback
+            // Default to ALL when opening My Reservations
             VBox controlsBox = createReservationFilterControls(deduplicatedReservations, reservationsList, 
-                currentReservationPage, workingFilteredReservations, updateReservationPagination);
+                currentReservationPage, workingFilteredReservations, updateReservationPagination, "ALL");
             
             // Display all reservations initially (filtered by "COMPLETED" as default)
             displayFilteredReservationsWithPagination(deduplicatedReservations, "COMPLETED", "", null, null, 
@@ -2566,8 +2780,8 @@ public class StudentDashboardController {
     /**
      * Create filter controls for reservations
      */
-    private VBox createReservationFilterControls(List<Reservation> allReservations, VBox reservationsList, 
-            int[] currentPage, List<Reservation>[] workingFiltered, Runnable updatePagination) {
+        private VBox createReservationFilterControls(List<Reservation> allReservations, VBox reservationsList, 
+            int[] currentPage, List<Reservation>[] workingFiltered, Runnable updatePagination, String defaultStatus) {
         VBox mainControlsBox = new VBox(10);
         mainControlsBox.setPadding(new Insets(10));
         mainControlsBox.setStyle("-fx-border-color: -color-bg-tertiary; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: -color-bg-secondary;");
@@ -2633,10 +2847,10 @@ public class StudentDashboardController {
         // Map to track button status mapping
         Map<ToggleButton, String> buttonStatusMap = new HashMap<>();
         
-        // Runnable to update filters
+            // Runnable to update filters
         Runnable updateFilters = () -> {
             // Find the currently selected filter
-            String selectedStatus = "COMPLETED";
+            String selectedStatus = (defaultStatus != null && !defaultStatus.isEmpty()) ? defaultStatus : "COMPLETED";
             ToggleButton selectedBtn = (ToggleButton) statusToggleGroup.getSelectedToggle();
             if (selectedBtn != null) {
                 selectedStatus = buttonStatusMap.get(selectedBtn);
@@ -2656,8 +2870,8 @@ public class StudentDashboardController {
             // Store the mapping
             buttonStatusMap.put(btn, status);
             
-            // Set COMPLETED as default selected
-            if ("COMPLETED".equals(status)) {
+            // Set default selected based on provided defaultStatus (fallback to COMPLETED)
+            if ((defaultStatus != null && status.equalsIgnoreCase(defaultStatus)) || (defaultStatus == null && "COMPLETED".equalsIgnoreCase(status))) {
                 btn.setSelected(true);
                 btn.setStyle(btn.getStyle() + "; -fx-base: #10b981;");
             }
@@ -3112,33 +3326,68 @@ public class StudentDashboardController {
             Label approvedLabel = new Label("✅ Status: Approved for Pickup");
             approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-weight: bold;");
             
+            // Check if the scheduled pickup time has passed
+            boolean pickupTimePassed = false;
+            if (r.getScheduledPickupDateTime() != null) {
+                pickupTimePassed = java.time.LocalDateTime.now().isAfter(r.getScheduledPickupDateTime());
+            }
+            
             // Show scheduled pickup datetime if staff provided one
             if (r.getScheduledPickupDateTime() != null) {
                 java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
-                Label scheduledLabel = new Label("📅 Pickup scheduled: " + r.getScheduledPickupDateTime().format(fmt));
-                scheduledLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
+                String scheduledText = "📅 Pickup scheduled: " + r.getScheduledPickupDateTime().format(fmt);
+                if (pickupTimePassed) {
+                    scheduledText = "⚠️ Missed pickup: " + r.getScheduledPickupDateTime().format(fmt);
+                }
+                Label scheduledLabel = new Label(scheduledText);
+                scheduledLabel.setStyle(pickupTimePassed ? 
+                    "-fx-text-fill: #CF222E; -fx-font-size: 12px; -fx-font-weight: bold;" : 
+                    "-fx-text-fill: -color-fg-muted; -fx-font-size: 12px;");
                 scheduledLabel.setWrapText(true);
                 actionBox.getChildren().add(scheduledLabel);
             }
 
-            Button claimBtn = new Button("✓ Claim Item");
-            claimBtn.setMaxWidth(Double.MAX_VALUE);
-            claimBtn.setPrefHeight(40);
-            claimBtn.setStyle(
-                "-fx-background-color: #1A7F37;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-size: 14px;" +
-                "-fx-font-weight: bold;" +
-                "-fx-background-radius: 6px;" +
-                "-fx-cursor: hand;"
-            );
-            claimBtn.setOnAction(e -> handleClaimItem(r, group));
-            
-            Label approvedNote = new Label("💡 Confirm you've received the item from Staff");
-            approvedNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
-            approvedNote.setWrapText(true);
-            
-            actionBox.getChildren().addAll(approvedLabel, claimBtn, approvedNote);
+            if (pickupTimePassed) {
+                // Show reschedule button if pickup time has passed
+                Button rescheduleBtn = new Button("🔄 Request Reschedule");
+                rescheduleBtn.setMaxWidth(Double.MAX_VALUE);
+                rescheduleBtn.setPrefHeight(40);
+                rescheduleBtn.setStyle(
+                    "-fx-background-color: #9A6700;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-background-radius: 6px;" +
+                    "-fx-cursor: hand;"
+                );
+                rescheduleBtn.setOnAction(e -> handleRequestReschedule(r, group));
+                
+                Label rescheduleNote = new Label("💡 Request a new pickup schedule from Staff");
+                rescheduleNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+                rescheduleNote.setWrapText(true);
+                
+                actionBox.getChildren().addAll(approvedLabel, rescheduleBtn, rescheduleNote);
+            } else {
+                // Normal claim flow
+                Button claimBtn = new Button("✓ Claim Item");
+                claimBtn.setMaxWidth(Double.MAX_VALUE);
+                claimBtn.setPrefHeight(40);
+                claimBtn.setStyle(
+                    "-fx-background-color: #1A7F37;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-background-radius: 6px;" +
+                    "-fx-cursor: hand;"
+                );
+                claimBtn.setOnAction(e -> handleClaimItem(r, group));
+                
+                Label approvedNote = new Label("💡 Confirm you've received the item from Staff");
+                approvedNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+                approvedNote.setWrapText(true);
+                
+                actionBox.getChildren().addAll(approvedLabel, claimBtn, approvedNote);
+            }
         }
 
         card.getChildren().addAll(header, new Separator(), itemsBox, qtyLabel, priceLabel, actionBox);
@@ -3184,6 +3433,53 @@ public class StudentDashboardController {
                         "Please wait for Staff approval.");
                 } else {
                     AlertHelper.showError("Error", "Failed to send pickup request. Please try again.");
+                }
+            }
+        });
+    }
+    
+    /**
+     * Handle reschedule request (student missed pickup time and requests new schedule)
+     */
+    private void handleRequestReschedule(Reservation representative, List<Reservation> group) {
+        String itemDescription = representative.isPartOfBundle() ? 
+            "bundle order (" + representative.getBundleId() + ")" : 
+            representative.getItemName() + " - " + representative.getSize();
+        
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
+        String missedTime = representative.getScheduledPickupDateTime() != null ? 
+            representative.getScheduledPickupDateTime().format(fmt) : "N/A";
+
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Request Reschedule");
+        confirmAlert.setHeaderText("Request New Pickup Schedule");
+        confirmAlert.setContentText(
+            "You missed your scheduled pickup for:\n" + itemDescription + "\n\n" +
+            "Original schedule: " + missedTime + "\n\n" +
+            "Would you like to request a new pickup schedule?\n" +
+            "Staff will review and assign a new pickup time."
+        );
+
+        confirmAlert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                boolean success = true;
+                for (Reservation item : group) {
+                    if (!reservationManager.requestReschedule(item.getReservationId())) {
+                        success = false;
+                        break;
+                    }
+                }
+                
+                if (success) {
+                    if (refreshCallback != null) {
+                        refreshCallback.run();
+                    }
+                    
+                    AlertHelper.showSuccess("Reschedule Requested", 
+                        "Reschedule request submitted successfully!\n\n" +
+                        "Please wait for Staff to assign a new pickup time.");
+                } else {
+                    AlertHelper.showError("Error", "Failed to submit reschedule request. Please try again.");
                 }
             }
         });
