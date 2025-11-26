@@ -317,7 +317,8 @@ public class ReportView {
         backBar.setPadding(new Insets(15, 20, 0, 20));
         backBar.setStyle("-fx-background-color: transparent;");
         
-        VBox report = controller.createTransactionReport();
+        // Use staff version (without Returns) if in staff mode, otherwise use full version (with Returns)
+        VBox report = staffMode ? controller.createTransactionReportStaff() : controller.createTransactionReport();
         VBox.setVgrow(report, Priority.ALWAYS);
         
         container.getChildren().addAll(backBar, report);

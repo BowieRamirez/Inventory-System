@@ -569,11 +569,23 @@ public class CashierDashboard {
     
     private void updateSidebarTheme() {
         boolean isDark = ThemeManager.isDarkMode();
-        
+
+        // Save scroll position so it can be restored after theme updates
+        double savedV = -1;
+        double savedH = -1;
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                try { savedV = sp.getVvalue(); } catch (Exception ex) { savedV = -1; }
+                try { savedH = sp.getHvalue(); } catch (Exception ex) { savedH = -1; }
+                break;
+            }
+        }
+
         // Update main background
         String bgColor = isDark ? "-color-bg-default" : "#F8F9FA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
-        
+
         // Update content area background
         String contentBg = isDark ? "-color-bg-default" : "#F8F9FA";
         contentArea.setStyle("-fx-background-color: " + contentBg + "; -fx-padding: 20;");
@@ -670,6 +682,22 @@ public class CashierDashboard {
         if (contentArea.lookup("#help-content") != null) {
             helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
+        }
+
+        // Restore saved scroll position (if any)
+        if (savedV >= 0 || savedH >= 0) {
+            final double vToRestore = savedV;
+            final double hToRestore = savedH;
+            javafx.application.Platform.runLater(() -> {
+                for (javafx.scene.Node node : contentArea.getChildren()) {
+                    if (node instanceof ScrollPane) {
+                        ScrollPane sp = (ScrollPane) node;
+                        try { if (vToRestore >= 0) sp.setVvalue(vToRestore); } catch (Exception ex) { }
+                        try { if (hToRestore >= 0) sp.setHvalue(hToRestore); } catch (Exception ex) { }
+                        break;
+                    }
+                }
+            });
         }
     }
     

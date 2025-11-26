@@ -72,8 +72,7 @@ public class StaffDashboard {
         view = new BorderPane();
         view.setMaxWidth(Double.MAX_VALUE);
         view.setMaxHeight(Double.MAX_VALUE);
-        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
-        view.setStyle("-fx-background-color: " + bgColor + ";");
+        view.setStyle("-fx-background-color: " + ThemeManager.getBackgroundColor() + ";");
 
         createSidebar();
         view.setLeft(sidebar);
@@ -83,8 +82,7 @@ public class StaffDashboard {
         contentArea.setPadding(new Insets(20));
         contentArea.setMaxWidth(Double.MAX_VALUE);
         contentArea.setMaxHeight(Double.MAX_VALUE);
-        String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
-        contentArea.setStyle("-fx-background-color: " + contentBg + ";");
+        contentArea.setStyle("-fx-background-color: " + ThemeManager.getContentBackgroundColor() + ";");
         view.setCenter(contentArea);
 
         showDashboard();
@@ -103,7 +101,7 @@ public class StaffDashboard {
 
         titleLabel = new Label("Overview");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+        String titleColor = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "white";
         titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
 
         Region spacer = new Region();
@@ -132,33 +130,38 @@ public class StaffDashboard {
         );
 
         toggleCircle = new StackPane();
-        toggleCircle.setPrefWidth(28);
-        toggleCircle.setPrefHeight(28);
-        toggleCircle.setMaxWidth(28);
-        toggleCircle.setMaxHeight(28);
+        toggleCircle.setPrefWidth(26);
+        toggleCircle.setPrefHeight(26);
+        toggleCircle.setMaxWidth(26);
+        toggleCircle.setMaxHeight(26);
         String circleColor = ThemeManager.isDarkMode() 
             ? "linear-gradient(from 0% 0% to 100% 100%, #6bb6ff 0%, #2a7fd9 50%, #1a5fa0 100%)"
             : "linear-gradient(from 0% 0% to 100% 100%, #ffd700 0%, #ffed4e 50%, #f5b542 100%)";
         toggleCircle.setStyle(
             "-fx-background-color: " + circleColor + ";" +
-            "-fx-background-radius: 17px;" +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 6, 0, 0, 2);"
+            "-fx-background-radius: 13px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
         );
 
         toggleIcon = new Label(ThemeManager.isDarkMode() ? "🌙" : "☀");
-        toggleIcon.setStyle("-fx-text-fill: white; -fx-font-size: 12px;");
+        toggleIcon.setFont(Font.font("System", FontWeight.BOLD, 12));
+        String iconColor = ThemeManager.isDarkMode() ? "#000000" : "#000000";
+        toggleIcon.setStyle("-fx-text-fill: " + iconColor + ";");
 
         toggleCircle.getChildren().add(toggleIcon);
-        // Align the circle left/right depending on current theme so translate animation has correct origin
-        StackPane.setAlignment(toggleCircle, ThemeManager.isDarkMode() ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        // Position circle based on theme using translateX (for smooth animation)
+        StackPane.setAlignment(toggleCircle, Pos.CENTER_LEFT);
         StackPane.setMargin(toggleCircle, new Insets(0, 2, 0, 2));
+        double initialX = ThemeManager.isDarkMode() ? 42 : 2; // 70 - 26 - 2 = 42
+        toggleCircle.setTranslateX(initialX);
 
         toggleSwitch.getChildren().addAll(toggleBg, toggleCircle);
         toggleSwitch.setOnMouseClicked(e -> toggleTheme());
+        toggleSwitch.setStyle("-fx-cursor: hand;");
 
         Label staffLabel = new Label("👤 Staff");
-        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
-        staffLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
+        String staffLabelColor = ThemeManager.isDarkMode() ? ThemeManager.getMutedTextColor() : "white";
+        staffLabel.setStyle("-fx-text-fill: " + staffLabelColor + "; -fx-font-size: 14px;");
 
         topBar.getChildren().addAll(titleLabel, spacer, toggleSwitch, staffLabel);
         return topBar;
@@ -194,11 +197,10 @@ public class StaffDashboard {
         
         logoLabel = new Label("STI ProWear Novaliches");
         logoLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
-        String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
-        logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
+        logoLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "white") + ";");
         
         subtitleLabel = new Label("Staff Panel");
-        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
+        String subtitleColor = ThemeManager.isDarkMode() ? ThemeManager.getMutedTextColor() : "rgba(255,255,255,0.8)";
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         VBox header = new VBox(10, logoImage, logoLabel, subtitleLabel);
@@ -332,7 +334,7 @@ public class StaffDashboard {
             createSubBullet("✓ Approve: After verifying payment or identity"),
             createSubBullet("✗ Reject: With reason if items unavailable or request invalid"),
             createBulletPoint("Track status: PENDING → APPROVED → COMPLETED"),
-            createBulletPoint("Handle returns: Process customer return requests professionally")
+            createBulletPoint("Handle replacements: Process customer replacement requests professionally")
         );
         javafx.scene.control.TitledPane reservationPane = createAccordionPane("📋 Reservation Management", reservationContent);
 
@@ -406,7 +408,7 @@ public class StaffDashboard {
         troubleshootContent.getChildren().addAll(
             createFAQItem("Q: Can't approve a reservation?", "A: Check if payment is verified and stock is available. Ensure all details are correct."),
             createFAQItem("Q: Item showing wrong quantity?", "A: Refresh the inventory view or check Stock Logs to see if quantity was recently changed."),
-            createFAQItem("Q: Student requesting return?", "A: Check the return/replacement request feature. Ensure original receipt is available."),
+            createFAQItem("Q: Student requesting replacement?", "A: Check the return/replacement request feature. Ensure original receipt is available."),
             createFAQItem("Q: Size not available?", "A: Contact admin to restock or mark size as temporarily unavailable.")
         );
         javafx.scene.control.TitledPane troubleshootPane = createAccordionPane("🔧 Troubleshooting", troubleshootContent);
@@ -486,8 +488,8 @@ public class StaffDashboard {
         btn.setPrefHeight(40);
         
         if (active) {
-            String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
-            String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+            String activeBg = ThemeManager.isDarkMode() ? "rgba(9,105,218,0.08)" : "rgba(255,255,255,0.2)";
+            String activeText = ThemeManager.isDarkMode() ? ThemeManager.getSTIBlue() : "white";
             btn.setStyle(
                 "-fx-background-color: " + activeBg + ";" +
                 "-fx-text-fill: " + activeText + ";" +
@@ -497,7 +499,7 @@ public class StaffDashboard {
                 "-fx-cursor: hand;"
             );
         } else {
-            String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
+            String inactiveText = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "rgba(255,255,255,0.9)";
             btn.setStyle(
                 "-fx-background-color: transparent;" +
                 "-fx-text-fill: " + inactiveText + ";" +
@@ -513,9 +515,9 @@ public class StaffDashboard {
         activeButton = activeBtn;
         Button[] buttons = {dashboardBtn, reservationsBtn, inventoryBtn, stockLogsBtn, reportsBtn, helpBtn};
         
-        String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
-        String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
-        String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
+        String activeBg = ThemeManager.isDarkMode() ? "rgba(9,105,218,0.08)" : "rgba(255,255,255,0.2)";
+        String activeText = ThemeManager.isDarkMode() ? ThemeManager.getSTIBlue() : "white";
+        String inactiveText = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "rgba(255,255,255,0.9)";
         
         for (Button btn : buttons) {
             if (btn == activeBtn) {
@@ -563,20 +565,21 @@ public class StaffDashboard {
     }
     
     /**
-     * Show reports and analytics
+    * Show reports and analytics - Staff specific report with Replaced tab
      */
     private void showReports() {
-        titleLabel.setText("Stock Availability Report");
+        titleLabel.setText("Staff Report");
         contentArea.getChildren().clear();
         try {
-            // Staff mode: show Stock Availability report directly (no selection screen)
-            ReportView reportView = new ReportView(
+            // Import ReportController
+            gui.controllers.ReportController reportController = new gui.controllers.ReportController(
                 controller.getInventoryManager(),
                 controller.getReservationManager(),
-                controller.getReceiptManager(),
-                true  // staffMode = true
+                controller.getReceiptManager()
             );
-            contentArea.getChildren().add(reportView.getView());
+            // Show staff report directly (includes Replaced tab)
+            VBox staffReport = reportController.createStaffReport();
+            contentArea.getChildren().add(staffReport);
         } catch (Exception e) {
             Label errorLabel = new Label("Failed to load reports: " + e.getMessage());
             errorLabel.setStyle("-fx-text-fill: red;");
@@ -632,14 +635,24 @@ public class StaffDashboard {
     
     private void updateSidebarTheme() {
         boolean isDark = ThemeManager.isDarkMode();
-        
+
+        // Save current primary scroll position (if any) so it can be restored after theme refresh.
+        double savedV = -1;
+        double savedH = -1;
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                try { savedV = sp.getVvalue(); } catch (Exception ex) { savedV = -1; }
+                try { savedH = sp.getHvalue(); } catch (Exception ex) { savedH = -1; }
+                break;
+            }
+        }
+
         // Update main background
-        String bgColor = isDark ? "-color-bg-default" : "#F8F9FA";
-        view.setStyle("-fx-background-color: " + bgColor + ";");
-        
+        view.setStyle("-fx-background-color: " + ThemeManager.getBackgroundColor() + ";");
+
         // Update content area background
-        String contentBg = isDark ? "-color-bg-default" : "#F8F9FA";
-        contentArea.setStyle("-fx-background-color: " + contentBg + "; -fx-padding: 20;");
+        contentArea.setStyle("-fx-background-color: " + ThemeManager.getContentBackgroundColor() + "; -fx-padding: 20;");
         
         // Update top bar
         HBox topBar = (HBox) view.getTop();
@@ -651,14 +664,14 @@ public class StaffDashboard {
         );
         
         // Update title color
-        String titleColor = isDark ? "-color-fg-default" : "white";
+        String titleColor = isDark ? ThemeManager.getTextColor() : "white";
         titleLabel.setStyle("-fx-text-fill: " + titleColor + "; -fx-font-size: 24px; -fx-font-weight: bold;");
         
         // Update top bar buttons and labels
         for (javafx.scene.Node node : topBar.getChildren()) {
             if (node instanceof Button) {
                 Button btn = (Button) node;
-                String themeBtnColor = isDark ? "-color-fg-default" : "white";
+                String themeBtnColor = isDark ? ThemeManager.getTextColor() : "white";
                 btn.setStyle(
                     "-fx-background-color: transparent;" +
                     "-fx-text-fill: " + themeBtnColor + ";" +
@@ -667,7 +680,7 @@ public class StaffDashboard {
                 );
             } else if (node instanceof Label && !node.equals(titleLabel)) {
                 Label lbl = (Label) node;
-                String labelColor = isDark ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
+                String labelColor = isDark ? ThemeManager.getMutedTextColor() : "white";
                 lbl.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
             }
         }
@@ -679,10 +692,9 @@ public class StaffDashboard {
         sidebar.setStyle("-fx-background-color: " + sidebarGradient + "; -fx-padding: 20;");
         
         // Update logo and subtitle
-        String logoColor = isDark ? "-color-accent-fg" : "white";
-        String subtitleColor = isDark ? "-color-fg-muted" : "rgba(255, 255, 255, 0.8)";
-        logoLabel.setStyle("-fx-text-fill: " + logoColor + "; -fx-font-size: 16px; -fx-font-weight: bold;");
-        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
+        logoLabel.setStyle("-fx-text-fill: " + (isDark ? ThemeManager.getTextColor() : "white") + "; -fx-font-size: 16px; -fx-font-weight: bold;");
+        String subtitleColorUpdate = isDark ? ThemeManager.getMutedTextColor() : "rgba(255,255,255,0.8)";
+        subtitleLabel.setStyle("-fx-text-fill: " + subtitleColorUpdate + "; -fx-font-size: 12px;");
         
         // Update navigation buttons
         for (javafx.scene.Node node : sidebar.getChildren()) {
@@ -693,18 +705,18 @@ public class StaffDashboard {
                 // Check if button is currently active (bold text)
                 boolean isActive = currentStyle.contains("-fx-font-weight: bold");
                 
-                if (isDark) {
-                    // Dark mode styling - use darker subtle color for active state
-                    if (isActive) {
-                        btn.setStyle("-fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; " +
-                                   "-fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 6; " +
-                                   "-fx-cursor: hand; -fx-alignment: center-left; -fx-font-size: 14px;");
+                    if (isDark) {
+                        // Dark mode styling - use darker subtle color for active state
+                        if (isActive) {
+                            btn.setStyle("-fx-background-color: rgba(9,105,218,0.08); -fx-text-fill: " + ThemeManager.getSTIBlue() + "; " +
+                                       "-fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 6; " +
+                                       "-fx-cursor: hand; -fx-alignment: center-left; -fx-font-size: 14px;");
+                        } else {
+                            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + ThemeManager.getTextColor() + "; " +
+                                       "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
+                                       "-fx-alignment: center-left; -fx-font-size: 14px;");
+                        }
                     } else {
-                        btn.setStyle("-fx-background-color: transparent; -fx-text-fill: -color-fg-default; " +
-                                   "-fx-padding: 12; -fx-background-radius: 6; -fx-cursor: hand; " +
-                                   "-fx-alignment: center-left; -fx-font-size: 14px;");
-                    }
-                } else {
                     // Light mode styling (blue sidebar)
                     if (isActive) {
                         btn.setStyle("-fx-background-color: rgba(255, 255, 255, 0.2); -fx-text-fill: white; " +
@@ -742,6 +754,22 @@ public class StaffDashboard {
         if (contentArea.lookup("#help-content") != null) {
             helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
+        }
+
+        // Restore saved scroll position (if any) after rebuilding the view
+        if (savedV >= 0 || savedH >= 0) {
+            final double vToRestore = savedV;
+            final double hToRestore = savedH;
+            javafx.application.Platform.runLater(() -> {
+                for (javafx.scene.Node node : contentArea.getChildren()) {
+                    if (node instanceof ScrollPane) {
+                        ScrollPane sp = (ScrollPane) node;
+                        try { if (vToRestore >= 0) sp.setVvalue(vToRestore); } catch (Exception ex) { }
+                        try { if (hToRestore >= 0) sp.setHvalue(hToRestore); } catch (Exception ex) { }
+                        break;
+                    }
+                }
+            });
         }
 
         // Reapply active button styling for current theme

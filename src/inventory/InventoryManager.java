@@ -379,6 +379,135 @@ public class InventoryManager {
         return addStock(code, size, quantity);
     }
 
+    // ==================== DAMAGED STOCK MANAGEMENT ====================
+    
+    /**
+     * Mark items as damaged - moves from available stock to damaged stock.
+     * availableStock -= qty
+     * damagedStock += qty
+     * 
+     * @param code Item code
+     * @param size Item size
+     * @param quantity Number of items to mark as damaged
+     * @param reason Reason for marking as damaged
+     * @param staffName Staff member who is marking the item
+     * @return true if successful, false if not enough available stock
+     */
+    public boolean markItemAsDamaged(int code, String size, int quantity, String reason, String staffName) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item == null) {
+            System.err.println("[ERROR] Item not found for damage marking: code=" + code + ", size='" + size + "'");
+            return false;
+        }
+        
+        if (!item.markAsDamaged(quantity)) {
+            System.err.println("[ERROR] Cannot mark as damaged: not enough available stock. Available: " + 
+                             item.getQuantity() + ", Requested: " + quantity);
+            return false;
+        }
+        
+        // Save updated inventory to file
+        FileStorage.saveItems(inventory);
+        
+        // Log the damage marking activity
+        String sizeLabel = (size == null || size.isEmpty()) ? "" : " (" + size + ")";
+        SystemLogger.logActivity("Marked as damaged: " + item.getName() + sizeLabel + 
+                               " x" + quantity + " - Reason: " + reason + " by " + staffName);
+        
+        System.out.println("[InventoryManager] Marked " + quantity + " units as damaged for " + 
+                          item.getName() + sizeLabel + ". Available: " + item.getQuantity() + 
+                          ", Damaged: " + item.getDamagedStock());
+        
+        return true;
+    }
+    
+    /**
+     * Restore damaged items back to available stock.
+     * 
+     * @param code Item code
+     * @param size Item size
+     * @param quantity Number of items to restore
+     * @param staffName Staff member performing the restore
+     * @return true if successful, false if not enough damaged stock
+     */
+    public boolean restoreDamagedItem(int code, String size, int quantity, String staffName) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item == null) {
+            System.err.println("[ERROR] Item not found for damage restore: code=" + code + ", size='" + size + "'");
+            return false;
+        }
+        
+        if (!item.restoreFromDamaged(quantity)) {
+            System.err.println("[ERROR] Cannot restore: not enough damaged stock. Damaged: " + 
+                             item.getDamagedStock() + ", Requested: " + quantity);
+            return false;
+        }
+        
+        // Save updated inventory to file
+        FileStorage.saveItems(inventory);
+        
+        // Log the restore activity
+        String sizeLabel = (size == null || size.isEmpty()) ? "" : " (" + size + ")";
+        SystemLogger.logActivity("Restored from damaged: " + item.getName() + sizeLabel + 
+                               " x" + quantity + " by " + staffName);
+        
+        return true;
+    }
+    
+    /**
+     * Dispose/write-off damaged items permanently.
+     * 
+     * @param code Item code
+     * @param size Item size
+     * @param quantity Number of damaged items to dispose
+     * @param reason Reason for disposal
+     * @param staffName Staff member performing the disposal
+     * @return true if successful, false if not enough damaged stock
+     */
+    public boolean disposeDamagedItem(int code, String size, int quantity, String reason, String staffName) {
+        Item item = findItemByCodeAndSize(code, size);
+        if (item == null) {
+            System.err.println("[ERROR] Item not found for disposal: code=" + code + ", size='" + size + "'");
+            return false;
+        }
+        
+        if (!item.disposeDamaged(quantity)) {
+            System.err.println("[ERROR] Cannot dispose: not enough damaged stock. Damaged: " + 
+                             item.getDamagedStock() + ", Requested: " + quantity);
+            return false;
+        }
+        
+        // Save updated inventory to file
+        FileStorage.saveItems(inventory);
+        
+        // Log the disposal activity
+        String sizeLabel = (size == null || size.isEmpty()) ? "" : " (" + size + ")";
+        SystemLogger.logActivity("Disposed damaged stock: " + item.getName() + sizeLabel + 
+                               " x" + quantity + " - Reason: " + reason + " by " + staffName);
+        
+        return true;
+    }
+    
+    /**
+     * Get total damaged stock count across all items
+     */
+    public int getTotalDamagedStock() {
+        return inventory.stream().mapToInt(Item::getDamagedStock).sum();
+    }
+    
+    /**
+     * Get items that have damaged stock
+     */
+    public List<Item> getItemsWithDamagedStock() {
+        List<Item> damaged = new ArrayList<>();
+        for (Item item : inventory) {
+            if (item.getDamagedStock() > 0) {
+                damaged.add(item);
+            }
+        }
+        return damaged;
+    }
+
 
     public List<String> getAvailableCourses() {
         Set<String> courses = new HashSet<>();

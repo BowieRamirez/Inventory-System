@@ -50,34 +50,65 @@ public class FileStorage {
                 String[] parts = line.split(",");
                 if (parts.length >= 6) {
                     try {
-                        // Support two formats:
+                        // Support multiple formats:
                         // Old format: code,name,course,size,quantity,price
-                        // New consolidated format: code,name,course,size1,qty1,size2,qty2,...,price
+                        // Old consolidated format: code,name,course,size1,qty1,size2,qty2,...,price
+                        // New format with damaged: code,name,course,size1,qty1,dmg1,size2,qty2,dmg2,...,price
                         int itemCode = Integer.parseInt(parts[0].trim());
                         String itemName = parts[1].trim();
                         String course = parts[2].trim();
 
-                        // If parts length == 6 -> old single-size line
+                        // If parts length == 6 -> old single-size line (no damaged)
                         if (parts.length == 6) {
                             String size = parts[3].trim();
                             int quantity = Integer.parseInt(parts[4].trim());
                             double price = Double.parseDouble(parts[5].trim());
-                            Item item = new Item(itemCode, itemName, course, size, quantity, price);
+                            Item item = new Item(itemCode, itemName, course, size, quantity, 0, price);
+                            items.add(item);
+                        } else if (parts.length == 7) {
+                            // New single-size format with damaged: code,name,course,size,qty,damaged,price
+                            String size = parts[3].trim();
+                            int quantity = Integer.parseInt(parts[4].trim());
+                            int damagedStock = Integer.parseInt(parts[5].trim());
+                            double price = Double.parseDouble(parts[6].trim());
+                            Item item = new Item(itemCode, itemName, course, size, quantity, damagedStock, price);
                             items.add(item);
                         } else {
-                            // Consolidated line: parse size/qty pairs from index 3..n-2, last token is price
+                            // Consolidated line - determine if it includes damaged stock
                             double price = Double.parseDouble(parts[parts.length - 1].trim());
-                            // tokens between 3 and parts.length-2 (inclusive) should be size,qty pairs
-                            for (int i = 3; i < parts.length - 1; i += 2) {
-                                String size = parts[i].trim();
-                                if (i + 1 >= parts.length - 1) break; // malformed
-                                String qtyStr = parts[i + 1].trim();
-                                try {
-                                    int quantity = Integer.parseInt(qtyStr);
-                                    Item item = new Item(itemCode, itemName, course, size, quantity, price);
-                                    items.add(item);
-                                } catch (NumberFormatException nfe) {
-                                    // skip this pair if qty invalid
+                            
+                            // Count tokens between index 3 and parts.length-2
+                            int dataTokens = parts.length - 4; // code,name,course at start, price at end
+                            
+                            // If divisible by 3, it's new format: size,qty,damaged triplets
+                            // If divisible by 2, it's old format: size,qty pairs
+                            if (dataTokens > 0 && dataTokens % 3 == 0) {
+                                // New format with damaged stock: size,qty,damaged triplets
+                                for (int i = 3; i < parts.length - 1; i += 3) {
+                                    String size = parts[i].trim();
+                                    if (i + 2 >= parts.length) break; // malformed
+                                    try {
+                                        int quantity = Integer.parseInt(parts[i + 1].trim());
+                                        int damagedStock = Integer.parseInt(parts[i + 2].trim());
+                                        Item item = new Item(itemCode, itemName, course, size, quantity, damagedStock, price);
+                                        items.add(item);
+                                    } catch (NumberFormatException nfe) {
+                                        // skip this triplet if invalid
+                                    }
+                                }
+                            } else {
+                                // Old format: size,qty pairs (no damaged stock)
+                                for (int i = 3; i < parts.length - 1; i += 2) {
+                                    String size = parts[i].trim();
+                                    if (i + 1 >= parts.length - 1) break; // malformed
+                                    String qtyStr = parts[i + 1].trim();
+                                    try {
+                                        int quantity = Integer.parseInt(qtyStr);
+                                        Item item = new Item(itemCode, itemName, course, size, quantity, 0, price);
+                                        items.add(item);
+                                    } catch (NumberFormatException nfe) {
+                                        // skip this pair if qty invalid
+                                    }
                                 }
                             }
                         }
@@ -105,11 +136,11 @@ public class FileStorage {
             try (FileWriter fw = new FileWriter(ITEMS_FILE, false);
                  BufferedWriter bw = new BufferedWriter(fw)) {
                 
-                // Write header
-                bw.write("ItemCode,ItemName,Course,Size,Quantity,Price");
+                // Write header (updated to include damaged stock info)
+                bw.write("ItemCode,ItemName,Course,Size,Quantity,DamagedStock,Price");
                 bw.newLine();
 
-                // Consolidate items by code so we write one line per item code with multiple size/qty pairs
+                // Consolidate items by code so we write one line per item code with multiple size/qty/damaged triplets
                 java.util.Map<Integer, java.util.List<Item>> grouped = new java.util.HashMap<>();
                 for (Item it : items) {
                     grouped.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
@@ -125,10 +156,11 @@ public class FileStorage {
                     sb.append(safe(first.getName())).append(",");
                     sb.append(safe(first.getCourse())).append(",");
 
-                    // Append size,quantity pairs
+                    // Append size,quantity,damagedStock triplets
                     for (Item v : group) {
                         sb.append(safe(v.getSize())).append(",");
                         sb.append(v.getQuantity()).append(",");
+                        sb.append(v.getDamagedStock()).append(",");
                     }
 
                     // Append price at end. If sizes have different prices, prefer first
@@ -709,7 +741,8 @@ public class FileStorage {
             String replacementSize = (parts.length > 20 && !parts[20].isEmpty()) ? parts[20] : "";
             String replacementNote = (parts.length > 21 && !parts[21].isEmpty()) ? parts[21] : "";
             String claimProofImagePath = (parts.length > 22 && !parts[22].isEmpty()) ? parts[22] : "";
-            String scheduledPickupEndStr = (parts.length > 23 && !parts[23].isEmpty()) ? parts[23] : "";
+            String rescheduleNote = (parts.length > 23 && !parts[23].isEmpty()) ? parts[23] : "";
+            String scheduledPickupEndStr = (parts.length > 24 && !parts[24].isEmpty()) ? parts[24] : "";
 
             // Create reservation with bundleId
             Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
@@ -768,6 +801,10 @@ public class FileStorage {
                 if (replacementNote != null && !replacementNote.isEmpty()) {
                     reservation.setReplacementNote(replacementNote);
                 }
+            }
+            // Set reschedule note if exists
+            if (rescheduleNote != null && !rescheduleNote.isEmpty()) {
+                reservation.setRescheduleNote(rescheduleNote);
             }
             
             // Set claim proof image path if exists
@@ -829,6 +866,7 @@ public class FileStorage {
          String replacementSize = reservation.getReplacementSize() != null ? 
                          reservation.getReplacementSize() : "";
          String replacementNote = reservation.getReplacementNote() != null ? reservation.getReplacementNote() : "";
+         String rescheduleNote = reservation.getRescheduleNote() != null ? reservation.getRescheduleNote() : "";
          String scheduledPickup = reservation.getScheduledPickupDateTime() != null ? reservation.getScheduledPickupDateTime().format(formatter) : "";
          String scheduledPickupEnd = reservation.getScheduledPickupEndDateTime() != null ? reservation.getScheduledPickupEndDateTime().format(formatter) : "";
          String claimProofImagePath = reservation.getClaimProofImagePath() != null ? reservation.getClaimProofImagePath() : "";
@@ -856,6 +894,7 @@ public class FileStorage {
                          replacementSize + "|" +
                          replacementNote + "|" +
                          claimProofImagePath + "|" +
+                         rescheduleNote + "|" +
                          scheduledPickupEnd;
     }
     

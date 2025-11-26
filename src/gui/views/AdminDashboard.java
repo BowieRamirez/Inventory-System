@@ -129,7 +129,7 @@ public class AdminDashboard {
         
         titleLabel = new Label("Dashboard");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+        String titleColor = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "white";
         titleLabel.setStyle("-fx-text-fill: " + titleColor + ";");
         
         Region spacer = new Region();
@@ -185,7 +185,7 @@ public class AdminDashboard {
         toggleSwitch.setStyle("-fx-cursor: hand;");
         
         Label adminLabel = new Label("👤 Admin");
-        String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
+        String labelColor = ThemeManager.isDarkMode() ? ThemeManager.getMutedTextColor() : "white";
         adminLabel.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
         
         topBar.getChildren().addAll(titleLabel, spacer, toggleSwitch, adminLabel);
@@ -225,11 +225,11 @@ public class AdminDashboard {
         // Logo/Title
         logoLabel = new Label("STI ProWear Novaliches");
         logoLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
-        String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+        String logoColor = ThemeManager.isDarkMode() ? ThemeManager.getSTIBlue() : "white";
         logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
         
         subtitleLabel = new Label("Admin Panel");
-        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
+        String subtitleColor = ThemeManager.isDarkMode() ? ThemeManager.getMutedTextColor() : "rgba(255,255,255,0.8)";
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         VBox header = new VBox(10, logoImage, logoLabel, subtitleLabel);
@@ -498,8 +498,8 @@ public class AdminDashboard {
         btn.setPrefHeight(40);
         
         if (active) {
-            String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
-            String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+            String activeBg = ThemeManager.isDarkMode() ? ThemeManager.getSubtleBackgroundColor() : "rgba(255,255,255,0.2)";
+            String activeText = ThemeManager.isDarkMode() ? ThemeManager.getSTIBlue() : "white";
             btn.setStyle(
                 "-fx-background-color: " + activeBg + ";" +
                 "-fx-text-fill: " + activeText + ";" +
@@ -509,7 +509,7 @@ public class AdminDashboard {
                 "-fx-cursor: hand;"
             );
         } else {
-            String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
+            String inactiveText = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "rgba(255,255,255,0.9)";
             btn.setStyle(
                 "-fx-background-color: transparent;" +
                 "-fx-text-fill: " + inactiveText + ";" +
@@ -617,10 +617,22 @@ public class AdminDashboard {
      * Update sidebar theme colors when theme changes
      */
     private void updateSidebarTheme() {
+        // Save primary scroll position before changing theme so it can be restored.
+        double savedV = -1;
+        double savedH = -1;
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                try { savedV = sp.getVvalue(); } catch (Exception ex) { savedV = -1; }
+                try { savedH = sp.getHvalue(); } catch (Exception ex) { savedH = -1; }
+                break;
+            }
+        }
+
         // Update main background
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
-        
+
         // Update content area background
         String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         contentArea.setStyle("-fx-background-color: " + contentBg + "; -fx-padding: 20;");
@@ -635,14 +647,14 @@ public class AdminDashboard {
         );
         
         // Update title color
-        String titleColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+        String titleColor = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "white";
         titleLabel.setStyle("-fx-text-fill: " + titleColor + "; -fx-font-size: 24px; -fx-font-weight: bold;");
         
         // Update top bar buttons and labels
         for (javafx.scene.Node node : topBar.getChildren()) {
             if (node instanceof Button) {
                 Button btn = (Button) node;
-                String themeBtnColor = ThemeManager.isDarkMode() ? "-color-fg-default" : "white";
+                String themeBtnColor = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "white";
                 btn.setStyle(
                     "-fx-background-color: transparent;" +
                     "-fx-text-fill: " + themeBtnColor + ";" +
@@ -651,7 +663,7 @@ public class AdminDashboard {
                 );
             } else if (node instanceof Label && !node.equals(titleLabel)) {
                 Label lbl = (Label) node;
-                String labelColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.9)";
+                String labelColor = ThemeManager.isDarkMode() ? ThemeManager.getMutedTextColor() : "white";
                 lbl.setStyle("-fx-text-fill: " + labelColor + "; -fx-font-size: 14px;");
             }
         }
@@ -665,17 +677,17 @@ public class AdminDashboard {
         );
         
         // Update logo and subtitle colors
-        String logoColor = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
+        String logoColor = ThemeManager.isDarkMode() ? ThemeManager.getSTIBlue() : "white";
         logoLabel.setStyle("-fx-text-fill: " + logoColor + ";");
-        
-        String subtitleColor = ThemeManager.isDarkMode() ? "-color-fg-muted" : "rgba(255,255,255,0.8)";
+
+        String subtitleColor = ThemeManager.isDarkMode() ? ThemeManager.getMutedTextColor() : "rgba(255,255,255,0.8)";
         subtitleLabel.setStyle("-fx-text-fill: " + subtitleColor + "; -fx-font-size: 12px;");
         
         // Update navigation buttons
         Button[] buttons = {dashboardBtn, accountsBtn, stockLogsBtn, systemSettingsBtn, helpBtn};
-        String activeBg = ThemeManager.isDarkMode() ? "-color-accent-subtle" : "rgba(255,255,255,0.2)";
-        String activeText = ThemeManager.isDarkMode() ? "-color-accent-fg" : "white";
-        String inactiveText = ThemeManager.isDarkMode() ? "-color-fg-default" : "rgba(255,255,255,0.9)";
+        String activeBg = ThemeManager.isDarkMode() ? ThemeManager.getSubtleBackgroundColor() : "rgba(255,255,255,0.2)";
+        String activeText = ThemeManager.isDarkMode() ? ThemeManager.getSTIBlue() : "white";
+        String inactiveText = ThemeManager.isDarkMode() ? ThemeManager.getTextColor() : "rgba(255,255,255,0.9)";
         
         for (Button btn : buttons) {
             String currentStyle = btn.getStyle();
@@ -725,10 +737,40 @@ public class AdminDashboard {
             );
         }
         
+        // Refresh currently displayed view to apply new theme colors
+        String currentTitle = titleLabel.getText();
+        if (currentTitle.equals("Dashboard")) {
+            showDashboard();
+        } else if (currentTitle.equals("Account Management")) {
+            showAccounts();
+        } else if (currentTitle.equals("Stock Logs")) {
+            showStockLogs();
+        } else if (currentTitle.equals("System Settings")) {
+            showSystemSettings();
+        } else if (currentTitle.equals("Reports & Analytics")) {
+            showReports();
+        }
+
         // Refresh Help content if currently displayed, preserving expanded pane
         if (contentArea.lookup("#help-content") != null) {
             helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
+        }
+
+        // Restore saved scroll position (if any)
+        if (savedV >= 0 || savedH >= 0) {
+            final double vToRestore = savedV;
+            final double hToRestore = savedH;
+            javafx.application.Platform.runLater(() -> {
+                for (javafx.scene.Node node : contentArea.getChildren()) {
+                    if (node instanceof ScrollPane) {
+                        ScrollPane sp = (ScrollPane) node;
+                        try { if (vToRestore >= 0) sp.setVvalue(vToRestore); } catch (Exception ex) { }
+                        try { if (hToRestore >= 0) sp.setHvalue(hToRestore); } catch (Exception ex) { }
+                        break;
+                    }
+                }
+            });
         }
 
         // Reapply active button styling for current theme

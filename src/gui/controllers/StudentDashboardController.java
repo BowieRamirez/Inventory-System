@@ -451,6 +451,7 @@ public class StudentDashboardController {
                 if (isBundle) {
                     // Bundle notifications
                     boolean anyReplaced = group.stream().anyMatch(g -> "REPLACED".equals(g.getStatus()));
+                    boolean anyApprovedForReplacement = group.stream().anyMatch(g -> "APPROVED FOR REPLACEMENT".equals(g.getStatus()));
                     boolean anyAwaitingPickup = group.stream().anyMatch(g -> "AWAITING PICKUP REQUEST".equals(g.getStatus()));
                     boolean anyApprovedForPickup = group.stream().anyMatch(g -> "APPROVED FOR PICKUP".equals(g.getStatus()));
                     
@@ -468,6 +469,18 @@ public class StudentDashboardController {
                         messageLabel.setText("✅ Pickup Approved! Your bundle is ready for pickup.\nBundle (" + group.size() + " items)\n📅 Scheduled: " + scheduleStr);
                     } else if (anyAwaitingPickup) {
                         messageLabel.setText("💳 Payment Confirmed! You can now request pickup for your bundle.\nBundle (" + group.size() + " items)\n📅 " + timeStr);
+                    } else if (anyApprovedForReplacement) {
+                        String scheduleStr = "";
+                        if (rep.getScheduledPickupDateTime() != null) {
+                            String startTime = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy h:mm a"));
+                            if (rep.getScheduledPickupEndDateTime() != null) {
+                                String endTime = rep.getScheduledPickupEndDateTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
+                                scheduleStr = startTime + " - " + endTime;
+                            } else {
+                                scheduleStr = startTime;
+                            }
+                        }
+                        messageLabel.setText("⏳ Replacement Approved! Awaiting your claim.\nBundle (" + group.size() + " items)\n📅 Pickup: " + scheduleStr);
                     } else if (anyReplaced) {
                         String scheduleStr = "";
                         if (rep.getScheduledPickupDateTime() != null) {
@@ -501,6 +514,18 @@ public class StudentDashboardController {
                         messageLabel.setText("💳 Payment Confirmed! You can now request pickup.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 " + timeStr);
                     } else if ("APPROVED - WAITING FOR PAYMENT".equals(status)) {
                         messageLabel.setText("Item reservation accepted — proceed to cashier.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 " + timeStr);
+                    } else if ("APPROVED FOR REPLACEMENT".equals(status)) {
+                        String scheduleStr = "Not yet scheduled";
+                        if (rep.getScheduledPickupDateTime() != null) {
+                            String startTime = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy h:mm a"));
+                            if (rep.getScheduledPickupEndDateTime() != null) {
+                                String endTime = rep.getScheduledPickupEndDateTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
+                                scheduleStr = startTime + " - " + endTime;
+                            } else {
+                                scheduleStr = startTime;
+                            }
+                        }
+                        messageLabel.setText("⏳ Replacement Approved! Awaiting your claim.\n" + rep.getItemName() + " (" + rep.getSize() + ") x" + rep.getQuantity() + "\n📅 Pickup: " + scheduleStr);
                     } else if ("REPLACED".equals(status)) {
                         String scheduleStr = "";
                         if (rep.getScheduledPickupDateTime() != null) {
@@ -546,6 +571,7 @@ public class StudentDashboardController {
                     boolean bundleApprovedForPickup = group.stream().anyMatch(r -> "APPROVED FOR PICKUP".equals(r.getStatus()));
                     boolean bundleAwaitingPickup = group.stream().anyMatch(r -> "AWAITING PICKUP REQUEST".equals(r.getStatus()));
                     boolean bundlePickupRequested = group.stream().anyMatch(r -> "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus()));
+                    boolean bundleApprovedForReplacement = group.stream().anyMatch(r -> "APPROVED FOR REPLACEMENT".equals(r.getStatus()));
                     boolean bundleReplaced = group.stream().anyMatch(r -> "REPLACED".equals(r.getStatus()));
                     boolean bundleCompleted = group.stream().anyMatch(r -> "COMPLETED".equals(r.getStatus()));
                     
@@ -589,6 +615,28 @@ public class StudentDashboardController {
                             Label actionLabel = new Label("✅ Payment confirmed! You can now request pickup from the Pickup tab.");
                             actionLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
                             dcontent.getChildren().add(actionLabel);
+                        } else if (bundleApprovedForReplacement) {
+                            // Replacement approved - awaiting student claim
+                            String scheduleStr = "Not yet scheduled";
+                            if (rep.getScheduledPickupDateTime() != null) {
+                                String startTime = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy h:mm a"));
+                                if (rep.getScheduledPickupEndDateTime() != null) {
+                                    String endTime = rep.getScheduledPickupEndDateTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
+                                    scheduleStr = startTime + " - " + endTime;
+                                } else {
+                                    scheduleStr = startTime;
+                                }
+                            }
+                            Label awaitingClaimLabel = new Label("⏳ Replacement Approved! Awaiting your claim.");
+                            awaitingClaimLabel.setStyle("-fx-text-fill: #8250DF; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(awaitingClaimLabel);
+                            Label scheduleLabel = new Label("📅 Pickup Time: " + scheduleStr);
+                            scheduleLabel.setStyle("-fx-text-fill: #8250DF; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(scheduleLabel);
+                            Label instructionLabel = new Label("📍 Please visit the store at the scheduled time to claim your replacement item.");
+                            instructionLabel.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
+                            instructionLabel.setWrapText(true);
+                            dcontent.getChildren().add(instructionLabel);
                         } else if (bundleReplaced) {
                             // Replacement accepted - show scheduled time range
                             String scheduleStr = "";
@@ -665,6 +713,28 @@ public class StudentDashboardController {
                             Label actionLabel = new Label("✅ Payment confirmed! You can now request pickup from the Pickup tab.");
                             actionLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-weight: bold;");
                             dcontent.getChildren().add(actionLabel);
+                        } else if ("APPROVED FOR REPLACEMENT".equals(currentStatus)) {
+                            // Replacement approved - awaiting student claim
+                            String scheduleStr = "Not yet scheduled";
+                            if (rep.getScheduledPickupDateTime() != null) {
+                                String startTime = rep.getScheduledPickupDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy h:mm a"));
+                                if (rep.getScheduledPickupEndDateTime() != null) {
+                                    String endTime = rep.getScheduledPickupEndDateTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
+                                    scheduleStr = startTime + " - " + endTime;
+                                } else {
+                                    scheduleStr = startTime;
+                                }
+                            }
+                            Label awaitingClaimLabel = new Label("⏳ Replacement Approved! Awaiting your claim.");
+                            awaitingClaimLabel.setStyle("-fx-text-fill: #8250DF; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(awaitingClaimLabel);
+                            Label scheduleLabel = new Label("📅 Pickup Time: " + scheduleStr);
+                            scheduleLabel.setStyle("-fx-text-fill: #8250DF; -fx-font-weight: bold;");
+                            dcontent.getChildren().add(scheduleLabel);
+                            Label instructionLabel = new Label("📍 Please visit the store at the scheduled time to claim your replacement item.");
+                            instructionLabel.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
+                            instructionLabel.setWrapText(true);
+                            dcontent.getChildren().add(instructionLabel);
                         } else if ("REPLACED".equals(currentStatus)) {
                             // Replacement accepted - show scheduled time range
                             String scheduleStr = "";
@@ -3669,36 +3739,82 @@ public class StudentDashboardController {
             representative.getItemName() + " - " + representative.getSize();
         double totalPaid = group.stream().mapToDouble(Reservation::getTotalPrice).sum();
 
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Request Pickup");
-        confirmAlert.setHeaderText("Request Pickup Approval");
-        confirmAlert.setContentText(
+        // Use custom dialog to include preferred pickup time note
+        Dialog<String> pickupDialog = new Dialog<>();
+        pickupDialog.setTitle("Request Pickup");
+        pickupDialog.setHeaderText("Request Pickup Approval");
+        
+        ButtonType requestButtonType = new ButtonType("Request Pickup", ButtonBar.ButtonData.OK_DONE);
+        pickupDialog.getDialogPane().getButtonTypes().addAll(requestButtonType, ButtonType.CANCEL);
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        // Info section
+        Label infoLabel = new Label(
             "Request Staff approval to pickup this " + itemDescription + "?\n\n" +
             "After approval, you'll be able to claim your item.\n\n" +
             "Total Paid: ₱" + String.format("%.2f", totalPaid)
         );
-
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                boolean success = true;
-                for (Reservation item : group) {
-                    if (!reservationManager.requestPickup(item.getReservationId())) {
-                        success = false;
-                        break;
-                    }
+        infoLabel.setWrapText(true);
+        infoLabel.setStyle("-fx-font-size: 13px;");
+        
+        // Preferred pickup time section
+        VBox timeSection = new VBox(8);
+        timeSection.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
+            "-fx-padding: 12;"
+        );
+        
+        Label timeLabel = new Label("🕐 Preferred Pickup Time (Optional)");
+        timeLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 13px;");
+        
+        TextArea timeNote = new TextArea();
+        timeNote.setPromptText("e.g., Tomorrow afternoon between 2-4 PM, Monday morning, After 3 PM on weekdays...");
+        timeNote.setPrefRowCount(2);
+        timeNote.setWrapText(true);
+        timeNote.setStyle("-fx-font-size: 12px;");
+        
+        Label timeHint = new Label("💡 Staff will try to accommodate your preferred time when scheduling");
+        timeHint.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+        
+        timeSection.getChildren().addAll(timeLabel, timeNote, timeHint);
+        
+        content.getChildren().addAll(infoLabel, timeSection);
+        pickupDialog.getDialogPane().setContent(content);
+        pickupDialog.getDialogPane().setPrefWidth(450);
+        
+        pickupDialog.setResultConverter(dialogButton -> {
+            if (dialogButton == requestButtonType) {
+                return timeNote.getText().trim();
+            }
+            return null;
+        });
+        
+        pickupDialog.showAndWait().ifPresent(preferredTime -> {
+            boolean success = true;
+            for (Reservation item : group) {
+                if (!reservationManager.requestPickup(item.getReservationId(), preferredTime.isEmpty() ? null : preferredTime)) {
+                    success = false;
+                    break;
+                }
+            }
+            
+            if (success) {
+                if (refreshCallback != null) {
+                    refreshCallback.run();
                 }
                 
-                if (success) {
-                    if (refreshCallback != null) {
-                        refreshCallback.run();
-                    }
-                    
-                    AlertHelper.showSuccess("Request Sent", 
-                        "Pickup request submitted successfully!\n\n" +
-                        "Please wait for Staff approval.");
-                } else {
-                    AlertHelper.showError("Error", "Failed to send pickup request. Please try again.");
-                }
+                AlertHelper.showSuccess("Request Sent", 
+                    "Pickup request submitted successfully!\n\n" +
+                    "Please wait for Staff approval." +
+                    (preferredTime.isEmpty() ? "" : "\n\nYour preferred time has been noted."));
+            } else {
+                AlertHelper.showError("Error", "Failed to send pickup request. Please try again.");
             }
         });
     }
@@ -3727,32 +3843,40 @@ public class StudentDashboardController {
             }
         }
 
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Request Reschedule");
-        confirmAlert.setHeaderText("Request New Pickup Schedule");
-        confirmAlert.setContentText(
-            "You missed your scheduled pickup for:\n" + itemDescription + "\n\n" +
-            "Original schedule: " + missedTime + "\n\n" +
-            "Would you like to request a new pickup schedule?\n" +
-            "Staff will review and assign a new pickup time."
-        );
+        // Use a custom dialog so student can add an optional note for staff
+        Dialog<ButtonType> dlg = new Dialog<>();
+        dlg.setTitle("Request Reschedule");
+        dlg.setHeaderText("Request New Pickup Schedule");
+        dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
+        VBox dlgContent = new VBox(10);
+        dlgContent.setPadding(new Insets(12));
+        Label info = new Label("You missed your scheduled pickup for:\n" + itemDescription + "\n\nOriginal schedule: " + missedTime + "\n\nPlease add an optional note for Staff:");
+        info.setWrapText(true);
+        TextArea noteArea = new TextArea();
+        noteArea.setPromptText("e.g. I will be available next week after 2pm...");
+        noteArea.setPrefRowCount(4);
+
+        dlgContent.getChildren().addAll(info, noteArea);
+        dlg.getDialogPane().setContent(dlgContent);
+
+        dlg.showAndWait().ifPresent(resp -> {
+            if (resp == ButtonType.OK) {
+                String note = noteArea.getText();
                 boolean success = true;
                 for (Reservation item : group) {
-                    if (!reservationManager.requestReschedule(item.getReservationId())) {
+                    if (!reservationManager.requestReschedule(item.getReservationId(), note)) {
                         success = false;
                         break;
                     }
                 }
-                
+
                 if (success) {
                     if (refreshCallback != null) {
                         refreshCallback.run();
                     }
-                    
-                    AlertHelper.showSuccess("Reschedule Requested", 
+
+                    AlertHelper.showSuccess("Reschedule Requested",
                         "Reschedule request submitted successfully!\n\n" +
                         "Please wait for Staff to assign a new pickup time.");
                 } else {
@@ -4371,6 +4495,33 @@ public class StudentDashboardController {
         imageSection.getChildren().addAll(imageLabel, imageUploadBox, imageHint);
         mainContent.getChildren().add(imageSection);
         
+        // SECTION 5: Preferred Pickup Time
+        VBox pickupTimeSection = new VBox(10);
+        pickupTimeSection.setStyle(
+            "-fx-background-color: -color-bg-subtle;" +
+            "-fx-border-color: -color-border-default;" +
+            "-fx-border-width: 1px;" +
+            "-fx-border-radius: 3px;" +
+            "-fx-background-radius: 3px;" +
+            "-fx-padding: 15;"
+        );
+        
+        Label pickupTimeLabel = new Label("🕐 Preferred Pickup Time for Replacement (Optional)");
+        pickupTimeLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default; -fx-font-size: 14px;");
+        
+        TextArea preferredTimeArea = new TextArea();
+        preferredTimeArea.setPromptText("e.g., Tomorrow afternoon between 2-4 PM, Monday morning, After 3 PM on weekdays...");
+        preferredTimeArea.setPrefRowCount(2);
+        preferredTimeArea.setWrapText(true);
+        preferredTimeArea.setStyle("-fx-font-size: 12px;");
+        
+        Label pickupHint = new Label("💡 Staff will try to accommodate your preferred time when scheduling the replacement pickup");
+        pickupHint.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
+        pickupHint.setWrapText(true);
+        
+        pickupTimeSection.getChildren().addAll(pickupTimeLabel, preferredTimeArea, pickupHint);
+        mainContent.getChildren().add(pickupTimeSection);
+        
         // Important Notice
         VBox noticeBox = new VBox(5);
         noticeBox.setStyle(
@@ -4438,6 +4589,12 @@ public class StudentDashboardController {
                 if (otherBox.isSelected() && additionalDetails.isEmpty()) {
                     AlertHelper.showError("Error", "Please provide details in the text area when selecting 'Other reason'.");
                     return null;
+                }
+                
+                // Append preferred pickup time if provided
+                String preferredTime = preferredTimeArea.getText().trim();
+                if (!preferredTime.isEmpty()) {
+                    finalReason += " [Preferred pickup: " + preferredTime + "]";
                 }
                 
                 // Append image path if uploaded

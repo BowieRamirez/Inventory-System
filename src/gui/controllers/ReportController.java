@@ -1,5 +1,6 @@
 package gui.controllers;
 
+import java.io.File;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,10 +10,17 @@ import gui.utils.ThemeManager;
 import inventory.InventoryManager;
 import inventory.ReceiptManager;
 import inventory.ReservationManager;
+import utils.DamagedStockTracker;
+import utils.DamagedStockTracker.DamagedStockRecord;
+import utils.ReplacementTracker;
+import utils.ReplacementTracker.ReplacementReason;
+import utils.ReplacementTracker.ReplacementRecord;
+import utils.ReplacementTracker.ReplacementSummary;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.Tab;
@@ -38,11 +46,13 @@ import utils.ReportGenerator.StudentActivityReport;
 public class ReportController {
     
     private ReportGenerator reportGenerator;
+    private ReservationManager reservationManager;
     
     public ReportController(InventoryManager inventoryManager,
                            ReservationManager reservationManager,
                            ReceiptManager receiptManager) {
         this.reportGenerator = new ReportGenerator(inventoryManager, reservationManager, receiptManager);
+        this.reservationManager = reservationManager;
     }
     
     // Theme-aware color methods
@@ -114,8 +124,9 @@ public class ReportController {
         Tab lowStockTab = new Tab("Low Stock Items", createLowStockTab());
         Tab outOfStockTab = new Tab("Out of Stock", createOutOfStockTab());
         Tab valuationTab = new Tab("Stock Valuation", createStockValuationTab());
+        Tab damagedStockTab = new Tab("Damaged Stock", createDamagedStockTab());
         
-        tabPane.getTabs().addAll(stockByCoursTab, lowStockTab, outOfStockTab, valuationTab);
+        tabPane.getTabs().addAll(stockByCoursTab, lowStockTab, outOfStockTab, valuationTab, damagedStockTab);
         reportBox.getChildren().add(tabPane);
         
         return reportBox;
@@ -351,7 +362,7 @@ public class ReportController {
     }
     
     /**
-     * Create transaction/sales report view
+     * Create transaction/sales report view (Admin version - without Returns)
      */
     public VBox createTransactionReport() {
         VBox reportBox = new VBox(15);
@@ -382,9 +393,50 @@ public class ReportController {
         Tab summaryTab = new Tab("Sales Summary", createSalesSummaryTab());
         Tab completedTab = new Tab("Completed Orders", createCompletedOrdersTab());
         Tab cancelledTab = new Tab("Cancelled Orders", createCancelledOrdersTab());
-        Tab returnTab = new Tab("Returns", createReturnTab());
         
-        tabPane.getTabs().addAll(summaryTab, completedTab, cancelledTab, returnTab);
+        // NOTE: Returns tab removed - staff handles returns now
+        tabPane.getTabs().addAll(summaryTab, completedTab, cancelledTab);
+        reportBox.getChildren().add(tabPane);
+        
+        return reportBox;
+    }
+    
+    /**
+     * Create transaction/sales report view for STAFF (without Returns tab)
+     * Staff should not see Returns as it's handled differently
+     */
+    public VBox createTransactionReportStaff() {
+        VBox reportBox = new VBox(15);
+        reportBox.setPadding(new Insets(20));
+        
+        // Header with title and export buttons
+        HBox headerBox = new HBox(15);
+        headerBox.setPadding(new Insets(10));
+        
+        Label titleLabel = new Label("💳 Transaction & Sales Report");
+        titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + getReportTitleColor() + ";");
+        
+        Button exportPdfBtn = createExportButton("📄 Export as PDF");
+        Button exportExcelBtn = createExportButton("📊 Export as Excel");
+        
+        exportPdfBtn.setOnAction(e -> exportTransactionReport("PDF"));
+        exportExcelBtn.setOnAction(e -> exportTransactionReport("EXCEL"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, exportPdfBtn, exportExcelBtn);
+        reportBox.getChildren().add(headerBox);
+        
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        
+        Tab summaryTab = new Tab("Sales Summary", createSalesSummaryTab());
+        Tab completedTab = new Tab("Completed Orders", createCompletedOrdersTab());
+        Tab cancelledTab = new Tab("Cancelled Orders", createCancelledOrdersTab());
+        
+        // NOTE: No Returns tab for staff - returns are handled separately
+        tabPane.getTabs().addAll(summaryTab, completedTab, cancelledTab);
         reportBox.getChildren().add(tabPane);
         
         return reportBox;
@@ -743,7 +795,7 @@ public class ReportController {
         List<ReservationReport> returns = reportGenerator.getReturnReport();
         
         if (returns.isEmpty()) {
-            Label emptyLabel = new Label("No returns on record");
+            Label emptyLabel = new Label("No replaced records");
             return new VBox(emptyLabel);
         }
         
@@ -833,6 +885,86 @@ public class ReportController {
         }
     }
     
+    /**
+     * Create staff report view (includes Returns + Stock Management + Transaction Summary)
+     */
+    public VBox createStaffReport() {
+        VBox reportBox = new VBox(15);
+        reportBox.setPadding(new Insets(20));
+        
+        // Header with title and export buttons
+        HBox headerBox = new HBox(15);
+        headerBox.setPadding(new Insets(10));
+        
+        Label titleLabel = new Label("👔 Staff Report");
+        titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + getReportTitleColor() + ";");
+        
+        Button exportPdfBtn = createExportButton("📄 Export as PDF");
+        Button exportExcelBtn = createExportButton("📊 Export as Excel");
+        
+        exportPdfBtn.setOnAction(e -> exportStaffReport("PDF"));
+        exportExcelBtn.setOnAction(e -> exportStaffReport("EXCEL"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, exportPdfBtn, exportExcelBtn);
+        reportBox.getChildren().add(headerBox);
+        
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        
+        // Replaced Management (primary for staff)
+        Tab returnsTab = new Tab("Replaced", createReturnTab());
+        
+        // Stock Management (staff manages inventory)
+        Tab stockByCoursTab = new Tab("Stock by Course", createStockByCourseTab());
+        Tab lowStockTab = new Tab("Low Stock Items", createLowStockTab());
+        Tab outOfStockTab = new Tab("Out of Stock", createOutOfStockTab());
+        Tab allReplacementsTab = new Tab("All Replacements", createAllReplacementsTab());
+        
+        // Transaction Summary (staff awareness)
+        Tab transactionTab = new Tab("Sales Summary", createSalesSummaryTab());
+        Tab completedTab = new Tab("Completed Orders", createCompletedOrdersTab());
+        
+        tabPane.getTabs().addAll(returnsTab, stockByCoursTab, lowStockTab, outOfStockTab, 
+                                 allReplacementsTab, transactionTab, completedTab);
+        reportBox.getChildren().add(tabPane);
+        
+        return reportBox;
+    }
+    
+    private void exportStaffReport(String format) {
+        try {
+            LocalDate startDate = LocalDate.now().minusMonths(1);
+            LocalDate endDate = LocalDate.now();
+            
+            // Gather all staff report data
+            List<ReservationReport> returns = reportGenerator.getReturnReport();
+            List<StockReport> stockByCourse = reportGenerator.getStockByCourse();
+            List<StockReport> lowStockItems = reportGenerator.getLowStockItems(10);
+            List<StockReport> outOfStockItems = reportGenerator.getOutOfStockItems();
+            List<DamagedStockTracker.DamagedStockRecord> damagedStock = DamagedStockTracker.getAllDamagedRecords();
+            SalesSummaryReport summary = reportGenerator.getSalesSummary(startDate, endDate);
+            List<ReservationReport> completedOrders = reportGenerator.getCompletedOrders(startDate, endDate);
+            
+            String filename = "staff_report_" + LocalDate.now();
+            
+            if (format.equals("PDF")) {
+                utils.PDFExporter.exportStaffReportToPDF(returns, stockByCourse, lowStockItems, 
+                    outOfStockItems, damagedStock, summary, completedOrders, filename);
+                showExportSuccess("reports/staff_report_" + LocalDate.now() + ".pdf");
+            } else {
+                utils.ExcelExporter.exportStaffReportToExcel(returns, stockByCourse, lowStockItems, 
+                    outOfStockItems, damagedStock, summary, completedOrders, filename);
+                showExportSuccess("reports/staff_report_" + LocalDate.now() + ".csv");
+            }
+        } catch (Exception e) {
+            showError("Export failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
     private VBox createTopStudentsTab() {
         VBox box = new VBox(10);
         box.setPadding(new Insets(15));
@@ -912,6 +1044,196 @@ public class ReportController {
         return box;
     }
     
+    /**
+     * Create Damaged Stock tab - shows items that were replaced due to damage
+     */
+    private VBox createDamagedStockTab() {
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(15));
+        
+        // Description label
+        Label descLabel = new Label("Items replaced due to damage with optional image proof:");
+        descLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: " + getDescLabelColor() + ";");
+        
+        // Search bar
+        HBox searchBox = new HBox(10);
+        searchBox.setPadding(new Insets(10));
+        searchBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        searchBox.setStyle("-fx-border-color: " + getSearchBoxBorderColor() + "; -fx-border-radius: 5; -fx-background-color: " + getSearchBoxBgColor() + ";");
+        
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍 Search by student or item name...");
+        searchField.setPrefWidth(300);
+        
+        Button refreshBtn = new Button("🔄 Refresh");
+        refreshBtn.setStyle("-fx-font-size: 12px; -fx-padding: 6 12; -fx-background-color: " + getButtonBgColor() + "; -fx-text-fill: white;");
+        
+        searchBox.getChildren().addAll(new Label("Search:"), searchField, refreshBtn);
+        
+        // Stats label
+        List<DamagedStockRecord> allRecords = DamagedStockTracker.getAllDamagedRecords();
+        Label statsLabel = new Label("Total damaged items tracked: " + allRecords.size());
+        statsLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #b71c1c;");
+        
+        // Table for damaged stock records
+        TableView<DamagedStockRecord> table = new TableView<>();
+        table.setPrefHeight(350);
+        
+        TableColumn<DamagedStockRecord, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getTimestamp()));
+        dateCol.setPrefWidth(130);
+        
+        TableColumn<DamagedStockRecord, String> studentCol = new TableColumn<>("Student");
+        studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getStudentName() + " (" + data.getValue().getStudentId() + ")"
+        ));
+        studentCol.setPrefWidth(150);
+        
+        TableColumn<DamagedStockRecord, String> originalCol = new TableColumn<>("Original Item");
+        originalCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getOriginalItemName() + " (" + data.getValue().getOriginalSize() + ")"
+        ));
+        originalCol.setPrefWidth(180);
+        
+        TableColumn<DamagedStockRecord, String> replacementCol = new TableColumn<>("Replacement");
+        replacementCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getReplacementItemName() + " (" + data.getValue().getReplacementSize() + ")"
+        ));
+        replacementCol.setPrefWidth(180);
+        
+        TableColumn<DamagedStockRecord, String> reasonCol = new TableColumn<>("Reason");
+        reasonCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getReason() != null ? data.getValue().getReason() : "N/A"
+        ));
+        reasonCol.setPrefWidth(120);
+        
+        TableColumn<DamagedStockRecord, Void> imageCol = new TableColumn<>("Image");
+        imageCol.setCellFactory(col -> new javafx.scene.control.TableCell<DamagedStockRecord, Void>() {
+            private final Button viewBtn = new Button("📷 View");
+            
+            {
+                viewBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 8; -fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
+                viewBtn.setOnAction(e -> {
+                    DamagedStockRecord record = getTableView().getItems().get(getIndex());
+                    showDamageImage(record);
+                });
+            }
+            
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    DamagedStockRecord record = getTableView().getItems().get(getIndex());
+                    if (record.hasImage()) {
+                        setGraphic(viewBtn);
+                    } else {
+                        Label noImg = new Label("No image");
+                        noImg.setStyle("-fx-text-fill: #999; -fx-font-size: 11px;");
+                        setGraphic(noImg);
+                    }
+                }
+            }
+        });
+        imageCol.setPrefWidth(90);
+        
+        table.getColumns().add(dateCol);
+        table.getColumns().add(studentCol);
+        table.getColumns().add(originalCol);
+        table.getColumns().add(replacementCol);
+        table.getColumns().add(reasonCol);
+        table.getColumns().add(imageCol);
+        
+        // Initial load
+        table.setItems(FXCollections.observableArrayList(allRecords));
+        
+        // Search functionality
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            List<DamagedStockRecord> filtered = DamagedStockTracker.searchRecords(newVal);
+            table.setItems(FXCollections.observableArrayList(filtered));
+        });
+        
+        // Refresh button
+        refreshBtn.setOnAction(e -> {
+            List<DamagedStockRecord> refreshed = DamagedStockTracker.getAllDamagedRecords();
+            table.setItems(FXCollections.observableArrayList(refreshed));
+            statsLabel.setText("Total damaged items tracked: " + refreshed.size());
+            searchField.clear();
+        });
+        
+        // Placeholder when no records
+        table.setPlaceholder(new Label("No damaged stock records found."));
+        
+        box.getChildren().addAll(descLabel, statsLabel, searchBox, table);
+        
+        return box;
+    }
+    
+    /**
+     * Show damage image in a dialog
+     */
+    private void showDamageImage(DamagedStockRecord record) {
+        if (!record.hasImage()) {
+            showError("No image available for this record.");
+            return;
+        }
+        
+        try {
+            File imageFile = new File(record.getImagePath());
+            if (!imageFile.exists()) {
+                showError("Image file not found: " + record.getImagePath());
+                return;
+            }
+            
+            javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+            dialog.setTitle("Damage Proof Image");
+            dialog.setHeaderText("Damaged Item: " + record.getOriginalItemName() + " (" + record.getOriginalSize() + ")");
+            
+            javafx.scene.image.Image image = new javafx.scene.image.Image(imageFile.toURI().toString());
+            javafx.scene.image.ImageView imageView = new javafx.scene.image.ImageView(image);
+            
+            // Scale image to fit dialog while maintaining aspect ratio
+            double maxWidth = 600;
+            double maxHeight = 500;
+            if (image.getWidth() > maxWidth || image.getHeight() > maxHeight) {
+                imageView.setFitWidth(maxWidth);
+                imageView.setFitHeight(maxHeight);
+                imageView.setPreserveRatio(true);
+            }
+            
+            VBox content = new VBox(15);
+            content.setPadding(new Insets(20));
+            content.setAlignment(javafx.geometry.Pos.CENTER);
+            
+            // Info labels
+            Label studentLabel = new Label("Student: " + record.getStudentName() + " (" + record.getStudentId() + ")");
+            studentLabel.setStyle("-fx-font-size: 13px;");
+            
+            Label reasonLabel = new Label("Reason: " + (record.getReason() != null ? record.getReason() : "Not specified"));
+            reasonLabel.setStyle("-fx-font-size: 13px;");
+            
+            Label dateLabel = new Label("Date: " + record.getTimestamp());
+            dateLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+            
+            Label processedLabel = new Label("Processed by: " + (record.getProcessedBy() != null ? record.getProcessedBy() : "Unknown"));
+            processedLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+            
+            content.getChildren().addAll(studentLabel, reasonLabel, dateLabel, processedLabel, imageView);
+            
+            javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(content);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setPrefSize(650, 600);
+            
+            dialog.getDialogPane().setContent(scrollPane);
+            dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+            dialog.showAndWait();
+            
+        } catch (Exception e) {
+            showError("Error loading image: " + e.getMessage());
+        }
+    }
+    
     private void showExportSuccess(String filepath) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Export Successful");
@@ -926,5 +1248,287 @@ public class ReportController {
         alert.setHeaderText("Operation Failed");
         alert.setContentText(message);
         alert.showAndWait();
+    }
+    
+    /**
+     * Create All Replacements tab - shows all replacement requests with reason categorization
+     * Tracks: Wrong Size, Damaged/Defective, Wrong Item, Poor Quality, Color/Design, Size Fit, Other
+     */
+    private VBox createAllReplacementsTab() {
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(15));
+        
+        // Description label
+        Label descLabel = new Label("All replacement requests with categorized reasons:");
+        descLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: " + getDescLabelColor() + ";");
+        
+        // Get all reservations for complete replacement data
+        java.util.List<inventory.Reservation> allReservations = reservationManager.getAllReservations();
+        
+        // Get replacement summary for stats (including reservation data)
+        ReplacementSummary summary = ReplacementTracker.getSummaryWithReservations(allReservations);
+        
+        // Stats display - summary cards showing counts by reason
+        HBox statsRow = new HBox(10);
+        statsRow.setPadding(new Insets(10));
+        statsRow.setStyle("-fx-background-color: " + getSearchBoxBgColor() + "; -fx-background-radius: 5;");
+        
+        // Total replacements card
+        VBox totalCard = createReasonCard("📊 Total", summary.getTotalReplacements(), "#0969DA");
+        
+        // Create cards for each reason
+        VBox wrongSizeCard = createReasonCard(ReplacementReason.WRONG_SIZE.getIcon() + " Wrong Size", 
+            summary.getCount(ReplacementReason.WRONG_SIZE), ReplacementReason.WRONG_SIZE.getColor());
+        VBox damagedCard = createReasonCard(ReplacementReason.DAMAGED_DEFECTIVE.getIcon() + " Damaged", 
+            summary.getCount(ReplacementReason.DAMAGED_DEFECTIVE), ReplacementReason.DAMAGED_DEFECTIVE.getColor());
+        VBox wrongItemCard = createReasonCard(ReplacementReason.WRONG_ITEM.getIcon() + " Wrong Item", 
+            summary.getCount(ReplacementReason.WRONG_ITEM), ReplacementReason.WRONG_ITEM.getColor());
+        VBox qualityCard = createReasonCard(ReplacementReason.POOR_QUALITY.getIcon() + " Poor Quality", 
+            summary.getCount(ReplacementReason.POOR_QUALITY), ReplacementReason.POOR_QUALITY.getColor());
+        VBox colorCard = createReasonCard(ReplacementReason.COLOR_DESIGN.getIcon() + " Color/Design", 
+            summary.getCount(ReplacementReason.COLOR_DESIGN), ReplacementReason.COLOR_DESIGN.getColor());
+        VBox sizeFitCard = createReasonCard(ReplacementReason.SIZE_FIT.getIcon() + " Size Fit", 
+            summary.getCount(ReplacementReason.SIZE_FIT), ReplacementReason.SIZE_FIT.getColor());
+        VBox otherCard = createReasonCard(ReplacementReason.OTHER.getIcon() + " Other", 
+            summary.getCount(ReplacementReason.OTHER), ReplacementReason.OTHER.getColor());
+        
+        statsRow.getChildren().addAll(totalCard, wrongSizeCard, damagedCard, wrongItemCard, 
+                                      qualityCard, colorCard, sizeFitCard, otherCard);
+        
+        // Search and filter bar
+        HBox filterBox = new HBox(10);
+        filterBox.setPadding(new Insets(10));
+        filterBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        filterBox.setStyle("-fx-border-color: " + getSearchBoxBorderColor() + "; -fx-border-radius: 5; -fx-background-color: " + getSearchBoxBgColor() + ";");
+        
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍 Search by student or item name...");
+        searchField.setPrefWidth(250);
+        
+        // Filter dropdown for reason
+        ComboBox<String> reasonFilter = new ComboBox<>();
+        reasonFilter.getItems().add("All Reasons");
+        for (ReplacementReason reason : ReplacementReason.values()) {
+            reasonFilter.getItems().add(reason.getIcon() + " " + reason.getDisplayName());
+        }
+        reasonFilter.setValue("All Reasons");
+        reasonFilter.setPrefWidth(180);
+        
+        Button refreshBtn = new Button("🔄 Refresh");
+        refreshBtn.setStyle("-fx-font-size: 12px; -fx-padding: 6 12; -fx-background-color: " + getButtonBgColor() + "; -fx-text-fill: white;");
+        
+        filterBox.getChildren().addAll(new Label("Search:"), searchField, new Label("Filter:"), reasonFilter, refreshBtn);
+        
+        // Table for replacement records
+        TableView<ReplacementRecord> table = new TableView<>();
+        table.setPrefHeight(350);
+        
+        TableColumn<ReplacementRecord, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getTimestamp()));
+        dateCol.setPrefWidth(130);
+        
+        TableColumn<ReplacementRecord, String> studentCol = new TableColumn<>("Student");
+        studentCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getStudentName() + " (" + data.getValue().getStudentId() + ")"
+        ));
+        studentCol.setPrefWidth(150);
+        
+        TableColumn<ReplacementRecord, String> originalCol = new TableColumn<>("Original Item");
+        originalCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getOriginalItemName() + " (" + data.getValue().getOriginalSize() + ")"
+        ));
+        originalCol.setPrefWidth(160);
+        
+        TableColumn<ReplacementRecord, String> replacementCol = new TableColumn<>("Replacement");
+        replacementCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getReplacementItemName() + " (" + data.getValue().getReplacementSize() + ")"
+        ));
+        replacementCol.setPrefWidth(160);
+        
+        TableColumn<ReplacementRecord, String> reasonsCol = new TableColumn<>("Reasons");
+        reasonsCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
+            data.getValue().getFormattedReasons()
+        ));
+        reasonsCol.setPrefWidth(180);
+        
+        TableColumn<ReplacementRecord, Void> imageCol = new TableColumn<>("Image");
+        imageCol.setCellFactory(col -> new javafx.scene.control.TableCell<ReplacementRecord, Void>() {
+            private final Button viewBtn = new Button("📷 View");
+            
+            {
+                viewBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 8; -fx-background-color: #0969DA; -fx-text-fill: white; -fx-cursor: hand;");
+                viewBtn.setOnAction(e -> {
+                    ReplacementRecord record = getTableView().getItems().get(getIndex());
+                    showReplacementImage(record);
+                });
+            }
+            
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    ReplacementRecord record = getTableView().getItems().get(getIndex());
+                    if (record.hasImage()) {
+                        setGraphic(viewBtn);
+                    } else {
+                        Label noImg = new Label("No image");
+                        noImg.setStyle("-fx-text-fill: #999; -fx-font-size: 11px;");
+                        setGraphic(noImg);
+                    }
+                }
+            }
+        });
+        imageCol.setPrefWidth(90);
+        
+        table.getColumns().add(dateCol);
+        table.getColumns().add(studentCol);
+        table.getColumns().add(originalCol);
+        table.getColumns().add(replacementCol);
+        table.getColumns().add(reasonsCol);
+        table.getColumns().add(imageCol);
+        
+        // Initial load (including reservation data)
+        List<ReplacementRecord> allRecords = ReplacementTracker.getAllRecordsWithReservations(allReservations);
+        table.setItems(FXCollections.observableArrayList(allRecords));
+        
+        // Filter logic - capture allReservations for use in lambda
+        final java.util.List<inventory.Reservation> reservationsForFilter = allReservations;
+        Runnable applyFilters = () -> {
+            String searchText = searchField.getText().toLowerCase().trim();
+            String reasonValue = reasonFilter.getValue();
+            
+            // Get all records including from reservations
+            List<ReplacementRecord> filtered = ReplacementTracker.getAllRecordsWithReservations(reservationsForFilter);
+            
+            // Apply reason filter
+            if (!"All Reasons".equals(reasonValue)) {
+                // Find the matching reason enum
+                for (ReplacementReason reason : ReplacementReason.values()) {
+                    if ((reason.getIcon() + " " + reason.getDisplayName()).equals(reasonValue)) {
+                        final ReplacementReason matchedReason = reason;
+                        filtered = filtered.stream()
+                            .filter(r -> r.hasReason(matchedReason))
+                            .collect(java.util.stream.Collectors.toList());
+                        break;
+                    }
+                }
+            }
+            
+            // Apply search filter
+            if (!searchText.isEmpty()) {
+                final List<ReplacementRecord> reasonFiltered = filtered;
+                filtered = reasonFiltered.stream()
+                    .filter(r -> r.getStudentName().toLowerCase().contains(searchText) ||
+                                r.getStudentId().toLowerCase().contains(searchText) ||
+                                r.getOriginalItemName().toLowerCase().contains(searchText) ||
+                                r.getReplacementItemName().toLowerCase().contains(searchText))
+                    .collect(java.util.stream.Collectors.toList());
+            }
+            
+            table.setItems(FXCollections.observableArrayList(filtered));
+        };
+        
+        // Event handlers
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> applyFilters.run());
+        reasonFilter.setOnAction(e -> applyFilters.run());
+        refreshBtn.setOnAction(e -> {
+            searchField.clear();
+            reasonFilter.setValue("All Reasons");
+            table.setItems(FXCollections.observableArrayList(
+                ReplacementTracker.getAllRecordsWithReservations(reservationsForFilter)));
+        });
+        
+        // Placeholder when no records
+        table.setPlaceholder(new Label("No replacement records found."));
+        
+        box.getChildren().addAll(descLabel, statsRow, filterBox, table);
+        
+        return box;
+    }
+    
+    /**
+     * Helper to create a small stats card for reason counts
+     */
+    private VBox createReasonCard(String title, int count, String color) {
+        VBox card = new VBox(4);
+        card.setPadding(new Insets(8));
+        card.setStyle("-fx-background-color: " + color + "15; -fx-border-color: " + color + "; " +
+                     "-fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4;");
+        card.setAlignment(javafx.geometry.Pos.CENTER);
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + color + ";");
+        
+        Label countLabel = new Label(String.valueOf(count));
+        countLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: " + color + ";");
+        
+        card.getChildren().addAll(titleLabel, countLabel);
+        return card;
+    }
+    
+    /**
+     * Show replacement image in a dialog
+     */
+    private void showReplacementImage(ReplacementRecord record) {
+        if (!record.hasImage()) {
+            showError("No image available for this record.");
+            return;
+        }
+        
+        try {
+            File imageFile = new File(record.getImagePath());
+            if (!imageFile.exists()) {
+                showError("Image file not found: " + record.getImagePath());
+                return;
+            }
+            
+            javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+            dialog.setTitle("Replacement Proof Image");
+            dialog.setHeaderText("Item: " + record.getOriginalItemName() + " (" + record.getOriginalSize() + ")");
+            
+            javafx.scene.image.Image image = new javafx.scene.image.Image(imageFile.toURI().toString());
+            javafx.scene.image.ImageView imageView = new javafx.scene.image.ImageView(image);
+            
+            // Scale image to fit dialog while maintaining aspect ratio
+            double maxWidth = 600;
+            double maxHeight = 500;
+            if (image.getWidth() > maxWidth || image.getHeight() > maxHeight) {
+                imageView.setFitWidth(maxWidth);
+                imageView.setFitHeight(maxHeight);
+                imageView.setPreserveRatio(true);
+            }
+            
+            VBox content = new VBox(15);
+            content.setPadding(new Insets(20));
+            content.setAlignment(javafx.geometry.Pos.CENTER);
+            
+            // Info labels
+            Label studentLabel = new Label("Student: " + record.getStudentName() + " (" + record.getStudentId() + ")");
+            studentLabel.setStyle("-fx-font-size: 13px;");
+            
+            Label reasonsLabel = new Label("Reasons: " + record.getFormattedReasons());
+            reasonsLabel.setStyle("-fx-font-size: 13px;");
+            
+            Label dateLabel = new Label("Date: " + record.getTimestamp());
+            dateLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+            
+            Label processedLabel = new Label("Processed by: " + (record.getProcessedBy() != null ? record.getProcessedBy() : "Unknown"));
+            processedLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+            
+            content.getChildren().addAll(studentLabel, reasonsLabel, dateLabel, processedLabel, imageView);
+            
+            javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(content);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setPrefSize(650, 600);
+            
+            dialog.getDialogPane().setContent(scrollPane);
+            dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+            dialog.showAndWait();
+            
+        } catch (Exception e) {
+            showError("Error loading image: " + e.getMessage());
+        }
     }
 }

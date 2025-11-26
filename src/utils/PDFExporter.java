@@ -7,8 +7,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import utils.ReportGenerator.ReservationReport;
+import utils.ReportGenerator.SalesSummaryReport;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
@@ -29,6 +33,12 @@ public class PDFExporter {
     private static final float[] HEADER_COLOR = {0.118f, 0.235f, 0.447f}; // Dark blue (#1e3c72)
 
     static {
+        // Suppress PDFBox font scanning warnings caused by corrupted system fonts
+        Logger.getLogger("org.apache.pdfbox").setLevel(Level.OFF);
+        Logger.getLogger("org.apache.fontbox").setLevel(Level.OFF);
+        Logger.getLogger("org.apache.pdfbox.pdmodel.font").setLevel(Level.OFF);
+        Logger.getLogger("org.apache.fontbox.ttf").setLevel(Level.OFF);
+        
         try {
             Files.createDirectories(Path.of(REPORTS_DIR));
         } catch (Exception e) {
@@ -488,6 +498,23 @@ public class PDFExporter {
         return y - TABLE_ROW_HEIGHT;
     }
     
+    /**
+     * Helper method to draw a simple table with headers and data rows
+     * Used by exportStaffReportToPDF for compact table rendering
+     */
+    private static float drawTable(PDPageContentStream cs, float y, float x, float width, 
+                                   String[] headers, String[][] data, float[] colWidths) throws IOException {
+        // Draw header
+        y = drawTableHeader(cs, y, headers, colWidths);
+        
+        // Draw data rows
+        for (String[] row : data) {
+            y = drawTableRow(cs, y, row, colWidths, false);
+        }
+        
+        return y;
+    }
+    
     private static void drawFooter(PDPageContentStream cs, float pageWidth, int pageNum) throws IOException {
         float footerY = 30;
         
@@ -524,4 +551,354 @@ public class PDFExporter {
         if (s == null) return "";
         return s.length() <= maxLen ? s : s.substring(0, maxLen - 3) + "...";
     }
+
+    // ==================== STAFF REPORT ====================
+
+    /**
+     * Export comprehensive Staff Report with all sections:
+     * Returns, Stock by Course, Low Stock, Out of Stock, Damaged Stock, Sales Summary, Completed Orders
+     * Uses the SAME layout style as the Admin Inventory Report
+     */
+    public static String exportStaffReportToPDF(List<ReservationReport> returns,
+                                                List<ReportGenerator.StockReport> stockByCourse,
+                                                List<ReportGenerator.StockReport> lowStockItems,
+                                                List<ReportGenerator.StockReport> outOfStockItems,
+                                                List<utils.DamagedStockTracker.DamagedStockRecord> damagedStock,
+                                                SalesSummaryReport salesSummary,
+                                                List<ReservationReport> completedOrders,
+                                                String filename) {
+        try {
+            String baseName = filename.replaceAll("\\.pdf$", "");
+            Path outPath = Path.of(REPORTS_DIR, baseName + ".pdf");
+
+            try (PDDocument doc = new PDDocument()) {
+                PDPage page = new PDPage(PDRectangle.LETTER);
+                doc.addPage(page);
+                
+                PDPageContentStream cs = new PDPageContentStream(doc, page);
+                float pageWidth = page.getMediaBox().getWidth();
+                float pageHeight = page.getMediaBox().getHeight();
+                float y = pageHeight - MARGIN;
+                
+                // Header - same style as admin report
+                y = drawHeader(cs, pageWidth, y, "STI STAFF REPORT");
+                
+                // Calculate summary stats
+                int totalReturns = returns != null ? returns.size() : 0;
+                int totalLowStock = lowStockItems != null ? lowStockItems.size() : 0;
+                int totalOutOfStock = outOfStockItems != null ? outOfStockItems.size() : 0;
+                int totalDamaged = damagedStock != null ? damagedStock.size() : 0;
+                int totalOrders = completedOrders != null ? completedOrders.size() : 0;
+                
+                // Summary box - same style as admin report
+                y = drawSummaryBox(cs, y, new String[][]{
+                    {"Total Replaced", String.valueOf(totalReturns)},
+                    {"Low Stock Items", String.valueOf(totalLowStock)},
+                    {"Out of Stock Items", String.valueOf(totalOutOfStock)},
+                    {"Damaged Stock Records", String.valueOf(totalDamaged)},
+                    {"Report Date", LocalDate.now().toString()}
+                });
+                
+                // ===== REPLACED SECTION =====
+                y -= 25;
+                y = drawCourseHeader(cs, y, "REPLACED", totalReturns);
+                y -= 10;
+                
+                String[] returnHeaders = {"Code", "Student Name", "Item Name", "Price", "Status"};
+                float[] returnColWidths = {60, 120, 160, 80, 80};
+                y = drawTableHeader(cs, y, returnHeaders, returnColWidths);
+                
+                if (returns != null && !returns.isEmpty()) {
+                    for (ReservationReport r : returns) {
+                        if (y < MARGIN + 50) {
+                            drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                            cs.close();
+                            page = new PDPage(PDRectangle.LETTER);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = pageHeight - MARGIN;
+                            y = drawCourseHeader(cs, y, "REPLACED (continued)", 0);
+                            y -= 10;
+                            y = drawTableHeader(cs, y, returnHeaders, returnColWidths);
+                        }
+                        
+                        String[] row = {
+                            String.valueOf(r.getReservationId()),
+                            truncate(r.getStudentName(), 20),
+                            truncate(r.getItemName(), 26),
+                            String.format("P%.0f", r.getTotalPrice()),
+                            r.getStatus()
+                        };
+                        y = drawTableRow(cs, y, row, returnColWidths, false);
+                    }
+                } else {
+                    String[] emptyRow = {"", "No replaced records", "", "", ""};
+                    y = drawTableRow(cs, y, emptyRow, returnColWidths, false);
+                }
+                
+                // ===== STOCK BY COURSE SECTION =====
+                if (y < MARGIN + 100) {
+                    drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                    cs.close();
+                    page = new PDPage(PDRectangle.LETTER);
+                    doc.addPage(page);
+                    cs = new PDPageContentStream(doc, page);
+                    y = pageHeight - MARGIN;
+                }
+                
+                y -= 25;
+                int stockCount = stockByCourse != null ? stockByCourse.size() : 0;
+                y = drawCourseHeader(cs, y, "STOCK BY COURSE", stockCount);
+                y -= 10;
+                
+                String[] stockHeaders = {"Course", "Quantity", "Status"};
+                float[] stockColWidths = {250, 100, 150};
+                y = drawTableHeader(cs, y, stockHeaders, stockColWidths);
+                
+                if (stockByCourse != null && !stockByCourse.isEmpty()) {
+                    for (ReportGenerator.StockReport s : stockByCourse) {
+                        if (y < MARGIN + 50) {
+                            drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                            cs.close();
+                            page = new PDPage(PDRectangle.LETTER);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = pageHeight - MARGIN;
+                            y = drawCourseHeader(cs, y, "STOCK BY COURSE (continued)", 0);
+                            y -= 10;
+                            y = drawTableHeader(cs, y, stockHeaders, stockColWidths);
+                        }
+                        
+                        String status = s.getQuantity() == 0 ? "OUT OF STOCK" : 
+                                       s.getQuantity() <= 10 ? "LOW STOCK" : "IN STOCK";
+                        boolean highlight = s.getQuantity() <= 10;
+                        String[] row = {
+                            truncate(s.getCategory(), 40),
+                            String.valueOf(s.getQuantity()),
+                            status
+                        };
+                        y = drawTableRow(cs, y, row, stockColWidths, highlight);
+                    }
+                }
+                
+                // ===== LOW STOCK ITEMS SECTION =====
+                if (y < MARGIN + 100) {
+                    drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                    cs.close();
+                    page = new PDPage(PDRectangle.LETTER);
+                    doc.addPage(page);
+                    cs = new PDPageContentStream(doc, page);
+                    y = pageHeight - MARGIN;
+                }
+                
+                y -= 25;
+                y = drawCourseHeader(cs, y, "LOW STOCK ITEMS (Below 10)", totalLowStock);
+                y -= 10;
+                
+                String[] lowHeaders = {"Item Name", "Quantity", "Status"};
+                float[] lowColWidths = {300, 100, 100};
+                y = drawTableHeader(cs, y, lowHeaders, lowColWidths);
+                
+                if (lowStockItems != null && !lowStockItems.isEmpty()) {
+                    for (ReportGenerator.StockReport s : lowStockItems) {
+                        if (y < MARGIN + 50) {
+                            drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                            cs.close();
+                            page = new PDPage(PDRectangle.LETTER);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = pageHeight - MARGIN;
+                            y = drawCourseHeader(cs, y, "LOW STOCK ITEMS (continued)", 0);
+                            y -= 10;
+                            y = drawTableHeader(cs, y, lowHeaders, lowColWidths);
+                        }
+                        
+                        String[] row = {
+                            truncate(s.getCategory(), 50),
+                            String.valueOf(s.getQuantity()),
+                            "LOW STOCK"
+                        };
+                        y = drawTableRow(cs, y, row, lowColWidths, true);
+                    }
+                } else {
+                    String[] emptyRow = {"No low stock items", "", ""};
+                    y = drawTableRow(cs, y, emptyRow, lowColWidths, false);
+                }
+                
+                // ===== OUT OF STOCK SECTION =====
+                if (y < MARGIN + 100) {
+                    drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                    cs.close();
+                    page = new PDPage(PDRectangle.LETTER);
+                    doc.addPage(page);
+                    cs = new PDPageContentStream(doc, page);
+                    y = pageHeight - MARGIN;
+                }
+                
+                y -= 25;
+                y = drawCourseHeader(cs, y, "OUT OF STOCK", totalOutOfStock);
+                y -= 10;
+                
+                String[] outHeaders = {"Item Name", "Quantity", "Status"};
+                float[] outColWidths = {300, 100, 100};
+                y = drawTableHeader(cs, y, outHeaders, outColWidths);
+                
+                if (outOfStockItems != null && !outOfStockItems.isEmpty()) {
+                    for (ReportGenerator.StockReport s : outOfStockItems) {
+                        if (y < MARGIN + 50) {
+                            drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                            cs.close();
+                            page = new PDPage(PDRectangle.LETTER);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = pageHeight - MARGIN;
+                            y = drawCourseHeader(cs, y, "OUT OF STOCK (continued)", 0);
+                            y -= 10;
+                            y = drawTableHeader(cs, y, outHeaders, outColWidths);
+                        }
+                        
+                        String[] row = {
+                            truncate(s.getCategory(), 50),
+                            String.valueOf(s.getQuantity()),
+                            "OUT OF STOCK"
+                        };
+                        y = drawTableRow(cs, y, row, outColWidths, true);
+                    }
+                } else {
+                    String[] emptyRow = {"No out of stock items", "", ""};
+                    y = drawTableRow(cs, y, emptyRow, outColWidths, false);
+                }
+                
+                // ===== DAMAGED STOCK SECTION =====
+                if (y < MARGIN + 100) {
+                    drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                    cs.close();
+                    page = new PDPage(PDRectangle.LETTER);
+                    doc.addPage(page);
+                    cs = new PDPageContentStream(doc, page);
+                    y = pageHeight - MARGIN;
+                }
+                
+                y -= 25;
+                y = drawCourseHeader(cs, y, "DAMAGED STOCK", totalDamaged);
+                y -= 10;
+                
+                String[] dmgHeaders = {"Code", "Item Name", "Size", "Reason", "Processed By", "Date"};
+                float[] dmgColWidths = {50, 120, 50, 100, 90, 90};
+                y = drawTableHeader(cs, y, dmgHeaders, dmgColWidths);
+                
+                if (damagedStock != null && !damagedStock.isEmpty()) {
+                    for (utils.DamagedStockTracker.DamagedStockRecord d : damagedStock) {
+                        if (y < MARGIN + 50) {
+                            drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                            cs.close();
+                            page = new PDPage(PDRectangle.LETTER);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = pageHeight - MARGIN;
+                            y = drawCourseHeader(cs, y, "DAMAGED STOCK (continued)", 0);
+                            y -= 10;
+                            y = drawTableHeader(cs, y, dmgHeaders, dmgColWidths);
+                        }
+                        
+                        String[] row = {
+                            String.valueOf(d.getOriginalItemCode()),
+                            truncate(d.getOriginalItemName(), 18),
+                            truncate(d.getOriginalSize(), 8),
+                            truncate(d.getReason(), 16),
+                            truncate(d.getProcessedBy(), 14),
+                            truncate(d.getTimestamp(), 14)
+                        };
+                        y = drawTableRow(cs, y, row, dmgColWidths, false);
+                    }
+                } else {
+                    String[] emptyRow = {"", "No damaged stock records", "", "", "", ""};
+                    y = drawTableRow(cs, y, emptyRow, dmgColWidths, false);
+                }
+                
+                // ===== SALES SUMMARY SECTION =====
+                if (y < MARGIN + 150) {
+                    drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                    cs.close();
+                    page = new PDPage(PDRectangle.LETTER);
+                    doc.addPage(page);
+                    cs = new PDPageContentStream(doc, page);
+                    y = pageHeight - MARGIN;
+                }
+                
+                y -= 25;
+                y = drawCourseHeader(cs, y, "SALES SUMMARY", 0);
+                y -= 10;
+                
+                if (salesSummary != null) {
+                    // Draw sales summary as a summary box
+                    y = drawSummaryBox(cs, y, new String[][]{
+                        {"Total Revenue", String.format("P%.2f", salesSummary.getTotalRevenue())},
+                        {"Total Orders", String.valueOf(salesSummary.getTotalOrders())},
+                        {"Average Order Value", String.format("P%.2f", salesSummary.getAverageOrderValue())}
+                    });
+                }
+                
+                // ===== COMPLETED ORDERS SECTION =====
+                if (y < MARGIN + 100) {
+                    drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                    cs.close();
+                    page = new PDPage(PDRectangle.LETTER);
+                    doc.addPage(page);
+                    cs = new PDPageContentStream(doc, page);
+                    y = pageHeight - MARGIN;
+                }
+                
+                y -= 25;
+                y = drawCourseHeader(cs, y, "COMPLETED ORDERS", totalOrders);
+                y -= 10;
+                
+                String[] orderHeaders = {"Code", "Student Name", "Item Name", "Price", "Status"};
+                float[] orderColWidths = {60, 120, 160, 80, 80};
+                y = drawTableHeader(cs, y, orderHeaders, orderColWidths);
+                
+                if (completedOrders != null && !completedOrders.isEmpty()) {
+                    for (ReservationReport o : completedOrders) {
+                        if (y < MARGIN + 50) {
+                            drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                            cs.close();
+                            page = new PDPage(PDRectangle.LETTER);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = pageHeight - MARGIN;
+                            y = drawCourseHeader(cs, y, "COMPLETED ORDERS (continued)", 0);
+                            y -= 10;
+                            y = drawTableHeader(cs, y, orderHeaders, orderColWidths);
+                        }
+                        
+                        String[] row = {
+                            String.valueOf(o.getReservationId()),
+                            truncate(o.getStudentName(), 20),
+                            truncate(o.getItemName(), 26),
+                            String.format("P%.0f", o.getTotalPrice()),
+                            o.getStatus()
+                        };
+                        y = drawTableRow(cs, y, row, orderColWidths, false);
+                    }
+                } else {
+                    String[] emptyRow = {"", "No completed orders", "", "", ""};
+                    y = drawTableRow(cs, y, emptyRow, orderColWidths, false);
+                }
+                
+                // Footer on last page
+                drawFooter(cs, pageWidth, doc.getNumberOfPages());
+                cs.close();
+                doc.save(outPath.toFile());
+            }
+            
+            SystemLogger.logActivity("📄 Staff report exported to PDF: " + outPath);
+            return outPath.toString();
+
+        } catch (Exception e) {
+            System.err.println("[ERROR] Failed to export Staff Report PDF: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
 }
+

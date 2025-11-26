@@ -166,7 +166,8 @@ public class ThemeManager {
      * @return Background color CSS value
      */
     public static String getBackgroundColor() {
-        return isDarkMode() ? "-color-bg-default" : "#F8F9FA";
+        // Use concrete hex colors so inline styles resolve correctly
+        return isDarkMode() ? "#0b1116" : "#F8F9FA";
     }
     
     /**
@@ -175,7 +176,7 @@ public class ThemeManager {
      * @return Content background color CSS value
      */
     public static String getContentBackgroundColor() {
-        return isDarkMode() ? "-color-bg-default" : "white";
+        return isDarkMode() ? "#0d1116" : "white";
     }
     
     /**
@@ -184,7 +185,7 @@ public class ThemeManager {
      * @return Top bar background color CSS value
      */
     public static String getTopBarBackgroundColor() {
-        return isDarkMode() ? "-color-bg-subtle" : "white";
+        return isDarkMode() ? getSubtleBackgroundColor() : "white";
     }
     
     /**
@@ -193,7 +194,7 @@ public class ThemeManager {
      * @return Text color CSS value
      */
     public static String getTextColor() {
-        return isDarkMode() ? "-color-fg-default" : "#1F2328";
+        return isDarkMode() ? "#c9d1d9" : "#1F2328";
     }
     
     /**

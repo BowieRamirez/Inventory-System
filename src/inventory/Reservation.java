@@ -29,6 +29,7 @@ public class Reservation {
     private String replacementSize; // Size of replacement item
     private String replacementNote; // Optional note explaining replacement / size change
     private String claimProofImagePath; // Path to image proof when item is claimed
+    private String rescheduleNote; // Note provided by student when requesting reschedule
     public Reservation(int reservationId, String studentName, String studentId, String course,
                        int itemCode, String itemName, int quantity, double totalPrice, String size) {
         this.reservationId = reservationId;
@@ -95,6 +96,8 @@ public class Reservation {
 
     public String getReplacementNote() { return replacementNote; }
     public void setReplacementNote(String note) { this.replacementNote = note; }
+    public String getRescheduleNote() { return rescheduleNote; }
+    public void setRescheduleNote(String note) { this.rescheduleNote = note; }
     
     public String getClaimProofImagePath() { return claimProofImagePath; }
     public void setClaimProofImagePath(String imagePath) { this.claimProofImagePath = imagePath; }

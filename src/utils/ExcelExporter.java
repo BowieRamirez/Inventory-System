@@ -240,4 +240,155 @@ public class ExcelExporter {
             return null;
         }
     }
+
+    // ==================== STAFF REPORT ====================
+
+    /**
+     * Export comprehensive Staff Report with all sections:
+     * Returns, Stock by Course, Low Stock, Out of Stock, Damaged Stock, Sales Summary, Completed Orders
+     */
+    public static String exportStaffReportToExcel(List<ReservationReport> returns, 
+                                                   List<StockReport> stockByCourse,
+                                                   List<StockReport> lowStockItems,
+                                                   List<StockReport> outOfStockItems,
+                                                   List<utils.DamagedStockTracker.DamagedStockRecord> damagedStock,
+                                                   SalesSummaryReport salesSummary,
+                                                   List<ReservationReport> completedOrders,
+                                                   String filename) {
+        try {
+            StringBuilder csv = new StringBuilder();
+
+            csv.append("STAFF REPORT").append(System.lineSeparator());
+            csv.append("Generated:,").append(LocalDate.now())
+               .append(System.lineSeparator()).append(System.lineSeparator());
+
+                // ===== REPLACED SECTION =====
+                csv.append("=== REPLACED ===").append(System.lineSeparator());
+                csv.append("Replaced ID,Student Name,Item Name,Status")
+               .append(System.lineSeparator());
+
+            if (returns != null && !returns.isEmpty()) {
+                for (ReservationReport ret : returns) {
+                    csv.append(ret.getReservationId()).append(",")
+                       .append("\"").append(ret.getStudentName()).append("\",")
+                       .append("\"").append(ret.getItemName()).append("\",")
+                       .append("\"").append(ret.getStatus()).append("\"")
+                       .append(System.lineSeparator());
+                }
+            } else {
+                csv.append("No replaced records").append(System.lineSeparator());
+            }
+
+            csv.append(System.lineSeparator());
+
+            // ===== STOCK BY COURSE SECTION =====
+            csv.append("=== STOCK BY COURSE ===").append(System.lineSeparator());
+            csv.append("Course,Total Quantity")
+               .append(System.lineSeparator());
+
+            if (stockByCourse != null && !stockByCourse.isEmpty()) {
+                for (StockReport stock : stockByCourse) {
+                    csv.append("\"").append(stock.getCategory()).append("\",")
+                       .append(stock.getQuantity())
+                       .append(System.lineSeparator());
+                }
+            } else {
+                csv.append("No stock data available").append(System.lineSeparator());
+            }
+
+            csv.append(System.lineSeparator());
+
+            // ===== LOW STOCK ITEMS SECTION =====
+            csv.append("=== LOW STOCK ITEMS (Below 10) ===").append(System.lineSeparator());
+            csv.append("Course,Quantity")
+               .append(System.lineSeparator());
+
+            if (lowStockItems != null && !lowStockItems.isEmpty()) {
+                for (StockReport stock : lowStockItems) {
+                    csv.append("\"").append(stock.getCategory()).append("\",")
+                       .append(stock.getQuantity())
+                       .append(System.lineSeparator());
+                }
+            } else {
+                csv.append("No low stock items").append(System.lineSeparator());
+            }
+
+            csv.append(System.lineSeparator());
+
+            // ===== OUT OF STOCK SECTION =====
+            csv.append("=== OUT OF STOCK ===").append(System.lineSeparator());
+            csv.append("Course,Quantity")
+               .append(System.lineSeparator());
+
+            if (outOfStockItems != null && !outOfStockItems.isEmpty()) {
+                for (StockReport stock : outOfStockItems) {
+                    csv.append("\"").append(stock.getCategory()).append("\",")
+                       .append(stock.getQuantity())
+                       .append(System.lineSeparator());
+                }
+            } else {
+                csv.append("No out of stock items").append(System.lineSeparator());
+            }
+
+            csv.append(System.lineSeparator());
+
+            // ===== DAMAGED STOCK SECTION =====
+            csv.append("=== DAMAGED STOCK ===").append(System.lineSeparator());
+            csv.append("Item Code,Item Name,Reason,Date,Staff")
+               .append(System.lineSeparator());
+
+            if (damagedStock != null && !damagedStock.isEmpty()) {
+                for (utils.DamagedStockTracker.DamagedStockRecord record : damagedStock) {
+                    csv.append(record.getOriginalItemCode()).append(",")
+                       .append("\"").append(record.getOriginalItemName()).append("\",")
+                       .append("\"").append(record.getReason()).append("\",")
+                       .append("\"").append(record.getTimestamp()).append("\",")
+                       .append("\"").append(record.getProcessedBy()).append("\"")
+                       .append(System.lineSeparator());
+                }
+            } else {
+                csv.append("No damaged stock records").append(System.lineSeparator());
+            }
+
+            csv.append(System.lineSeparator());
+
+            // ===== SALES SUMMARY SECTION =====
+            csv.append("=== SALES SUMMARY ===").append(System.lineSeparator());
+            csv.append("Metric,Value").append(System.lineSeparator());
+            if (salesSummary != null) {
+                csv.append("Total Revenue,").append(String.format("%.2f", salesSummary.getTotalRevenue()))
+                   .append(System.lineSeparator());
+                csv.append("Total Orders,").append(salesSummary.getTotalOrders())
+                   .append(System.lineSeparator());
+                csv.append("Average Order Value,").append(String.format("%.2f", salesSummary.getAverageOrderValue()))
+                   .append(System.lineSeparator());
+            }
+
+            csv.append(System.lineSeparator());
+
+            // ===== COMPLETED ORDERS SECTION =====
+            csv.append("=== COMPLETED ORDERS ===").append(System.lineSeparator());
+            csv.append("Order ID,Student,Item,Price,Status")
+               .append(System.lineSeparator());
+
+            if (completedOrders != null && !completedOrders.isEmpty()) {
+                for (ReservationReport order : completedOrders) {
+                    csv.append(order.getReservationId()).append(",")
+                       .append("\"").append(order.getStudentName()).append("\",")
+                       .append("\"").append(order.getItemName()).append("\",")
+                       .append(String.format("%.2f", order.getTotalPrice())).append(",")
+                       .append("\"").append(order.getStatus()).append("\"")
+                       .append(System.lineSeparator());
+                }
+            } else {
+                csv.append("No completed orders").append(System.lineSeparator());
+            }
+
+            return writeCsvToFile(filename, csv);
+
+        } catch (Exception e) {
+            System.err.println("[ERROR] Failed to export Staff Report: " + e.getMessage());
+            return null;
+        }
+    }
 }

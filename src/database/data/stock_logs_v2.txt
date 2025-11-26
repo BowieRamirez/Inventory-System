@@ -33,3 +33,19 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-26 13:14:10|raslu, hashim|1035|SHS Checkered Skirt|S|+1/1|USER_RETURN|Student raslu, hashim (02000288888) returned - Reason: Replaced with: SHS Checkered Skirt (Size: S)
 2025-11-26 13:16:44|raslu, hashim|1034|SHS Checkered Skirt|XL|+3/3|USER_RETURN|Student raslu, hashim (02000288888) returned - Reason: Replaced with: SHS Checkered Skirt (Size: XL)
 2025-11-26 13:16:44|raslu, hashim|1035|SHS White Polo (Male)|XL|+3/3|USER_RETURN|Student raslu, hashim (02000288888) returned - Reason: Replaced with: SHS White Polo (Male) (Size: L)
+2025-11-26 20:59:59|staff|1032|Tourism Necktie|One Size|+10/10|ITEM_UPDATED|Added by staff: +10 (manual restock)
+2025-11-26 21:01:17|Ramirez, Bowie|1044|PE Blue Jogging Pants|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: PE Blue Jogging Pants (Size: S)
+2025-11-26 21:02:02|staff|1032|Tourism Necktie|One Size|+10/20|ITEM_UPDATED|Added by staff: +10 (manual restock)
+2025-11-26 21:02:07|staff|1032|Tourism Necktie|One Size||PRICE_UPDATED|Price changed: ₱180.00 -> ₱100.00
+2025-11-26 21:26:20|Ramirez, Bowie|1047|Anniversary Shirt|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: Anniversary Shirt (Size: S)
+2025-11-26 22:33:35|Ramirez, Bowie|1046|NSTP Gray Shirt (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: NSTP Gray Shirt (Female) (Size: S)
+2025-11-26 22:59:23|Ramirez, Bowie|1055|IT/Eng Gray 3/4 Blouse (Female)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng Gray 3/4 Blouse (Female) (Size: M)
+2025-11-26 23:01:06|raslu, hashim|1034|SHS Checkered Skirt|S|+1/1|USER_RETURN|Student raslu, hashim (02000288888) returned - Reason: Replaced with: SHS Checkered Skirt (Size: S)
+2025-11-26 23:01:14|raslu, hashim|1033|SHS Vest (Female)|S|+1/1|USER_RETURN|Student raslu, hashim (02000288888) returned - Reason: Replaced with: SHS Vest (Female) (Size: S)
+2025-11-26 23:46:59|raslu, hashim|1099|SHS Reschedule Test Item|S|-1/0|USER_PICKUP|Student raslu, hashim (02000288888) picked up item
+2025-11-27 09:45:35|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|-1/157|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-27 09:46:44|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng RTW Pants (Male) (Size: S)
+2025-11-27 10:51:10|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|-1/156|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-27 10:51:57|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng RTW Pants (Male) (Size: S)
+2025-11-27 12:18:31|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|-2/154|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-27 12:35:26|Ramirez, Bowie|1056|IT/Eng RTW Skirt (Female)|S|-1/1|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item

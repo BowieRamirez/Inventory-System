@@ -67,6 +67,10 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import utils.DamagedStockTracker;
+import utils.ReplacementTracker;
+import utils.ReplacementTracker.ReplacementReason;
+import utils.ReplacementTracker.ReplacementSummary;
 import utils.StockReturnLogger;
 
 /**
@@ -273,6 +277,7 @@ public class StaffDashboardController {
             "Pending",
             "Approved",
             "Awaiting Pickup Request",
+            "Awaiting Replacement Claim",
             "Replaced",
             "Cancelled",
             "Pickup Approvals (" + initialPickupBadge + ")",
@@ -282,7 +287,7 @@ public class StaffDashboardController {
         statusFilter.setPrefWidth(180);
         statusFilter.setPrefHeight(45);
         // Theme-aware styling matching inventory tab
-        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#000000ff";
         String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
         // Use the same highlighted border style as the Inventory course filter so focus/border remains consistent
         String baseComboStyle =
@@ -607,6 +612,10 @@ public class StaffDashboardController {
                 } else if (s.contains("PAID")) {
                     badge.setText("PAID");
                     badge.setStyle(badge.getStyle() + " -fx-background-color: #6c757d; -fx-text-fill: white;");
+                } else if (s.contains("APPROVED FOR REPLACEMENT")) {
+                    // Replacement approved but student hasn't claimed yet
+                    badge.setText("AWAITING CLAIM");
+                    badge.setStyle(badge.getStyle() + " -fx-background-color: #8250DF; -fx-text-fill: white;");
                 } else if (s.contains("APPROVED")) {
                     // Approved but not yet paid
                     if (s.contains("WAITING FOR PAYMENT") || s.contains("WAITING")) {
@@ -724,9 +733,34 @@ public class StaffDashboardController {
                 }
 
                 // If the representative status indicates a final/approved state, do not show actions
-                boolean isFinalState = status.contains("APPROVED") || status.contains("PAID") || status.contains("COMPLETED") || status.contains("REPLACED");
+                // Exception: APPROVED FOR REPLACEMENT needs a "Confirm Claim" action
+                boolean isAwaitingClaim = status.contains("APPROVED FOR REPLACEMENT");
+                boolean isFinalState = (status.contains("APPROVED") || status.contains("PAID") || status.contains("COMPLETED") || status.contains("REPLACED")) && !isAwaitingClaim;
                 if (isFinalState) {
                     setGraphic(null);
+                    return;
+                }
+                
+                // Handle APPROVED FOR REPLACEMENT - show Confirm Claim button
+                if (isAwaitingClaim) {
+                    approveBtn.setText("📦");
+                    approveBtn.setTooltip(new javafx.scene.control.Tooltip("Confirm Student Claimed Replacement"));
+                    approveBtn.setStyle("-fx-background-color: #8250DF; -fx-text-fill: white; -fx-cursor: hand;");
+                    rejectBtn.setText("✗");
+                    rejectBtn.setTooltip(new javafx.scene.control.Tooltip("Cancel Replacement"));
+                    approveBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleConfirmReplacementClaim(current, table);
+                    });
+                    rejectBtn.setOnAction(e -> {
+                        Reservation current = (getTableView() != null && getIndex() >= 0 && getIndex() < getTableView().getItems().size())
+                            ? getTableView().getItems().get(getIndex())
+                            : (getTableRow() != null ? getTableRow().getItem() : null);
+                        if (current != null) handleCancelReplacementClaim(current, table);
+                    });
+                    setGraphic(buttons);
                     return;
                 }
 
@@ -954,6 +988,11 @@ public class StaffDashboardController {
                         return s.contains("APPROVED") && !s.contains("PAID");
                     })
                     .collect(java.util.stream.Collectors.toList());
+            } else if ("Awaiting Replacement Claim".equals(status)) {
+                // Show replacements approved but not yet claimed by student
+                filtered = reservationManager.getAllReservations().stream()
+                    .filter(r -> "APPROVED FOR REPLACEMENT".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
             } else if ("Returned".equals(status) || "Replaced".equals(status)) {
                 // legacy label support: treat "Returned" as "Replaced"
                 filtered = reservationManager.getAllReservations().stream()
@@ -983,10 +1022,11 @@ public class StaffDashboardController {
             searchField.clear();
             
             // Show actions column only if we are in a state that allows actions
-            // (Pending, Pickup Approvals, Replacement Requests)
+            // (Pending, Pickup Approvals, Replacement Requests, Awaiting Replacement Claim)
             boolean actionsVisible = "Pending".equals(status) || 
                                      "Pickup Approvals".equals(status) || 
-                                     "Replacement Requests".equals(status);
+                                     "Replacement Requests".equals(status) ||
+                                     "Awaiting Replacement Claim".equals(status);
             
             actionsCol.setVisible(actionsVisible);
             
@@ -1010,6 +1050,7 @@ public class StaffDashboardController {
                         "Pending",
                         "Approved",
                         "Awaiting Pickup Request",
+                        "Awaiting Replacement Claim",
                         "Replaced",
                         "Cancelled",
                         "Pickup Approvals (" + updatedPickupCount + ")",
@@ -1219,6 +1260,18 @@ public class StaffDashboardController {
             totalPrice = reservation.getTotalPrice();
             totalQuantity = reservation.getQuantity();
 
+
+        // If student included a reschedule note, show it to staff for context
+        if (reservation.getRescheduleNote() != null && !reservation.getRescheduleNote().trim().isEmpty()) {
+            VBox noteBox = new VBox(6);
+            noteBox.setStyle("-fx-background-color: #FFF7E6; -fx-padding: 10; -fx-background-radius: 6;");
+            javafx.scene.control.Label noteHeader = new javafx.scene.control.Label("Reschedule Note (from student)");
+            noteHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+            javafx.scene.control.Label noteLabel = new javafx.scene.control.Label(reservation.getRescheduleNote());
+            noteLabel.setWrapText(true);
+            noteBox.getChildren().addAll(noteHeader, noteLabel);
+            content.getChildren().add(noteBox);
+        }
             // Show replacement note if exists
             if (reservation.getReplacementNote() != null && !reservation.getReplacementNote().isEmpty()) {
                 VBox noteBox = new VBox(6);
@@ -1666,6 +1719,35 @@ public class StaffDashboardController {
         reasonLbl.setWrapText(true);
         reasonLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
         
+        // Extract and display student's preferred pickup time if provided
+        String preferredPickupTime = null;
+        if (rawReason != null && rawReason.contains("[Preferred pickup:")) {
+            int startIdx = rawReason.indexOf("[Preferred pickup:");
+            int endIdx = rawReason.indexOf("]", startIdx);
+            if (startIdx >= 0 && endIdx > startIdx) {
+                preferredPickupTime = rawReason.substring(startIdx + "[Preferred pickup:".length(), endIdx).trim();
+            }
+        }
+        
+        VBox preferredTimeBox = null;
+        if (preferredPickupTime != null && !preferredPickupTime.isEmpty()) {
+            preferredTimeBox = new VBox(4);
+            preferredTimeBox.setStyle(
+                "-fx-background-color: rgba(9, 105, 218, 0.1);" +
+                "-fx-border-color: #0969DA;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-padding: 8;"
+            );
+            Label prefTimeTitle = new Label("🕐 Student's Preferred Pickup Time:");
+            prefTimeTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #0969DA; -fx-font-size: 12px;");
+            Label prefTimeContent = new Label(preferredPickupTime);
+            prefTimeContent.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 12px;");
+            prefTimeContent.setWrapText(true);
+            preferredTimeBox.getChildren().addAll(prefTimeTitle, prefTimeContent);
+        }
+        
         // Extract and display image proof if attached
         String imagePath = null;
         if (rawReason != null && rawReason.contains("[Image proof attached:")) {
@@ -1721,6 +1803,9 @@ public class StaffDashboardController {
         }
 
         box.getChildren().addAll(titleLbl, studentLbl, new javafx.scene.control.Separator(), refundLbl, reasonLbl);
+        if (preferredTimeBox != null) {
+            box.getChildren().add(preferredTimeBox);
+        }
         if (imageProofBox != null) {
             box.getChildren().add(imageProofBox);
         }
@@ -2384,7 +2469,49 @@ public class StaffDashboardController {
                         scheduledStart,
                         scheduledEnd
                     );
-                    if (success) successCount++; else allSuccess = false;
+                    if (success) {
+                        successCount++;
+                        
+                        // Log ALL replacements to ReplacementTracker for tracking by reason category
+                        String reasonText = noteTxt.isEmpty() ? item.getReason() : noteTxt;
+                        String imagePathFromReason = extractImagePathFromReason(item.getReason());
+                        
+                        // Log to new ReplacementTracker (tracks all replacement reasons)
+                        ReplacementTracker.logReplacement(
+                            item.getReservationId(),
+                            item.getStudentName(),
+                            item.getStudentId(),
+                            item.getItemCode(),
+                            item.getItemName(),
+                            item.getSize(),
+                            selectedReplacement.getCode(),
+                            selectedReplacement.getName(),
+                            selectedReplacement.getSize(),
+                            reasonText,
+                            imagePathFromReason,
+                            "Staff"
+                        );
+                        
+                        // Also log to legacy DamagedStockTracker if damage-related (for backward compatibility)
+                        if (isDamageReason(reasonText)) {
+                            DamagedStockTracker.logDamagedReplacement(
+                                item.getReservationId(),
+                                item.getStudentName(),
+                                item.getStudentId(),
+                                item.getItemCode(),
+                                item.getItemName(),
+                                item.getSize(),
+                                selectedReplacement.getCode(),
+                                selectedReplacement.getName(),
+                                selectedReplacement.getSize(),
+                                reasonText,
+                                imagePathFromReason,
+                                "Staff"
+                            );
+                        }
+                    } else {
+                        allSuccess = false;
+                    }
                 } else {
                     allSuccess = false; // missing selection
                 }
@@ -2404,8 +2531,8 @@ public class StaffDashboardController {
                     "Pickup scheduled for:\n" +
                     scheduledStart.format(dateTimeFmt) + "\n" +
                     "From " + scheduledStart.format(timeFmt) + " to " + scheduledEnd.format(timeFmt) + "\n\n" +
-                    "Items have been replaced successfully.\n" +
-                    "Previous items are back in inventory.\n\n" +
+                    "⏳ Awaiting student to claim the replacement.\n" +
+                    "Stock will be updated when student picks up the item.\n\n" +
                     "The student has been notified and will see this in their notification bell (🔔)."
                 );
                 successAlert.showAndWait();
@@ -2433,6 +2560,140 @@ public class StaffDashboardController {
                 AlertHelper.showSuccess("Success", "Return request rejected");
             } else {
                 AlertHelper.showError("Error", "Failed to reject return request");
+            }
+        }
+    }
+
+    /**
+     * Handle confirm replacement claim - when student picks up their approved replacement
+     */
+    private void handleConfirmReplacementClaim(Reservation reservation, TableView<Reservation> table) {
+        // Build confirmation message
+        StringBuilder message = new StringBuilder();
+        message.append("Confirm replacement claim for:\n\n");
+        message.append("Student: ").append(reservation.getStudentName()).append("\n");
+        message.append("Student ID: ").append(reservation.getStudentId()).append("\n\n");
+        
+        if (reservation.isPartOfBundle()) {
+            String bundleId = reservation.getBundleId();
+            java.util.List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                .filter(r -> bundleId != null && bundleId.equals(r.getBundleId()))
+                .filter(r -> "APPROVED FOR REPLACEMENT".equals(r.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            message.append("Items being claimed:\n");
+            for (Reservation item : bundleItems) {
+                message.append("  • ").append(item.getItemName())
+                       .append(" (").append(item.getSize()).append(")\n");
+                if (item.getReplacementItemName() != null) {
+                    message.append("    → Replacement: ").append(item.getReplacementItemName())
+                           .append(" (").append(item.getReplacementSize()).append(")\n");
+                }
+            }
+        } else {
+            message.append("Original Item: ").append(reservation.getItemName())
+                   .append(" (").append(reservation.getSize()).append(")\n");
+            if (reservation.getReplacementItemName() != null) {
+                message.append("Replacement Item: ").append(reservation.getReplacementItemName())
+                       .append(" (").append(reservation.getReplacementSize()).append(")\n");
+            }
+        }
+        
+        message.append("\n⚠️ This will:\n");
+        message.append("  • Deduct replacement item from stock\n");
+        message.append("  • Mark reservation as REPLACED (completed)\n");
+        message.append("  • Log to replacement tracker\n");
+        
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Confirm Replacement Claim");
+        confirmAlert.setHeaderText("Student picking up replacement item");
+        confirmAlert.setContentText(message.toString());
+        
+        ButtonType confirmBtn = new ButtonType("Confirm Claim", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelBtn = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirmAlert.getButtonTypes().setAll(confirmBtn, cancelBtn);
+        
+        java.util.Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isPresent() && result.get() == confirmBtn) {
+            boolean allSuccess = true;
+            int successCount = 0;
+            
+            if (reservation.isPartOfBundle()) {
+                String bundleId = reservation.getBundleId();
+                java.util.List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId != null && bundleId.equals(r.getBundleId()))
+                    .filter(r -> "APPROVED FOR REPLACEMENT".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                for (Reservation item : bundleItems) {
+                    boolean success = reservationManager.completeReplacementClaim(item.getReservationId(), null);
+                    if (success) {
+                        successCount++;
+                    } else {
+                        allSuccess = false;
+                    }
+                }
+            } else {
+                allSuccess = reservationManager.completeReplacementClaim(reservation.getReservationId(), null);
+                if (allSuccess) successCount = 1;
+            }
+            
+            if (allSuccess && successCount > 0) {
+                if (refreshCallback != null) refreshCallback.run();
+                AlertHelper.showSuccess("Success", 
+                    "✅ Replacement claim confirmed!\n\n" +
+                    successCount + " item(s) marked as REPLACED.\n" +
+                    "Stock has been updated."
+                );
+            } else if (successCount > 0) {
+                if (refreshCallback != null) refreshCallback.run();
+                AlertHelper.showWarning("Partial Success", 
+                    "Claim confirmed for " + successCount + " items.\n" +
+                    "Some items failed to process."
+                );
+            } else {
+                AlertHelper.showError("Error", "Failed to confirm replacement claim. Please try again.");
+            }
+        }
+    }
+
+    /**
+     * Handle cancel replacement claim - when staff needs to cancel an approved replacement
+     */
+    private void handleCancelReplacementClaim(Reservation reservation, TableView<Reservation> table) {
+        String reason = AlertHelper.showInputDialog(
+            "Cancel Replacement", 
+            "Cancel approved replacement for: " + reservation.getStudentName(), 
+            "Reason for cancellation:"
+        );
+        
+        if (reason != null && !reason.isEmpty()) {
+            boolean allSuccess = true;
+            
+            if (reservation.isPartOfBundle()) {
+                String bundleId = reservation.getBundleId();
+                java.util.List<Reservation> bundleItems = reservationManager.getAllReservations().stream()
+                    .filter(r -> bundleId != null && bundleId.equals(r.getBundleId()))
+                    .filter(r -> "APPROVED FOR REPLACEMENT".equals(r.getStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                for (Reservation item : bundleItems) {
+                    // Use cancelApprovedReplacement which handles status change and save
+                    reservationManager.cancelApprovedReplacement(item.getReservationId(), reason);
+                }
+            } else {
+                reservationManager.cancelApprovedReplacement(reservation.getReservationId(), reason);
+            }
+            
+            if (allSuccess) {
+                if (refreshCallback != null) refreshCallback.run();
+                AlertHelper.showSuccess("Success", 
+                    "Replacement cancelled.\n" +
+                    "Status reverted to REPLACEMENT REQUESTED.\n" +
+                    "Staff can re-process the request."
+                );
+            } else {
+                AlertHelper.showError("Error", "Failed to cancel replacement.");
             }
         }
     }
@@ -2723,14 +2984,43 @@ public class StaffDashboardController {
         });
         
         grid.add(infoLabel, 0, 0, 2, 1);
-        grid.add(new javafx.scene.control.Separator(), 0, 1, 2, 1);
-        grid.add(dateLabel, 0, 2);
-        grid.add(datePicker, 1, 2);
-        grid.add(timeLabel, 0, 3);
-        grid.add(timeBox, 1, 3);
-        grid.add(endTimeLabel, 0, 4);
-        grid.add(endTimeBox, 1, 4);
-        grid.add(hoursInfoLabel, 0, 5, 2, 1);
+        
+        // Show student's preferred pickup time note if available
+        int nextRow = 1;
+        String studentNote = reservation.getReason();
+        if (studentNote != null && studentNote.contains("Preferred pickup time:")) {
+            String preferredTime = studentNote.replace("Preferred pickup time:", "").trim();
+            VBox noteBox = new VBox(4);
+            noteBox.setStyle(
+                "-fx-background-color: rgba(9, 105, 218, 0.1);" +
+                "-fx-border-color: #0969DA;" +
+                "-fx-border-width: 1px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-padding: 8;"
+            );
+            Label noteTitle = new Label("📝 Student's Preferred Time:");
+            noteTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #0969DA; -fx-font-size: 12px;");
+            Label noteContent = new Label(preferredTime);
+            noteContent.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 12px;");
+            noteContent.setWrapText(true);
+            noteBox.getChildren().addAll(noteTitle, noteContent);
+            grid.add(noteBox, 0, nextRow, 2, 1);
+            nextRow++;
+        }
+        
+        grid.add(new javafx.scene.control.Separator(), 0, nextRow, 2, 1);
+        nextRow++;
+        grid.add(dateLabel, 0, nextRow);
+        grid.add(datePicker, 1, nextRow);
+        nextRow++;
+        grid.add(timeLabel, 0, nextRow);
+        grid.add(timeBox, 1, nextRow);
+        nextRow++;
+        grid.add(endTimeLabel, 0, nextRow);
+        grid.add(endTimeBox, 1, nextRow);
+        nextRow++;
+        grid.add(hoursInfoLabel, 0, nextRow, 2, 1);
         
         dateDialog.getDialogPane().setContent(grid);
         
@@ -3081,7 +3371,11 @@ public class StaffDashboardController {
             .count();
         VBox lowStockCard = createStatCard("⚠️ Low Stock", String.valueOf(lowStockCount), "#CF222E");
         
-        statsBox.getChildren().addAll(itemsCard, lowStockCard);
+        // Damaged Stock Items
+        int damagedStockCount = inventoryManager.getTotalDamagedStock();
+        VBox damagedStockCard = createStatCard("🔨 Damaged", String.valueOf(damagedStockCount), "#9B59B6");
+        
+        statsBox.getChildren().addAll(itemsCard, lowStockCard, damagedStockCard);
 
         // Course filter dropdown (All + per-course)
         HBox courseBar = new HBox(8);
@@ -3403,9 +3697,27 @@ public class StaffDashboardController {
         sizesCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSizesDisplay()));
         sizesCol.setPrefWidth(130);
 
-        TableColumn<InventoryRow, Integer> qtyCol = new TableColumn<>("Total Qty");
-        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue().getTotalQuantity()));
-        qtyCol.setPrefWidth(100);
+        TableColumn<InventoryRow, String> qtyCol = new TableColumn<>("Stock");
+        qtyCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getStockDisplay()));
+        qtyCol.setCellFactory(col -> new TableCell<InventoryRow, String>() {
+            @Override
+            protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                if (empty || value == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(value);
+                    // Highlight rows with damaged stock
+                    if (value.contains("dmg")) {
+                        setStyle("-fx-text-fill: #CF222E;"); // Red for damaged
+                    } else {
+                        setStyle("");
+                    }
+                }
+            }
+        });
+        qtyCol.setPrefWidth(120);
 
         TableColumn<InventoryRow, String> priceCol = new TableColumn<>("Price");
         priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getPriceDisplay()));
@@ -3460,8 +3772,30 @@ public class StaffDashboardController {
                             AlertHelper.showError("No Variants", "No variants available to change price.");
                         }
                     });
+                    
+                    // Create a More Actions menu button for additional options
+                    javafx.scene.control.MenuButton moreBtn = new javafx.scene.control.MenuButton("⋮");
+                    moreBtn.setStyle("-fx-font-size: 14px; -fx-padding: 4 8;");
+                    
+                    javafx.scene.control.MenuItem markDamagedItem = new javafx.scene.control.MenuItem("🔨 Mark Damaged");
+                    markDamagedItem.setOnAction(ev -> showVariantSelectionDialog(currentRow, "Mark as Damaged", selected -> {
+                        if (selected != null) {
+                            handleMarkAsDamaged(selected, refreshBtn::fire);
+                        }
+                    }));
+                    
+                    javafx.scene.control.MenuItem restoreDamagedItem = new javafx.scene.control.MenuItem("♻️ Restore Damaged");
+                    restoreDamagedItem.setOnAction(ev -> showVariantSelectionDialog(currentRow, "Restore from Damaged", selected -> {
+                        if (selected != null && selected.getDamagedStock() > 0) {
+                            handleRestoreDamaged(selected, refreshBtn::fire);
+                        } else {
+                            AlertHelper.showInfo("No Damaged Stock", "This item has no damaged stock to restore.");
+                        }
+                    }));
+                    
+                    moreBtn.getItems().addAll(markDamagedItem, restoreDamagedItem);
 
-                    HBox wrapper = new HBox(8, addStockBtn, priceBtn);
+                    HBox wrapper = new HBox(8, addStockBtn, priceBtn, moreBtn);
                     wrapper.getStyleClass().add("action-gap");
                     // left-align the action buttons inside the Actions column
                     wrapper.setAlignment(Pos.CENTER_LEFT);
@@ -3472,8 +3806,8 @@ public class StaffDashboardController {
                 }
             }
         });
-        actionsCol.setPrefWidth(140);
-        actionsCol.setMinWidth(120);
+        actionsCol.setPrefWidth(180);
+        actionsCol.setMinWidth(160);
         
         // Place actions column on the right (end) as requested
         table.getColumns().addAll(codeCol, nameCol, courseCol, sizesCol, qtyCol, priceCol, actionsCol);
@@ -3504,12 +3838,18 @@ public class StaffDashboardController {
                     sb.append("Variants:\n");
                     for (Item it : rowData.getVariants()) {
                         sb.append(" - Size: ").append(it.getSize())
-                          .append(" | Qty: ").append(it.getQuantity())
-                          .append(" | Price: ₱").append(String.format("%.2f", it.getPrice()))
+                          .append(" | Available: ").append(it.getQuantity());
+                        if (it.getDamagedStock() > 0) {
+                            sb.append(" | Damaged: ").append(it.getDamagedStock());
+                        }
+                        sb.append(" | Price: ₱").append(String.format("%.2f", it.getPrice()))
                           .append("\n");
                     }
-                    sb.append("\nTotal Qty: ").append(rowData.getTotalQuantity()).append("\n");
-                    sb.append("Price (example): ").append(rowData.getPriceDisplay()).append("\n");
+                    sb.append("\nTotal Available: ").append(rowData.getTotalQuantity());
+                    if (rowData.getTotalDamagedStock() > 0) {
+                        sb.append(" | Total Damaged: ").append(rowData.getTotalDamagedStock());
+                    }
+                    sb.append("\nPrice (example): ").append(rowData.getPriceDisplay()).append("\n");
                     info.setContentText(sb.toString());
                     info.showAndWait();
                 }
@@ -3966,9 +4306,11 @@ public class StaffDashboardController {
         private final String name;
         private final String course;
         private final List<Item> variants;
-        private final int totalQuantity;
+        private final int totalQuantity;      // Available stock only
+        private final int totalDamagedStock;  // Damaged stock
         private final String sizesDisplay;
         private final String priceDisplay;
+        private final String stockDisplay;    // Shows available/damaged breakdown
 
         InventoryRow(List<Item> variants) {
             Objects.requireNonNull(variants, "Variant list cannot be null");
@@ -3980,8 +4322,10 @@ public class StaffDashboardController {
             this.name = variants.get(0).getName();
             this.course = variants.get(0).getCourse();
             this.totalQuantity = variants.stream().mapToInt(Item::getQuantity).sum();
+            this.totalDamagedStock = variants.stream().mapToInt(Item::getDamagedStock).sum();
             this.sizesDisplay = buildSizesDisplay();
             this.priceDisplay = buildPriceDisplay();
+            this.stockDisplay = buildStockDisplay();
         }
 
         private String buildSizesDisplay() {
@@ -4004,14 +4348,26 @@ public class StaffDashboardController {
             }
             return "Varies";
         }
+        
+        /**
+         * Build display showing available and damaged stock
+         */
+        private String buildStockDisplay() {
+            if (totalDamagedStock > 0) {
+                return totalQuantity + " (+" + totalDamagedStock + " dmg)";
+            }
+            return String.valueOf(totalQuantity);
+        }
 
         public int getCode() { return code; }
         public String getName() { return name; }
         public String getCourse() { return course; }
         public List<Item> getVariants() { return java.util.Collections.unmodifiableList(variants); }
         public int getTotalQuantity() { return totalQuantity; }
+        public int getTotalDamagedStock() { return totalDamagedStock; }
         public String getSizesDisplay() { return sizesDisplay; }
         public String getPriceDisplay() { return priceDisplay; }
+        public String getStockDisplay() { return stockDisplay; }
     }
 
     /**
@@ -4049,7 +4405,7 @@ public class StaffDashboardController {
         
 
         // Stock Status overview: show key metric cards (Net Sales month, Net Sales all-time,
-        // Orders today, Completed orders). Low/critical segmented bar removed per request.
+        // Orders today, Completed orders). Stock bar shows inventory levels only.
         VBox stockStatusBox = new VBox(8);
         stockStatusBox.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 14; -fx-background-radius: 8; -fx-border-radius:8;");
 
@@ -4076,6 +4432,7 @@ public class StaffDashboardController {
         productsLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: -color-fg-default;");
 
         // Progress bar made from regions with proportional widths (Stock Status bar)
+        // Note: This bar only shows inventory levels, NOT replacement/damaged items
         HBox barContainer = new HBox();
         barContainer.setStyle("-fx-background-color: #edf2f6; -fx-background-radius: 8; -fx-padding: 0;");
         barContainer.setPrefHeight(18);
@@ -4088,7 +4445,9 @@ public class StaffDashboardController {
         int lowCount = (int) lowStockCount;
         int criticalCount = (int) criticalStockCount;
         int outOfStock = (int) outOfStockCount;
-        int inStockCount = Math.max(0, totalProducts - lowCount - criticalCount - outOfStock);
+        
+        // Stock bar only shows inventory levels (not replacements)
+        int inStockCount = Math.max(0, totalVariants - lowCount - criticalCount - outOfStock);
 
         Region inRegion = new Region();
         inRegion.setStyle("-fx-background-color: #1A7F37; -fx-background-radius: 6 0 0 6; -fx-min-width: 20;");
@@ -4109,7 +4468,8 @@ public class StaffDashboardController {
         critRegion.setMinHeight(18);
         outRegion.setMinHeight(18);
 
-        double denom = Math.max(1, (double) totalProducts);
+        // Use total variant count as the denominator so proportions reflect variants, not product groups.
+        double denom = Math.max(1, (double) totalVariants);
         inRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) inStockCount / denom));
         lowRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) lowCount / denom));
         critRegion.prefWidthProperty().bind(barContainer.widthProperty().multiply((double) criticalCount / denom));
@@ -4117,7 +4477,7 @@ public class StaffDashboardController {
 
         barContainer.getChildren().addAll(inRegion, lowRegion, critRegion, outRegion);
 
-        // Legend
+        // Legend for stock status
         HBox legend = new HBox(12);
         legend.setAlignment(Pos.CENTER_LEFT);
 
@@ -4173,6 +4533,120 @@ public class StaffDashboardController {
 
         stockStatusBox.getChildren().addAll(stockTitle, productsLabel, barContainer, legend, metricsRow);
 
+        // ========== REPLACEMENT REASONS SECTION ==========
+        // Separate tracking for replacement requests with categorized reasons
+        VBox replacementBox = new VBox(12);
+        replacementBox.setStyle("-fx-background-color: -color-bg-subtle; -fx-padding: 16; -fx-background-radius: 8; -fx-border-radius:8;");
+
+        javafx.scene.control.Label replacementTitle = new javafx.scene.control.Label("Replacement Reasons");
+        replacementTitle.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        // Get replacement summary (including data from reservations)
+        java.util.List<Reservation> allReservationsForSummary = reservationManager.getAllReservations();
+        ReplacementSummary replacementSummary = ReplacementTracker.getSummaryWithReservations(allReservationsForSummary);
+        int totalReplacements = replacementSummary.getTotalReplacements();
+
+        javafx.scene.control.Label replacementCountLabel = new javafx.scene.control.Label("Total Replacements: " + totalReplacements);
+        replacementCountLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: -color-fg-default;");
+
+        // Get counts for each reason
+        int wrongSizeCount = replacementSummary.getCount(ReplacementReason.WRONG_SIZE);
+        int damagedDefectiveCount = replacementSummary.getCount(ReplacementReason.DAMAGED_DEFECTIVE);
+        int wrongItemCount = replacementSummary.getCount(ReplacementReason.WRONG_ITEM);
+        int poorQualityCount = replacementSummary.getCount(ReplacementReason.POOR_QUALITY);
+        int colorDesignCount = replacementSummary.getCount(ReplacementReason.COLOR_DESIGN);
+        int sizeFitCount = replacementSummary.getCount(ReplacementReason.SIZE_FIT);
+        int otherCount = replacementSummary.getCount(ReplacementReason.OTHER);
+
+        // Build replacement reasons pie chart
+        javafx.scene.chart.PieChart replacementPieChart = new javafx.scene.chart.PieChart();
+        replacementPieChart.setTitle(null);
+        replacementPieChart.setLegendVisible(false);
+        replacementPieChart.setLabelsVisible(false);
+        replacementPieChart.setPrefSize(200, 200);
+        replacementPieChart.setMinSize(180, 180);
+        replacementPieChart.setMaxSize(220, 220);
+
+        // Add pie chart slices for each reason (only if count > 0)
+        javafx.collections.ObservableList<javafx.scene.chart.PieChart.Data> pieData = FXCollections.observableArrayList();
+        if (wrongSizeCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Wrong Size", wrongSizeCount));
+        if (damagedDefectiveCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Damaged/Defective", damagedDefectiveCount));
+        if (wrongItemCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Wrong Item", wrongItemCount));
+        if (poorQualityCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Poor Quality", poorQualityCount));
+        if (colorDesignCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Color/Design", colorDesignCount));
+        if (sizeFitCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Size Fit", sizeFitCount));
+        if (otherCount > 0) pieData.add(new javafx.scene.chart.PieChart.Data("Other", otherCount));
+
+        replacementPieChart.setData(pieData);
+
+        // Apply colors to pie slices after data is set
+        Platform.runLater(() -> {
+            String[] colors = {
+                ReplacementReason.WRONG_SIZE.getColor(),
+                ReplacementReason.DAMAGED_DEFECTIVE.getColor(),
+                ReplacementReason.WRONG_ITEM.getColor(),
+                ReplacementReason.POOR_QUALITY.getColor(),
+                ReplacementReason.COLOR_DESIGN.getColor(),
+                ReplacementReason.SIZE_FIT.getColor(),
+                ReplacementReason.OTHER.getColor()
+            };
+            int[] counts = {wrongSizeCount, damagedDefectiveCount, wrongItemCount, poorQualityCount, colorDesignCount, sizeFitCount, otherCount};
+            int colorIndex = 0;
+            for (int i = 0; i < counts.length; i++) {
+                if (counts[i] > 0 && colorIndex < replacementPieChart.getData().size()) {
+                    javafx.scene.chart.PieChart.Data slice = replacementPieChart.getData().get(colorIndex);
+                    slice.getNode().setStyle("-fx-pie-color: " + colors[i] + ";");
+                    colorIndex++;
+                }
+            }
+        });
+
+        // Style the pie chart
+        replacementPieChart.setStyle("-fx-background-color: transparent;");
+
+        // Replacement reasons legend - grid layout for better space usage
+        javafx.scene.layout.GridPane replacementLegend = new javafx.scene.layout.GridPane();
+        replacementLegend.setHgap(20);
+        replacementLegend.setVgap(10);
+        replacementLegend.setAlignment(Pos.CENTER_LEFT);
+
+        // Helper to create legend item with larger text and icons
+        java.util.function.BiFunction<ReplacementReason, Integer, HBox> makeLegendItem = (reason, count) -> {
+            Region dot = new Region();
+            dot.setPrefSize(14, 14);
+            dot.setMinSize(14, 14);
+            dot.setStyle("-fx-background-color: " + reason.getColor() + "; -fx-background-radius: 3;");
+            javafx.scene.control.Label lbl = new javafx.scene.control.Label(reason.getIcon() + " " + reason.getDisplayName() + ": " + count);
+            lbl.setStyle("-fx-text-fill: -color-fg-default; -fx-font-size: 14px; -fx-font-weight: normal;");
+            HBox item = new HBox(8, dot, lbl);
+            item.setAlignment(Pos.CENTER_LEFT);
+            item.setMinWidth(180);
+            return item;
+        };
+
+        // Grid layout: 2 columns, 4 rows for better distribution
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.WRONG_SIZE, wrongSizeCount), 0, 0);
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.DAMAGED_DEFECTIVE, damagedDefectiveCount), 1, 0);
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.WRONG_ITEM, wrongItemCount), 0, 1);
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.POOR_QUALITY, poorQualityCount), 1, 1);
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.COLOR_DESIGN, colorDesignCount), 0, 2);
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.SIZE_FIT, sizeFitCount), 1, 2);
+        replacementLegend.add(makeLegendItem.apply(ReplacementReason.OTHER, otherCount), 0, 3);
+
+        // Layout: pie chart on left, legend on right with proper spacing
+        HBox replacementContent = new HBox(24);
+        replacementContent.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(replacementContent, Priority.ALWAYS);
+        
+        VBox legendBox = new VBox(12);
+        legendBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(legendBox, Priority.ALWAYS);
+        legendBox.getChildren().addAll(replacementCountLabel, replacementLegend);
+        
+        replacementContent.getChildren().addAll(replacementPieChart, legendBox);
+
+        replacementBox.getChildren().addAll(replacementTitle, replacementContent);
+
         javafx.scene.control.Label trendingLabel = new javafx.scene.control.Label("Trending");
         trendingLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
@@ -4200,6 +4674,7 @@ public class StaffDashboardController {
 
         container.getChildren().addAll(
             stockStatusBox,
+            replacementBox,
             trendingLabel,
             trendRow,
             breakdownLabel,
@@ -4296,6 +4771,159 @@ public class StaffDashboardController {
                     "New Quantity: " + newQuantity + "\n");
             } else {
                 AlertHelper.showError("Error", "Failed to update stock!");
+            }
+        });
+    }
+    
+    /**
+     * Handle marking items as damaged - moves from available stock to damaged stock.
+     */
+    private void handleMarkAsDamaged(Item item, Runnable refreshAction) {
+        Dialog<Integer> dialog = new Dialog<>();
+        dialog.setTitle("Mark as Damaged");
+        dialog.setHeaderText("Mark damaged stock for: " + item.getName() + " (" + item.getSize() + ")");
+        ButtonType okBtn = new ButtonType("Mark Damaged", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okBtn, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        Label availableLabel = new Label("Available Stock: " + item.getQuantity());
+        Label damagedLabel = new Label("Current Damaged: " + item.getDamagedStock());
+        TextField qtyField = new TextField("1");
+        qtyField.setPromptText("Quantity to mark damaged");
+        qtyField.setPrefWidth(120);
+        TextField reasonField = new TextField();
+        reasonField.setPromptText("Reason (e.g., torn, stained)");
+        reasonField.setPrefWidth(200);
+
+        grid.add(availableLabel, 0, 0, 2, 1);
+        grid.add(damagedLabel, 0, 1, 2, 1);
+        grid.add(new Label("Quantity:"), 0, 2);
+        grid.add(qtyField, 1, 2);
+        grid.add(new Label("Reason:"), 0, 3);
+        grid.add(reasonField, 1, 3);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.setOnShown(e -> Platform.runLater(() -> qtyField.requestFocus()));
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okBtn) {
+                try {
+                    return Integer.parseInt(qtyField.getText().trim());
+                } catch (Exception ex) {
+                    return null;
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(qty -> {
+            if (qty == null || qty <= 0) {
+                AlertHelper.showError("Invalid Input", "Please enter a valid positive quantity!");
+                return;
+            }
+            if (qty > item.getQuantity()) {
+                AlertHelper.showError("Insufficient Stock", 
+                    "Cannot mark " + qty + " as damaged. Only " + item.getQuantity() + " available.");
+                return;
+            }
+
+            String reason = reasonField.getText().trim();
+            if (reason.isEmpty()) {
+                reason = "No reason specified";
+            }
+
+            boolean success = inventoryManager.markItemAsDamaged(
+                item.getCode(), item.getSize(), qty, reason, "Staff"
+            );
+
+            if (success) {
+                String details = String.format("Marked as damaged: %d units - %s", qty, reason);
+                StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), 
+                    item.getQuantity() + qty, item.getQuantity(), details);
+                refreshAction.run();
+                AlertHelper.showSuccess("Marked as Damaged",
+                    "Successfully marked " + qty + " unit(s) as damaged.\n\n" +
+                    "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
+                    "Reason: " + reason + "\n" +
+                    "New Available: " + item.getQuantity() + "\n" +
+                    "New Damaged: " + item.getDamagedStock());
+            } else {
+                AlertHelper.showError("Error", "Failed to mark items as damaged!");
+            }
+        });
+    }
+    
+    /**
+     * Handle restoring damaged items back to available stock.
+     */
+    private void handleRestoreDamaged(Item item, Runnable refreshAction) {
+        Dialog<Integer> dialog = new Dialog<>();
+        dialog.setTitle("Restore Damaged Stock");
+        dialog.setHeaderText("Restore damaged stock for: " + item.getName() + " (" + item.getSize() + ")");
+        ButtonType okBtn = new ButtonType("Restore", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okBtn, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        Label availableLabel = new Label("Available Stock: " + item.getQuantity());
+        Label damagedLabel = new Label("Damaged Stock: " + item.getDamagedStock());
+        TextField qtyField = new TextField("1");
+        qtyField.setPromptText("Quantity to restore");
+        qtyField.setPrefWidth(120);
+
+        grid.add(availableLabel, 0, 0, 2, 1);
+        grid.add(damagedLabel, 0, 1, 2, 1);
+        grid.add(new Label("Quantity to restore:"), 0, 2);
+        grid.add(qtyField, 1, 2);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.setOnShown(e -> Platform.runLater(() -> qtyField.requestFocus()));
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okBtn) {
+                try {
+                    return Integer.parseInt(qtyField.getText().trim());
+                } catch (Exception ex) {
+                    return null;
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(qty -> {
+            if (qty == null || qty <= 0) {
+                AlertHelper.showError("Invalid Input", "Please enter a valid positive quantity!");
+                return;
+            }
+            if (qty > item.getDamagedStock()) {
+                AlertHelper.showError("Insufficient Damaged Stock", 
+                    "Cannot restore " + qty + ". Only " + item.getDamagedStock() + " damaged.");
+                return;
+            }
+
+            boolean success = inventoryManager.restoreDamagedItem(
+                item.getCode(), item.getSize(), qty, "Staff"
+            );
+
+            if (success) {
+                String details = String.format("Restored from damaged: %d units", qty);
+                StockReturnLogger.logItemUpdated("staff", item.getCode(), item.getName(), item.getSize(), 
+                    item.getQuantity() - qty, item.getQuantity(), details);
+                refreshAction.run();
+                AlertHelper.showSuccess("Restored from Damaged",
+                    "Successfully restored " + qty + " unit(s) to available stock.\n\n" +
+                    "Item: " + item.getName() + " (" + item.getSize() + ")\n" +
+                    "New Available: " + item.getQuantity() + "\n" +
+                    "New Damaged: " + item.getDamagedStock());
+            } else {
+                AlertHelper.showError("Error", "Failed to restore damaged items!");
             }
         });
     }
@@ -4893,6 +5521,32 @@ public class StaffDashboardController {
             "-fx-cursor: hand;" +
             "-fx-pref-height: 36px;"
         );
+    }
+    
+    /**
+     * Extract image path from replacement reason string
+     * Reason may contain: [Image proof attached: path/to/image.jpg]
+     */
+    private String extractImagePathFromReason(String reason) {
+        if (reason == null || !reason.contains("[Image proof attached:")) {
+            return null;
+        }
+        int startIdx = reason.indexOf("[Image proof attached:");
+        int endIdx = reason.indexOf("]", startIdx);
+        if (startIdx >= 0 && endIdx > startIdx) {
+            return reason.substring(startIdx + "[Image proof attached:".length(), endIdx).trim();
+        }
+        return null;
+    }
+
+    /**
+     * Determine whether a replacement reason indicates damage/defect.
+     */
+    private boolean isDamageReason(String reason) {
+        if (reason == null) return false;
+        String lower = reason.toLowerCase();
+        // match 'damag' to cover 'damage' and 'damaged', and 'defect'/'defective'
+        return lower.contains("damag") || lower.contains("defect");
     }
 
 

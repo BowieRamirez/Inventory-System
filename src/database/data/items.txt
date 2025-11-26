@@ -1,62 +1,62 @@
-ItemCode,ItemName,Course,Size,Quantity,Price
-1024,Tourism Blazer (Female),BSTM,S,0,M,0,L,0,XL,0,600.00
-1025,Tourism Blue Skirt (Female),BSTM,S,35,M,50,L,50,XL,30,480.00
-1026,Tourism Blue Slacks (Female),BSTM,S,35,M,45,L,1,XL,30,500.00
-1027,Tourism Yellow Scarf,BSTM,One Size,80,120.00
-1028,Tourism Pin,BSTM,One Size,100,80.00
-1029,Tourism White Long Polo (Male),BSTM,S,0,M,0,L,0,XL,0,500.00
-1030,Tourism Blazer (Male),BSTM,S,35,M,45,L,40,XL,30,650.00
-1031,Tourism Trousers (Male),BSTM,S,40,M,50,L,45,XL,35,520.00
-1032,Tourism Necktie,BSTM,One Size,0,180.00
-1033,SHS White Blouse (Female),SHS,S,0,M,0,L,0,XL,0,420.00
-1034,SHS Vest (Female),SHS,S,299,M,420,L,360,XL,273,300.00
-1035,SHS Checkered Skirt,SHS,S,296,M,420,L,360,XL,267,450.00
-1036,SHS White Polo (Male),SHS,S,330,M,480,L,387,XL,297,420.00
-1037,SHS Vest (Male),SHS,S,300,M,420,L,360,XL,270,300.00
-1038,SHS Checkered Pants,SHS,S,299,M,420,L,360,XL,270,480.00
-1039,TVL Chef White Polo,SHS,S,30,M,40,L,35,XL,25,520.00
-1040,TVL Chef White Pants,SHS,S,30,M,40,L,35,XL,25,550.00
-1041,TVL Chef Apron,SHS,One Size,55,250.00
-1042,TVL Chef Cap,SHS,One Size,60,180.00
-1043,PE White Shirt,STI Special,S,77,M,119,L,96,XL,81,300.00
-1044,PE Blue Jogging Pants,STI Special,S,68,M,99,L,89,XL,70,400.00
-1045,NSTP Gray Shirt (Male),STI Special,S,58,M,90,L,74,XL,54,320.00
-1046,NSTP Gray Shirt (Female),STI Special,S,58,M,90,L,75,XL,55,320.00
-1047,Anniversary Shirt,STI Special,S,73,M,99,L,90,XL,70,350.00
-1048,Washday Shirt,STI Special,S,90,M,120,L,100,XL,80,300.00
-1049,ID Lace,STI Special,One Size,200,50.00
-1050,STI Pin,STI Special,One Size,148,80.00
-1051,STI Tumbler,STI Special,One Size,30,600.00
-1052,STEM Lab Coat,STEM,S,0,M,0,L,0,XL,0,650.00
-1053,IT/Eng Gray 3/4 Polo (Male),BSCS/BSIT/BSCpE,S,0,M,0,L,0,XL,0,450.00
-1054,IT/Eng RTW Pants (Male),BSCS/BSIT/BSCpE,S,158,M,195,L,174,XL,140,500.00
-1055,IT/Eng Gray 3/4 Blouse (Female),BSCS/BSIT/BSCpE,S,0,M,1,L,0,XL,0,450.00
-1056,IT/Eng RTW Skirt (Female),BSCS/BSIT/BSCpE,S,1,M,1,L,0,XL,0,480.00
-1057,IT/Eng RTW Pants (Female),BSCS/BSIT/BSCpE,S,98,M,100,L,35,XL,30,500.00
-1061,Arts Gray 3/4 Polo (Male),BMMA,S,45,M,50,L,45,XL,40,450.00
-1062,Arts RTW Pants (Male),BMMA,S,35,M,40,L,35,XL,30,500.00
-1063,Arts Gray 3/4 Blouse (Female),BMMA,S,45,M,55,L,50,XL,40,450.00
-1064,Arts RTW Skirt (Female),BMMA,S,40,M,45,L,40,XL,35,480.00
-1065,Arts RTW Pants (Female),BMMA,S,35,M,40,L,35,XL,30,500.00
-1001,Business Blazer,BSBA/BSA,S,0,M,0,L,0,XL,0,650.00
-1002,Business White Polo (Male),BSBA/BSA,S,68,M,70,L,70,XL,70,480.00
-1003,Business Slacks (Male),BSBA/BSA,S,69,M,70,L,70,XL,70,550.00
-1004,Business White Blouse (Female),BSBA/BSA,S,69,M,70,L,70,XL,70,480.00
-1005,Business Vest (Female),BSBA/BSA,S,69,M,70,L,70,XL,70,350.00
-1006,Business Pencil Skirt (Female),BSBA/BSA,S,70,M,70,L,70,XL,70,520.00
-1007,Business Slacks (Female),BSBA/BSA,S,70,M,70,L,70,XL,70,550.00
-1009,BSHM White Blouse (Female),BSHM,S,40,M,60,L,50,XL,40,480.00
-1010,BSHM Blazer (Female),BSHM,S,0,M,0,L,0,XL,0,650.00
-1011,BSHM RTW Skirt (Female),BSHM,S,35,M,50,L,40,XL,30,480.00
-1012,BSHM Yellow Scarf,BSHM,One Size,80,120.00
-1013,BSHM Beret,BSHM,One Size,70,150.00
-1014,Tourism Pin,BSHM,One Size,200,80.00
-1015,BSHM White Polo (Male),BSHM,S,45,M,55,L,50,XL,40,480.00
-1016,BSHM Blazer (Male),BSHM,S,35,M,45,L,40,XL,30,650.00
-1017,BSHM Pants (Male),BSHM,S,40,M,50,L,45,XL,35,500.00
-1018,BSHM Necktie,BSHM,One Size,75,180.00
-1019,Chef White Polo,BSHM,S,35,M,45,L,40,XL,35,520.00
-1020,Chef White Pants,BSHM,S,35,M,45,L,40,XL,35,550.00
-1021,Chef Apron,BSHM,One Size,60,250.00
-1022,Chef Cap,BSHM,One Size,70,180.00
-1023,Tourism White Blouse (Female),BSTM,S,40,M,60,L,50,XL,40,480.00
+ItemCode,ItemName,Course,Size,Quantity,DamagedStock,Price
+1024,Tourism Blazer (Female),BSTM,S,0,0,M,0,0,L,0,0,XL,0,0,600.00
+1025,Tourism Blue Skirt (Female),BSTM,S,35,0,M,50,0,L,50,0,XL,30,0,480.00
+1026,Tourism Blue Slacks (Female),BSTM,S,35,0,M,45,0,L,1,0,XL,30,0,500.00
+1027,Tourism Yellow Scarf,BSTM,One Size,80,0,120.00
+1028,Tourism Pin,BSTM,One Size,100,0,80.00
+1029,Tourism White Long Polo (Male),BSTM,S,0,0,M,0,0,L,0,0,XL,0,0,500.00
+1030,Tourism Blazer (Male),BSTM,S,35,0,M,45,0,L,40,0,XL,30,0,650.00
+1031,Tourism Trousers (Male),BSTM,S,40,0,M,50,0,L,45,0,XL,35,0,520.00
+1032,Tourism Necktie,BSTM,One Size,20,0,100.00
+1033,SHS White Blouse (Female),SHS,S,1,0,M,0,0,L,0,0,XL,0,0,420.00
+1034,SHS Vest (Female),SHS,S,299,0,M,420,0,L,360,0,XL,273,0,300.00
+1035,SHS Checkered Skirt,SHS,S,295,0,M,420,0,L,360,0,XL,267,0,450.00
+1036,SHS White Polo (Male),SHS,S,330,0,M,480,0,L,387,0,XL,297,0,420.00
+1037,SHS Vest (Male),SHS,S,300,0,M,420,0,L,360,0,XL,270,0,300.00
+1038,SHS Checkered Pants,SHS,S,299,0,M,420,0,L,360,0,XL,270,0,480.00
+1039,TVL Chef White Polo,SHS,S,30,0,M,40,0,L,35,0,XL,25,0,520.00
+1040,TVL Chef White Pants,SHS,S,30,0,M,40,0,L,35,0,XL,25,0,550.00
+1041,TVL Chef Apron,SHS,One Size,55,0,250.00
+1042,TVL Chef Cap,SHS,One Size,60,0,180.00
+1043,PE White Shirt,STI Special,S,77,0,M,119,0,L,96,0,XL,81,0,300.00
+1044,PE Blue Jogging Pants,STI Special,S,68,0,M,99,0,L,89,0,XL,70,0,400.00
+1045,NSTP Gray Shirt (Male),STI Special,S,58,0,M,90,0,L,74,0,XL,54,0,320.00
+1046,NSTP Gray Shirt (Female),STI Special,S,58,0,M,90,0,L,75,0,XL,55,0,320.00
+1047,Anniversary Shirt,STI Special,S,73,0,M,99,0,L,90,0,XL,70,0,350.00
+1048,Washday Shirt,STI Special,S,90,0,M,120,0,L,100,0,XL,80,0,300.00
+1049,ID Lace,STI Special,One Size,200,0,50.00
+1050,STI Pin,STI Special,One Size,148,0,80.00
+1051,STI Tumbler,STI Special,One Size,30,0,600.00
+1052,STEM Lab Coat,STEM,S,0,0,M,0,0,L,0,0,XL,0,0,650.00
+1053,IT/Eng Gray 3/4 Polo (Male),BSCS/BSIT/BSCpE,S,0,0,M,0,0,L,0,0,XL,0,0,450.00
+1054,IT/Eng RTW Pants (Male),BSCS/BSIT/BSCpE,S,154,0,M,195,0,L,174,0,XL,140,0,500.00
+1055,IT/Eng Gray 3/4 Blouse (Female),BSCS/BSIT/BSCpE,S,1,0,M,0,0,L,0,0,XL,0,0,450.00
+1056,IT/Eng RTW Skirt (Female),BSCS/BSIT/BSCpE,S,1,0,M,1,0,L,0,0,XL,0,0,480.00
+1057,IT/Eng RTW Pants (Female),BSCS/BSIT/BSCpE,S,98,0,M,100,0,L,35,0,XL,30,0,500.00
+1061,Arts Gray 3/4 Polo (Male),BMMA,S,45,0,M,50,0,L,45,0,XL,40,0,450.00
+1062,Arts RTW Pants (Male),BMMA,S,35,0,M,40,0,L,35,0,XL,30,0,500.00
+1063,Arts Gray 3/4 Blouse (Female),BMMA,S,45,0,M,55,0,L,50,0,XL,40,0,450.00
+1064,Arts RTW Skirt (Female),BMMA,S,40,0,M,45,0,L,40,0,XL,35,0,480.00
+1065,Arts RTW Pants (Female),BMMA,S,35,0,M,40,0,L,35,0,XL,30,0,500.00
+1001,Business Blazer,BSBA/BSA,S,0,0,M,0,0,L,0,0,XL,0,0,650.00
+1002,Business White Polo (Male),BSBA/BSA,S,68,0,M,70,0,L,70,0,XL,70,0,480.00
+1003,Business Slacks (Male),BSBA/BSA,S,69,0,M,70,0,L,70,0,XL,70,0,550.00
+1004,Business White Blouse (Female),BSBA/BSA,S,69,0,M,70,0,L,70,0,XL,70,0,480.00
+1005,Business Vest (Female),BSBA/BSA,S,69,0,M,70,0,L,70,0,XL,70,0,350.00
+1006,Business Pencil Skirt (Female),BSBA/BSA,S,70,0,M,70,0,L,70,0,XL,70,0,520.00
+1007,Business Slacks (Female),BSBA/BSA,S,70,0,M,70,0,L,70,0,XL,70,0,550.00
+1009,BSHM White Blouse (Female),BSHM,S,40,0,M,60,0,L,50,0,XL,40,0,480.00
+1010,BSHM Blazer (Female),BSHM,S,0,0,M,0,0,L,0,0,XL,0,0,650.00
+1011,BSHM RTW Skirt (Female),BSHM,S,35,0,M,50,0,L,40,0,XL,30,0,480.00
+1012,BSHM Yellow Scarf,BSHM,One Size,80,0,120.00
+1013,BSHM Beret,BSHM,One Size,70,0,150.00
+1014,Tourism Pin,BSHM,One Size,200,0,80.00
+1015,BSHM White Polo (Male),BSHM,S,45,0,M,55,0,L,50,0,XL,40,0,480.00
+1016,BSHM Blazer (Male),BSHM,S,35,0,M,45,0,L,40,0,XL,30,0,650.00
+1017,BSHM Pants (Male),BSHM,S,40,0,M,50,0,L,45,0,XL,35,0,500.00
+1018,BSHM Necktie,BSHM,One Size,75,0,180.00
+1019,Chef White Polo,BSHM,S,35,0,M,45,0,L,40,0,XL,35,0,520.00
+1020,Chef White Pants,BSHM,S,35,0,M,45,0,L,40,0,XL,35,0,550.00
+1021,Chef Apron,BSHM,One Size,60,0,250.00
+1022,Chef Cap,BSHM,One Size,70,0,180.00
+1023,Tourism White Blouse (Female),BSTM,S,40,0,M,60,0,L,50,0,XL,40,0,480.00

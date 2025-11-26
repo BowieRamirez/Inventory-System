@@ -86,8 +86,7 @@ public class StudentDashboard {
         view = new BorderPane();
         view.setMaxWidth(Double.MAX_VALUE);
         view.setMaxHeight(Double.MAX_VALUE);
-        String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
-        view.setStyle("-fx-background-color: " + bgColor + ";");
+        view.setStyle("-fx-background-color: " + ThemeManager.getBackgroundColor() + ";");
         
         // Create top bar
         view.setTop(createTopBar());
@@ -100,8 +99,7 @@ public class StudentDashboard {
         contentArea.setPadding(new Insets(20, 20, 20, 20));
         contentArea.setMaxWidth(Double.MAX_VALUE);
         contentArea.setMaxHeight(Double.MAX_VALUE);
-        String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
-        contentArea.setStyle("-fx-background-color: " + contentBg + ";");
+        contentArea.setStyle("-fx-background-color: " + ThemeManager.getContentBackgroundColor() + ";");
         view.setCenter(contentArea);
         
         // Show home by default
@@ -879,25 +877,53 @@ public class StudentDashboard {
      * Update theme colors when theme changes
      */
     private void updateTheme() {
+        // Save the primary scroll position (if any) so we can restore it after refresh.
+        double savedV = -1;
+        double savedH = -1;
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                try { savedV = sp.getVvalue(); } catch (Exception ex) { savedV = -1; }
+                try { savedH = sp.getHvalue(); } catch (Exception ex) { savedH = -1; }
+                break;
+            }
+        }
+
         // Update main background
         String bgColor = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         view.setStyle("-fx-background-color: " + bgColor + ";");
-        
+
         // Update content area background
         String contentBg = ThemeManager.isDarkMode() ? "-color-bg-default" : "#F8F9FA";
         contentArea.setStyle("-fx-background-color: " + contentBg + "; -fx-padding: 20;");
-        
-        // Recreate top bar to update all colors
+
+        // Recreate top bar to update all colors (preserve active tab via activeTabName)
         view.setTop(createTopBar());
         // Re-apply notification badge after recreating top bar
         updateNotificationBadge();
-        
+
         // Refresh help if displayed, preserving expanded pane, or re-apply current view
         if (contentArea.lookup("#help-content") != null) {
             helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
         } else if (currentViewRefresher != null) {
             currentViewRefresher.run();
+        }
+
+        // Restore saved scroll position (if any) after the view has been rebuilt
+        if (savedV >= 0 || savedH >= 0) {
+            final double vToRestore = savedV;
+            final double hToRestore = savedH;
+            javafx.application.Platform.runLater(() -> {
+                for (javafx.scene.Node node : contentArea.getChildren()) {
+                    if (node instanceof ScrollPane) {
+                        ScrollPane sp = (ScrollPane) node;
+                        try { if (vToRestore >= 0) sp.setVvalue(vToRestore); } catch (Exception ex) { }
+                        try { if (hToRestore >= 0) sp.setHvalue(hToRestore); } catch (Exception ex) { }
+                        break;
+                    }
+                }
+            });
         }
     }
     
@@ -919,27 +945,27 @@ public class StudentDashboard {
         VBox infoBox = new VBox(10);
         infoBox.setPadding(new Insets(15));
         infoBox.setStyle(
-            "-fx-background-color: -color-bg-subtle;" +
-            "-fx-border-color: -color-border-default;" +
+            "-fx-background-color: " + ThemeManager.getSubtleBackgroundColor() + ";" +
+            "-fx-border-color: " + ThemeManager.getBorderColor() + ";" +
             "-fx-border-width: 1px;" +
             "-fx-border-radius: 6px;" +
             "-fx-background-radius: 6px;"
         );
         
         Label nameLabel = new Label("Full Name: " + student.getFullName());
-        nameLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: -color-fg-default;");
+        nameLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label idLabel = new Label("Student ID: " + student.getStudentId());
-        idLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: -color-fg-default;");
+        idLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label courseLabel = new Label("Course: " + student.getCourse());
-        courseLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: -color-fg-default;");
+        courseLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label genderLabel = new Label("Gender: " + student.getGender());
-        genderLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: -color-fg-default;");
+        genderLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         Label statusLabel = new Label("Status: " + student.getAccountStatus());
-        statusLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: -color-fg-default;");
+        statusLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: " + ThemeManager.getTextColor() + ";");
         
         infoBox.getChildren().addAll(nameLabel, idLabel, courseLabel, genderLabel, statusLabel);
         
