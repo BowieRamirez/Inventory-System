@@ -10,7 +10,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
+
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -44,6 +44,8 @@ public class CashierDashboard {
     private Button logoutBtn;
     private Label logoLabel;
     private Label subtitleLabel;
+    // Preserve help expanded pane title across theme toggles
+    private String helpExpandedTitle;
     
     // Smooth toggle fields
     private StackPane toggleSwitch;
@@ -55,6 +57,34 @@ public class CashierDashboard {
         initializeView();
         // Re-apply theme when ThemeManager changes (fixes cases where theme was toggled earlier)
         javafx.application.Platform.runLater(() -> ThemeManager.addThemeChangeListener(() -> javafx.application.Platform.runLater(this::updateSidebarTheme)));
+    }
+
+    // Helper: find currently-expanded titled pane's title inside the help accordion
+    private String getCurrentHelpExpandedTitle() {
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                javafx.scene.Node content = sp.getContent();
+                if (content instanceof VBox) {
+                    for (javafx.scene.Node child : ((VBox) content).getChildren()) {
+                        if (child instanceof javafx.scene.control.Accordion) {
+                            javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) child;
+                            javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                            if (expanded != null) return expanded.getText();
+                        }
+                    }
+                } else if (content instanceof javafx.scene.control.Accordion) {
+                    javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) content;
+                    javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                    if (expanded != null) return expanded.getText();
+                }
+            } else if (node instanceof javafx.scene.control.Accordion) {
+                javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) node;
+                javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                if (expanded != null) return expanded.getText();
+            }
+        }
+        return null;
     }
     
     private void initializeView() {
@@ -234,14 +264,24 @@ public class CashierDashboard {
         
         logoutBtn.setOnAction(e -> controller.handleLogout());
         
+        // Replace Separator with a 1px high Region to avoid default Separator rendering
+        Region sepTop = new Region();
+        sepTop.setPrefHeight(1);
+        sepTop.setMaxHeight(1);
+        sepTop.setStyle("-fx-background-color: #FFFFFF; -fx-opacity: 1;");
+        Region sepBottom = new Region();
+        sepBottom.setPrefHeight(1);
+        sepBottom.setMaxHeight(1);
+        sepBottom.setStyle("-fx-background-color: #FFFFFF; -fx-opacity: 1;");
+
         sidebar.getChildren().addAll(
             header,
-            new Separator(),
+            sepTop,
             paymentsBtn,
             receiptsBtn,
             helpBtn,
             spacer,
-            new Separator(),
+            sepBottom,
             logoutBtn
         );
     }
@@ -321,172 +361,210 @@ public class CashierDashboard {
     private void showHelp() {
         titleLabel.setText("Help & Documentation");
         contentArea.getChildren().clear();
-        
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-control-inner-background: transparent; -fx-padding: 10;");
-        
-        VBox mainBox = new VBox(20);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 10;");
+
+        VBox mainBox = new VBox(12);
         mainBox.setPadding(new Insets(20));
         mainBox.setStyle("-fx-border-color: transparent;");
         mainBox.setId("help-content");
-        
-        // ====== WELCOME SECTION ======
-        VBox welcomeSection = createHelpCard(
-            "👋 Welcome to Cashier Station",
-            "STI ProWear System - Payment Processing",
-            "As a cashier, you handle customer payments, generate receipts, and process transactions. This guide covers all payment procedures and best practices."
+
+        javafx.scene.control.Accordion accordion = new javafx.scene.control.Accordion();
+
+        // Welcome
+        VBox welcomeContent = new VBox(8);
+        welcomeContent.setPadding(new Insets(12));
+        Label welcomeDesc = new Label("As a cashier, you handle customer payments, generate receipts, and process transactions. This guide covers all payment procedures and best practices.");
+        welcomeDesc.setWrapText(true);
+        welcomeDesc.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#bcd6ee" : "#555555") + ";");
+        welcomeContent.getChildren().add(welcomeDesc);
+        javafx.scene.control.TitledPane welcomePane = createAccordionPane("👋 Welcome to Cashier Station", welcomeContent);
+
+        // Navigation Basics
+        VBox navContent = new VBox(6);
+        navContent.setPadding(new Insets(12));
+        navContent.getChildren().addAll(
+            createBulletPoint("Dashboard: View today's transactions and pending payments"),
+            createBulletPoint("Payments: Process customer payments securely"),
+            createBulletPoint("Receipts: Generate and manage payment receipts"),
+            createBulletPoint("Help: Access this documentation anytime")
         );
-        
-        // ====== NAVIGATION BASICS ======
-        VBox navSection = createHelpCard(
-            "🧭 Navigation Basics",
-            "",
-            ""
+        javafx.scene.control.TitledPane navPane = createAccordionPane("🧭 Navigation Basics", navContent);
+
+        // Payment Processing
+        VBox paymentContent = new VBox(6);
+        paymentContent.setPadding(new Insets(12));
+        paymentContent.getChildren().addAll(
+            createBulletPoint("Receive customer with approved reservation ID"),
+            createBulletPoint("Verify customer identity with valid student ID"),
+            createBulletPoint("Confirm reservation details and total amount"),
+            createBulletPoint("Accept payment (cash currently supported)"),
+            createBulletPoint("Calculate and provide change accurately"),
+            createBulletPoint("Generate and provide receipt to customer"),
+            createBulletPoint("Record transaction in system with receipt number")
         );
-        navSection.getChildren().add(createBulletPoint("Dashboard: View today's transactions and pending payments"));
-        navSection.getChildren().add(createBulletPoint("Payments: Process customer payments securely"));
-        navSection.getChildren().add(createBulletPoint("Receipts: Generate and manage payment receipts"));
-        navSection.getChildren().add(createBulletPoint("Help: Access this documentation anytime"));
-        
-        // ====== PAYMENT PROCESSING ======
-        VBox paymentSection = createHelpCard(
-            "💳 Payment Processing",
-            "Handling Customer Transactions",
-            ""
+        javafx.scene.control.TitledPane paymentPane = createAccordionPane("💳 Payment Processing", paymentContent);
+
+        // Cash Handling
+        VBox cashContent = new VBox(6);
+        cashContent.setPadding(new Insets(12));
+        cashContent.getChildren().addAll(
+            createBulletPoint("Count cash drawer at START of shift"),
+            createBulletPoint("Record opening balance in cash register"),
+            createBulletPoint("Use calculator for change calculations"),
+            createBulletPoint("Double-check all transactions for accuracy"),
+            createBulletPoint("Count cash drawer at END of shift"),
+            createBulletPoint("Report any discrepancies to supervisor immediately"),
+            createBulletPoint("Never leave cash drawer unattended"),
+            createBulletPoint("Secure all cash in designated safe/lockbox")
         );
-        paymentSection.getChildren().add(createBulletPoint("Receive customer with approved reservation ID"));
-        paymentSection.getChildren().add(createBulletPoint("Verify customer identity with valid student ID"));
-        paymentSection.getChildren().add(createBulletPoint("Confirm reservation details and total amount"));
-        paymentSection.getChildren().add(createBulletPoint("Accept payment (cash currently supported)"));
-        paymentSection.getChildren().add(createBulletPoint("Calculate and provide change accurately"));
-        paymentSection.getChildren().add(createBulletPoint("Generate and provide receipt to customer"));
-        paymentSection.getChildren().add(createBulletPoint("Record transaction in system with receipt number"));
-        
-        // ====== CASH HANDLING ======
-        VBox cashSection = createHelpCard(
-            "💰 Cash Handling & Accuracy",
-            "Critical for Security & Trust",
-            ""
+        javafx.scene.control.TitledPane cashPane = createAccordionPane("💰 Cash Handling & Accuracy", cashContent);
+
+        // Receipt Management
+        VBox receiptContent = new VBox(6);
+        receiptContent.setPadding(new Insets(12));
+        receiptContent.getChildren().addAll(
+            createBulletPoint("Generate receipt for every payment transaction"),
+            createBulletPoint("Include: Customer name, items, amount paid, change, date/time"),
+            createBulletPoint("Keep receipt numbers sequential"),
+            createBulletPoint("Provide receipt to customer - always keep copy"),
+            createBulletPoint("Store receipts in designated file/folder"),
+            createBulletPoint("Never discard or destroy original receipts"),
+            createBulletPoint("Report lost receipts to supervisor")
         );
-        cashSection.getChildren().add(createBulletPoint("Count cash drawer at START of shift"));
-        cashSection.getChildren().add(createBulletPoint("Record opening balance in cash register"));
-        cashSection.getChildren().add(createBulletPoint("Use calculator for change calculations"));
-        cashSection.getChildren().add(createBulletPoint("Double-check all transactions for accuracy"));
-        cashSection.getChildren().add(createBulletPoint("Count cash drawer at END of shift"));
-        cashSection.getChildren().add(createBulletPoint("Report any discrepancies to supervisor immediately"));
-        cashSection.getChildren().add(createBulletPoint("Never leave cash drawer unattended"));
-        cashSection.getChildren().add(createBulletPoint("Secure all cash in designated safe/lockbox"));
-        
-        // ====== RECEIPT MANAGEMENT ======
-        VBox receiptSection = createHelpCard(
-            "🧾 Receipt Management",
-            "Documentation & Records",
-            ""
+        javafx.scene.control.TitledPane receiptPane = createAccordionPane("🧾 Receipt Management", receiptContent);
+
+        // Customer Service
+        VBox csContent = new VBox(6);
+        csContent.setPadding(new Insets(12));
+        csContent.getChildren().addAll(
+            createBulletPoint("Greet every customer with a smile and warm greeting"),
+            createBulletPoint("Speak clearly and confirm payment details"),
+            createBulletPoint("Handle complaints professionally and empathetically"),
+            createBulletPoint("Never rush customers - take time for accuracy"),
+            createBulletPoint("Thank customers and encourage them to return"),
+            createBulletPoint("Maintain clean and organized work area"),
+            createBulletPoint("Escalate complex issues to supervisor")
         );
-        receiptSection.getChildren().add(createBulletPoint("Generate receipt for every payment transaction"));
-        receiptSection.getChildren().add(createBulletPoint("Include: Customer name, items, amount paid, change, date/time"));
-        receiptSection.getChildren().add(createBulletPoint("Keep receipt numbers sequential"));
-        receiptSection.getChildren().add(createBulletPoint("Provide receipt to customer - always keep copy"));
-        receiptSection.getChildren().add(createBulletPoint("Store receipts in designated file/folder"));
-        receiptSection.getChildren().add(createBulletPoint("Never discard or destroy original receipts"));
-        receiptSection.getChildren().add(createBulletPoint("Report lost receipts to supervisor"));
-        
-        // ====== CUSTOMER SERVICE ======
-        VBox csSection = createHelpCard(
-            "🤝 Customer Service Excellence",
-            "Professional & Courteous Service",
-            ""
+        javafx.scene.control.TitledPane csPane = createAccordionPane("🤝 Customer Service Excellence", csContent);
+
+        // Payment Methods
+        VBox methodContent = new VBox(6);
+        methodContent.setPadding(new Insets(12));
+        methodContent.getChildren().addAll(
+            createBulletPoint("Cash: Primary payment method"),
+            createBulletPoint("Verify cash denominations: ₱1, ₱5, ₱10, ₱20, ₱50, ₱100, ₱500, ₱1000"),
+            createBulletPoint("Check for counterfeit or damaged bills"),
+            createBulletPoint("Future updates may include card/digital payments")
         );
-        csSection.getChildren().add(createBulletPoint("Greet every customer with a smile and warm greeting"));
-        csSection.getChildren().add(createBulletPoint("Speak clearly and confirm payment details"));
-        csSection.getChildren().add(createBulletPoint("Handle complaints professionally and empathetically"));
-        csSection.getChildren().add(createBulletPoint("Never rush customers - take time for accuracy"));
-        csSection.getChildren().add(createBulletPoint("Thank customers and encourage them to return"));
-        csSection.getChildren().add(createBulletPoint("Maintain clean and organized work area"));
-        csSection.getChildren().add(createBulletPoint("Escalate complex issues to supervisor"));
-        
-        // ====== PAYMENT METHODS ======
-        VBox methodSection = createHelpCard(
-            "📋 Supported Payment Methods",
-            "Current Options",
-            ""
+        javafx.scene.control.TitledPane methodPane = createAccordionPane("📋 Supported Payment Methods", methodContent);
+
+        // Rejected Payments
+        VBox rejectContent = new VBox(6);
+        rejectContent.setPadding(new Insets(12));
+        rejectContent.getChildren().addAll(
+            createBulletPoint("Insufficient funds: Politely inform customer and inform staff"),
+            createBulletPoint("Reservation expired: Check with staff before accepting"),
+            createBulletPoint("Customer disputes amount: Verify reservation and confirm with customer"),
+            createBulletPoint("Missing documentation: Request valid student ID"),
+            createBulletPoint("System error: Call supervisor - never guess or force transaction")
         );
-        methodSection.getChildren().add(createBulletPoint("Cash: Primary payment method"));
-        methodSection.getChildren().add(createBulletPoint("Verify cash denominations: ₱1, ₱5, ₱10, ₱20, ₱50, ₱100, ₱500, ₱1000"));
-        methodSection.getChildren().add(createBulletPoint("Check for counterfeit or damaged bills"));
-        methodSection.getChildren().add(createBulletPoint("Future updates may include card/digital payments"));
-        
-        // ====== REJECTED PAYMENTS ======
-        VBox rejectSection = createHelpCard(
-            "❌ Handling Payment Issues",
-            "When Payment Can't Be Processed",
-            ""
+        javafx.scene.control.TitledPane rejectPane = createAccordionPane("❌ Handling Payment Issues", rejectContent);
+
+        // Tips & Best Practices
+        VBox tipsContent = new VBox(6);
+        tipsContent.setPadding(new Insets(12));
+        tipsContent.getChildren().addAll(
+            createTipBullet("Always use calculator - mental math causes errors"),
+            createTipBullet("Count change back to customer - never rush"),
+            createTipBullet("Verify receipts print correctly before handing to customer"),
+            createTipBullet("Keep payment window visible - transparency builds trust"),
+            createTipBullet("Regular cash counts prevent discrepancies"),
+            createTipBullet("Good appearance and attitude improve customer experience")
         );
-        rejectSection.getChildren().add(createBulletPoint("Insufficient funds: Politely inform customer and inform staff"));
-        rejectSection.getChildren().add(createBulletPoint("Reservation expired: Check with staff before accepting"));
-        rejectSection.getChildren().add(createBulletPoint("Customer disputes amount: Verify reservation and confirm with customer"));
-        rejectSection.getChildren().add(createBulletPoint("Missing documentation: Request valid student ID"));
-        rejectSection.getChildren().add(createBulletPoint("System error: Call supervisor - never guess or force transaction"));
-        
-        // ====== TIPS & BEST PRACTICES ======
-        VBox tipsSection = createHelpCard(
-            "💡 Tips & Best Practices",
-            "Work Efficiently & Safely",
-            ""
+        javafx.scene.control.TitledPane tipsPane = createAccordionPane("💡 Tips & Best Practices", tipsContent);
+
+        // Troubleshooting
+        VBox troubleshootContent = new VBox(6);
+        troubleshootContent.setPadding(new Insets(12));
+        troubleshootContent.getChildren().addAll(
+            createFAQItem("Q: Customer provided exact amount?", "A: Count carefully and process payment. Generate receipt confirming zero change."),
+            createFAQItem("Q: Receipt printer not working?", "A: Contact IT or supervisor. Use manual receipt form as backup."),
+            createFAQItem("Q: Cash drawer won't open?", "A: Call supervisor - do not force. May need key override."),
+            createFAQItem("Q: Customer claims wrong change given?", "A: Review receipt and transaction. Report to supervisor if discrepancy found."),
+            createFAQItem("Q: Reservation not found in system?", "A: Verify reservation ID and customer name. Consult with staff.")
         );
-        tipsSection.getChildren().add(createTipBullet("Always use calculator - mental math causes errors"));
-        tipsSection.getChildren().add(createTipBullet("Count change back to customer - never rush"));
-        tipsSection.getChildren().add(createTipBullet("Verify receipts print correctly before handing to customer"));
-        tipsSection.getChildren().add(createTipBullet("Keep payment window visible - transparency builds trust"));
-        tipsSection.getChildren().add(createTipBullet("Regular cash counts prevent discrepancies"));
-        tipsSection.getChildren().add(createTipBullet("Good appearance and attitude improve customer experience"));
-        
-        // ====== TROUBLESHOOTING ======
-        VBox troubleshootSection = createHelpCard(
-            "🔧 Troubleshooting",
-            "Common Issues & Solutions",
-            ""
+        javafx.scene.control.TitledPane troubleshootPane = createAccordionPane("🔧 Troubleshooting", troubleshootContent);
+
+        // Safety & Security
+        VBox securityContent = new VBox(6);
+        securityContent.setPadding(new Insets(12));
+        securityContent.getChildren().addAll(
+            createBulletPoint("Never share drawer keys or access codes"),
+            createBulletPoint("Report suspicious transactions immediately"),
+            createBulletPoint("Keep password confidential - don't write it down"),
+            createBulletPoint("Log out when stepping away from system"),
+            createBulletPoint("Report any system breaches or unauthorized access"),
+            createBulletPoint("Handle customer data confidentially")
         );
-        troubleshootSection.getChildren().add(createFAQItem("Q: Customer provided exact amount?", "A: Count carefully and process payment. Generate receipt confirming zero change."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Receipt printer not working?", "A: Contact IT or supervisor. Use manual receipt form as backup."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Cash drawer won't open?", "A: Call supervisor - do not force. May need key override."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Customer claims wrong change given?", "A: Review receipt and transaction. Report to supervisor if discrepancy found."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Reservation not found in system?", "A: Verify reservation ID and customer name. Consult with staff."));
-        
-        // ====== SAFETY & SECURITY ======
-        VBox securitySection = createHelpCard(
-            "🔒 Safety & Security",
-            "Protecting Assets & Data",
-            ""
+        javafx.scene.control.TitledPane securityPane = createAccordionPane("🔒 Safety & Security", securityContent);
+
+        // Shift Procedures
+        VBox shiftContent = new VBox(6);
+        shiftContent.setPadding(new Insets(12));
+        shiftContent.getChildren().addAll(
+            createBulletPoint("OPENING: Count drawer, record starting amount, log in"),
+            createBulletPoint("DURING: Process payments, maintain records, help customers"),
+            createBulletPoint("CLOSING: Count drawer, calculate balance, report discrepancies"),
+            createBulletPoint("RECONCILIATION: Match receipts with cash and system records"),
+            createBulletPoint("Document any issues on daily report")
         );
-        securitySection.getChildren().add(createBulletPoint("Never share drawer keys or access codes"));
-        securitySection.getChildren().add(createBulletPoint("Report suspicious transactions immediately"));
-        securitySection.getChildren().add(createBulletPoint("Keep password confidential - don't write it down"));
-        securitySection.getChildren().add(createBulletPoint("Log out when stepping away from system"));
-        securitySection.getChildren().add(createBulletPoint("Report any system breaches or unauthorized access"));
-        securitySection.getChildren().add(createBulletPoint("Handle customer data confidentially"));
-        
-        // ====== SHIFT PROCEDURES ======
-        VBox shiftSection = createHelpCard(
-            "⏰ Shift Opening & Closing",
-            "Daily Procedures",
-            ""
+        javafx.scene.control.TitledPane shiftPane = createAccordionPane("⏰ Shift Opening & Closing", shiftContent);
+
+        accordion.getPanes().addAll(
+            welcomePane, navPane, paymentPane, cashPane, receiptPane,
+            csPane, methodPane, rejectPane, tipsPane, troubleshootPane,
+            securityPane, shiftPane
         );
-        shiftSection.getChildren().add(createBulletPoint("OPENING: Count drawer, record starting amount, log in"));
-        shiftSection.getChildren().add(createBulletPoint("DURING: Process payments, maintain records, help customers"));
-        shiftSection.getChildren().add(createBulletPoint("CLOSING: Count drawer, calculate balance, report discrepancies"));
-        shiftSection.getChildren().add(createBulletPoint("RECONCILIATION: Match receipts with cash and system records"));
-        shiftSection.getChildren().add(createBulletPoint("Document any issues on daily report"));
-        
-        mainBox.getChildren().addAll(
-            welcomeSection, navSection, paymentSection, cashSection, receiptSection, 
-            csSection, methodSection, rejectSection, tipsSection, troubleshootSection, 
-            securitySection, shiftSection
-        );
-        
+
+        // Restore previously-expanded pane if available, otherwise default to welcome
+        boolean restored = false;
+        if (helpExpandedTitle != null) {
+            for (javafx.scene.control.TitledPane p : accordion.getPanes()) {
+                if (helpExpandedTitle.equals(p.getText())) {
+                    accordion.setExpandedPane(p);
+                    restored = true;
+                    break;
+                }
+            }
+        }
+        if (!restored) {
+            accordion.setExpandedPane(welcomePane);
+        }
+
+        mainBox.getChildren().addAll(accordion);
         scrollPane.setContent(mainBox);
         contentArea.getChildren().add(scrollPane);
+    }
+
+    /**
+     * Create a styled TitledPane for the accordion
+     */
+    private javafx.scene.control.TitledPane createAccordionPane(String title, VBox content) {
+        javafx.scene.control.TitledPane pane = new javafx.scene.control.TitledPane(title, content);
+        pane.setAnimated(false);
+        pane.setCollapsible(true);
+
+        String textColor = ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72";
+        pane.setStyle(
+            "-fx-font-weight: bold; " +
+            "-fx-font-size: 15px; " +
+            "-fx-text-fill: " + textColor + ";"
+        );
+
+        content.setStyle("-fx-background-color: transparent;");
+        return pane;
     }
     
     private void updateSidebarTheme() {
@@ -588,8 +666,9 @@ public class CashierDashboard {
                              "-fx-alignment: center; -fx-font-size: 14px;");
         }
         
-        // Refresh Help content if currently displayed
+        // Refresh Help content if currently displayed, preserving expanded pane
         if (contentArea.lookup("#help-content") != null) {
+            helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
         }
     }
@@ -647,13 +726,14 @@ public class CashierDashboard {
     
     // ===== HELP SECTION HELPER METHODS =====
     
+    @SuppressWarnings("unused")
     private VBox createHelpCard(String title, String subtitle, String description) {
         VBox card = new VBox(8);
         card.setPadding(new Insets(16));
         card.setStyle(
-            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#2a2a3e" : "#f5f5f5") + ";" +
+            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#1f2a3a" : "#f5f5f5") + ";" +
             "-fx-background-radius: 8px;" +
-            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#404054" : "#e0e0e0") + ";" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#24364f" : "#e0e0e0") + ";" +
             "-fx-border-width: 1px;" +
             "-fx-border-radius: 8px;" +
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0, 0, 1);"
@@ -661,20 +741,20 @@ public class CashierDashboard {
         
         Label titleLabel = new Label(title);
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72") + ";");
+        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72") + ";");
         card.getChildren().add(titleLabel);
         
         if (subtitle != null && !subtitle.isEmpty()) {
             Label subtitleLabel = new Label(subtitle);
             subtitleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
-            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#a0a0c0" : "#4a5f8f") + ";");
+            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#8fb6d6" : "#4a5f8f") + ";");
             card.getChildren().add(subtitleLabel);
         }
         
         if (description != null && !description.isEmpty()) {
             Label descLabel = new Label(description);
             descLabel.setWrapText(true);
-            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + ";");
+            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#bcd6ee" : "#555555") + ";");
             card.getChildren().add(descLabel);
         }
         
@@ -686,17 +766,18 @@ public class CashierDashboard {
         box.setPadding(new Insets(4, 0, 4, 20));
         Label bullet = new Label("• " + text);
         bullet.setWrapText(true);
-        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 11px;");
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 14px; -fx-line-spacing: 2px;");
         box.getChildren().add(bullet);
         return box;
     }
     
+    @SuppressWarnings("unused")
     private VBox createSubBullet(String text) {
         VBox box = new VBox(2);
         box.setPadding(new Insets(2, 0, 2, 40));
         Label bullet = new Label("  ◦ " + text);
         bullet.setWrapText(true);
-        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 10px;");
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 12px;");
         box.getChildren().add(bullet);
         return box;
     }
@@ -706,7 +787,7 @@ public class CashierDashboard {
         box.setPadding(new Insets(4, 0, 4, 20));
         Label bullet = new Label("✓ " + text);
         bullet.setWrapText(true);
-        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 11px;");
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 14px; -fx-font-weight: 600;");
         box.getChildren().add(bullet);
         return box;
     }
@@ -717,12 +798,12 @@ public class CashierDashboard {
         
         VBox qnaBox = new VBox(4);
         Label qLabel = new Label(question);
-        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
-        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + ";");
+        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
+        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + "; -fx-font-size: 14px;");
         qLabel.setWrapText(true);
         
         Label aLabel = new Label(answer);
-        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 10px;");
+        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 13px;");
         aLabel.setWrapText(true);
         
         qnaBox.getChildren().addAll(qLabel, aLabel);

@@ -185,27 +185,31 @@ public class ReportView {
     }
     
     private String getButtonBgColor() {
-        return ThemeManager.isDarkMode() ? "#2a2a3e" : "#ffffff";
+        // Dark mode: use a deep navy blue instead of violet/gray
+        return ThemeManager.isDarkMode() ? "#16233a" : "#ffffff";
     }
     
     private String getButtonHoverBgColor() {
-        return ThemeManager.isDarkMode() ? "#34344e" : "#f0f0f0";
+        // Slightly lighter blue for hover in dark mode
+        return ThemeManager.isDarkMode() ? "#27344f" : "#f0f0f0";
     }
     
     private String getButtonBorderColor() {
-        return ThemeManager.isDarkMode() ? "#404054" : "#e0e0e0";
+        // Subtle blue border in dark mode
+        return ThemeManager.isDarkMode() ? "#24364f" : "#e0e0e0";
     }
     
     private String getButtonHoverBorderColor() {
-        return ThemeManager.isDarkMode() ? "#504060" : "#d0d0d0";
+        return ThemeManager.isDarkMode() ? "#2f4a6b" : "#d0d0d0";
     }
     
     private String getButtonTitleColor() {
-        return ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72";
+        // Use a blue-tinted title color in dark mode
+        return ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72";
     }
     
     private String getButtonDescColor() {
-        return ThemeManager.isDarkMode() ? "#a0a0c0" : "#666666";
+        return ThemeManager.isDarkMode() ? "#8fb6d6" : "#666666";
     }
     
     private Button createReportButton(String title, String description, Runnable onClick) {

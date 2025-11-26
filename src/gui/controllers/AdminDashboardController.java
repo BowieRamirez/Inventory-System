@@ -1342,7 +1342,7 @@ public class AdminDashboardController {
 
         // Action buttons
         HBox actionBar = new HBox(15);
-        actionBar.setAlignment(Pos.CENTER);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
 
         Button refreshBtn = new Button("🔄 Refresh");
         TextField searchField = new TextField();
@@ -1351,6 +1351,7 @@ public class AdminDashboardController {
 
         styleActionButton(refreshBtn);
 
+        // Place refresh and search at the top-left
         actionBar.getChildren().addAll(refreshBtn, searchField);
 
         // Create students table
@@ -1582,7 +1583,8 @@ public class AdminDashboardController {
         styleActionButton(addStaffBtn);
         styleActionButton(refreshBtn);
 
-        actionBar.getChildren().addAll(addStaffBtn, refreshBtn, searchField);
+        // Place refresh and search at the top-left of the staff table
+        actionBar.getChildren().addAll(refreshBtn, searchField, addStaffBtn);
 
         // Create staff table
         TableView<Staff> table = new TableView<>();

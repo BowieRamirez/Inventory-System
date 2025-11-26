@@ -10,7 +10,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
+
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -59,6 +59,8 @@ public class AdminDashboard {
     
     // Track currently active button for theme refresh
     private Button activeButton;
+    // Preserve help expanded pane title across theme toggles
+    private String helpExpandedTitle;
     
     public AdminDashboard() {
         controller = new AdminDashboardController();
@@ -293,9 +295,19 @@ public class AdminDashboard {
         
         logoutBtn.setOnAction(e -> controller.handleLogout());
         
+        // Replace Separator with a 1px high Region to avoid default Separator rendering
+        Region sepTop = new Region();
+        sepTop.setPrefHeight(1);
+        sepTop.setMaxHeight(1);
+        sepTop.setStyle("-fx-background-color: #FFFFFF; -fx-opacity: 1;");
+        Region sepBottom = new Region();
+        sepBottom.setPrefHeight(1);
+        sepBottom.setMaxHeight(1);
+        sepBottom.setStyle("-fx-background-color: #FFFFFF; -fx-opacity: 1;");
+
         sidebar.getChildren().addAll(
             header,
-            new Separator(),
+            sepTop,
             dashboardBtn,
             accountsBtn,
             stockLogsBtn,
@@ -303,7 +315,7 @@ public class AdminDashboard {
             systemSettingsBtn,
             helpBtn,
             spacer,
-            new Separator(),
+            sepBottom,
             logoutBtn
         );
     }
@@ -311,148 +323,167 @@ public class AdminDashboard {
     private void showHelp() {
         titleLabel.setText("Help & Documentation");
         contentArea.getChildren().clear();
-        
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-control-inner-background: transparent; -fx-padding: 10;");
-        
-        VBox mainBox = new VBox(20);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 10;");
+
+        VBox mainBox = new VBox(12);
         mainBox.setPadding(new Insets(20));
         mainBox.setStyle("-fx-border-color: transparent;");
         mainBox.setId("help-content");
-        
-        // ====== WELCOME SECTION ======
-        VBox welcomeSection = createHelpCard(
-            "👋 Welcome to Admin Dashboard",
-            "STI ProWear System - Complete Control Center",
-            "As an administrator, you have full control over the inventory system, user accounts, reservations, and system operations. This guide will help you master all features."
+
+        javafx.scene.control.Accordion accordion = new javafx.scene.control.Accordion();
+
+        // Welcome
+        VBox welcomeContent = new VBox(8);
+        welcomeContent.setPadding(new Insets(12));
+        Label welcomeDesc = new Label("As an administrator, you have full control over the inventory system, user accounts, reservations, and system operations. This guide will help you master all features.");
+        welcomeDesc.setWrapText(true);
+        welcomeDesc.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#bcd6ee" : "#555555") + ";");
+        welcomeContent.getChildren().add(welcomeDesc);
+        javafx.scene.control.TitledPane welcomePane = createAccordionPane("👋 Welcome to Admin Dashboard", welcomeContent);
+
+        // Navigation Basics
+        VBox navContent = new VBox(6);
+        navContent.setPadding(new Insets(12));
+        navContent.getChildren().addAll(
+            createBulletPoint("Use the sidebar to switch between Accounts, Stock Logs, System Settings, and Help"),
+            createBulletPoint("Each section provides specialized tools for managing different aspects of the system"),
+            createBulletPoint("Click any tab to expand or access detailed functionality"),
+            createBulletPoint("The dashboard displays real-time statistics and important metrics")
         );
-        
-        // ====== NAVIGATION BASICS ======
-        VBox navSection = createHelpCard(
-            "🧭 Navigation Basics",
-            "",
-            ""
+        javafx.scene.control.TitledPane navPane = createAccordionPane("🧭 Navigation Basics", navContent);
+
+        // Reservation Management
+        VBox reservationContent = new VBox(6);
+        reservationContent.setPadding(new Insets(12));
+        reservationContent.getChildren().addAll(
+            createBulletPoint("View all pending student reservations from the dashboard"),
+            createBulletPoint("Review student details, requested items, sizes, and quantities before approval"),
+            createSubBullet("✓ Approve: Verify payment and identity before marking as ready for pickup"),
+            createSubBullet("✗ Reject: Decline with optional reason; items return to inventory"),
+            createBulletPoint("Update reservation status: PENDING → APPROVED → COMPLETED"),
+            createBulletPoint("Track when students collect their items and mark as completed")
         );
-        navSection.getChildren().add(createBulletPoint("Use the sidebar to switch between Accounts, Stock Logs, System Settings, and Help"));
-        navSection.getChildren().add(createBulletPoint("Each section provides specialized tools for managing different aspects of the system"));
-        navSection.getChildren().add(createBulletPoint("Click any tab to expand or access detailed functionality"));
-        navSection.getChildren().add(createBulletPoint("The dashboard displays real-time statistics and important metrics"));
-        
-        // ====== RESERVATION MANAGEMENT ======
-        VBox reservationSection = createHelpCard(
-            "📋 Reservation Management",
-            "Approval Workflow",
-            ""
+        javafx.scene.control.TitledPane reservationPane = createAccordionPane("📋 Reservation Management", reservationContent);
+
+        // Inventory Management
+        VBox inventoryContent = new VBox(6);
+        inventoryContent.setPadding(new Insets(12));
+        inventoryContent.getChildren().addAll(
+            createBulletPoint("Add new items with: Code (1000-9999), Name, Course, Available Sizes, Price"),
+            createBulletPoint("Update quantities: Increase stock when new shipments arrive"),
+            createBulletPoint("Modify prices: Adjust individual item prices or run bulk updates"),
+            createBulletPoint("Remove items: Delete discontinued products from inventory"),
+            createBulletPoint("Supported sizes: XS, S, M, L, XL, XXL, One Size"),
+            createBulletPoint("Valid price range: ₱0 - ₱10,000 per item")
         );
-        reservationSection.getChildren().add(createBulletPoint("View all pending student reservations from the dashboard"));
-        reservationSection.getChildren().add(createBulletPoint("Review student details, requested items, sizes, and quantities before approval"));
-        reservationSection.getChildren().add(createSubBullet("✓ Approve: Verify payment and identity before marking as ready for pickup"));
-        reservationSection.getChildren().add(createSubBullet("✗ Reject: Decline with optional reason; items return to inventory"));
-        reservationSection.getChildren().add(createBulletPoint("Update reservation status: PENDING → APPROVED → COMPLETED"));
-        reservationSection.getChildren().add(createBulletPoint("Track when students collect their items and mark as completed"));
-        
-        // ====== INVENTORY MANAGEMENT ======
-        VBox inventorySection = createHelpCard(
-            "📦 Inventory Management",
-            "Stock Control & Organization",
-            ""
+        javafx.scene.control.TitledPane inventoryPane = createAccordionPane("📦 Inventory Management", inventoryContent);
+
+        // Account Management
+        VBox accountsContent = new VBox(6);
+        accountsContent.setPadding(new Insets(12));
+        accountsContent.getChildren().addAll(
+            createBulletPoint("Create new staff accounts with username, email, and initial password"),
+            createBulletPoint("Activate or deactivate user accounts as needed"),
+            createBulletPoint("Reset passwords for staff members who forgot their credentials"),
+            createBulletPoint("View all active and inactive users in the system"),
+            createBulletPoint("Monitor user activity and login history")
         );
-        inventorySection.getChildren().add(createBulletPoint("Add new items with: Code (1000-9999), Name, Course, Available Sizes, Price"));
-        inventorySection.getChildren().add(createBulletPoint("Update quantities: Increase stock when new shipments arrive"));
-        inventorySection.getChildren().add(createBulletPoint("Modify prices: Adjust individual item prices or run bulk updates"));
-        inventorySection.getChildren().add(createBulletPoint("Remove items: Delete discontinued products from inventory"));
-        inventorySection.getChildren().add(createBulletPoint("Supported sizes: XS, S, M, L, XL, XXL, One Size"));
-        inventorySection.getChildren().add(createBulletPoint("Valid price range: ₱0 - ₱10,000 per item"));
-        
-        // ====== ACCOUNT MANAGEMENT ======
-        VBox accountsSection = createHelpCard(
-            "👥 Account Management",
-            "User Control & Administration",
-            ""
+        javafx.scene.control.TitledPane accountsPane = createAccordionPane("👥 Account Management", accountsContent);
+
+        // Stock Logs & Auditing
+        VBox auditContent = new VBox(6);
+        auditContent.setPadding(new Insets(12));
+        auditContent.getChildren().addAll(
+            createBulletPoint("View complete history of all inventory changes"),
+            createBulletPoint("See who made changes, what changed, and when it happened"),
+            createBulletPoint("Filter logs by staff member, item, or date range for quick lookup"),
+            createBulletPoint("Export logs for compliance and audit purposes"),
+            createBulletPoint("Identify suspicious activity or unauthorized modifications")
         );
-        accountsSection.getChildren().add(createBulletPoint("Create new staff accounts with username, email, and initial password"));
-        accountsSection.getChildren().add(createBulletPoint("Activate or deactivate user accounts as needed"));
-        accountsSection.getChildren().add(createBulletPoint("Reset passwords for staff members who forgot their credentials"));
-        accountsSection.getChildren().add(createBulletPoint("View all active and inactive users in the system"));
-        accountsSection.getChildren().add(createBulletPoint("Monitor user activity and login history"));
-        
-        // ====== STOCK LOGS & AUDITING ======
-        VBox auditSection = createHelpCard(
-            "📊 Stock Logs & Auditing",
-            "Track Changes & Maintain Records",
-            ""
+        javafx.scene.control.TitledPane auditPane = createAccordionPane("📊 Stock Logs & Auditing", auditContent);
+
+        // System Settings
+        VBox settingsContent = new VBox(6);
+        settingsContent.setPadding(new Insets(12));
+        settingsContent.getChildren().addAll(
+            createBulletPoint("Configure business hours and operating parameters"),
+            createBulletPoint("Set default values for reservations and pickups"),
+            createBulletPoint("Manage email notifications and alerts"),
+            createBulletPoint("Backup and restore system data"),
+            createBulletPoint("View system logs and error reports")
         );
-        auditSection.getChildren().add(createBulletPoint("View complete history of all inventory changes"));
-        auditSection.getChildren().add(createBulletPoint("See who made changes, what changed, and when it happened"));
-        auditSection.getChildren().add(createBulletPoint("Filter logs by staff member, item, or date range for quick lookup"));
-        auditSection.getChildren().add(createBulletPoint("Export logs for compliance and audit purposes"));
-        auditSection.getChildren().add(createBulletPoint("Identify suspicious activity or unauthorized modifications"));
-        
-        // ====== SYSTEM SETTINGS ======
-        VBox settingsSection = createHelpCard(
-            "⚙️ System Settings",
-            "Configuration & Preferences",
-            ""
+        javafx.scene.control.TitledPane settingsPane = createAccordionPane("⚙️ System Settings", settingsContent);
+
+        // Tips & Best Practices
+        VBox tipsContent = new VBox(6);
+        tipsContent.setPadding(new Insets(12));
+        tipsContent.getChildren().addAll(
+            createTipBullet("Regularly check pending reservations - don't leave students waiting"),
+            createTipBullet("Update inventory levels after each restock to prevent overselling"),
+            createTipBullet("Use stock logs monthly to audit and reconcile inventory"),
+            createTipBullet("Set reasonable reservation approval windows for better planning"),
+            createTipBullet("Document any manual inventory adjustments with clear reasons"),
+            createTipBullet("Backup system data regularly to prevent data loss")
         );
-        settingsSection.getChildren().add(createBulletPoint("Configure business hours and operating parameters"));
-        settingsSection.getChildren().add(createBulletPoint("Set default values for reservations and pickups"));
-        settingsSection.getChildren().add(createBulletPoint("Manage email notifications and alerts"));
-        settingsSection.getChildren().add(createBulletPoint("Backup and restore system data"));
-        settingsSection.getChildren().add(createBulletPoint("View system logs and error reports"));
-        
-        // ====== TIPS & BEST PRACTICES ======
-        VBox tipsSection = createHelpCard(
-            "💡 Tips & Best Practices",
-            "Maximize Efficiency",
-            ""
+        javafx.scene.control.TitledPane tipsPane = createAccordionPane("💡 Tips & Best Practices", tipsContent);
+
+        // Troubleshooting
+        VBox troubleshootContent = new VBox(6);
+        troubleshootContent.setPadding(new Insets(12));
+        troubleshootContent.getChildren().addAll(
+            createFAQItem("Q: Student says reservation is lost?", "A: Check Stock Logs to see if it was manually cancelled. Reapprove if necessary."),
+            createFAQItem("Q: Item code already exists?", "A: Each item needs a unique code (1000-9999). Choose a different code."),
+            createFAQItem("Q: Can't approve a reservation?", "A: Verify sufficient stock, valid sizes selected, and student payment."),
+            createFAQItem("Q: Price update not working?", "A: Ensure price is between ₱0-₱10,000. Try again after confirmation.")
         );
-        tipsSection.getChildren().add(createTipBullet("Regularly check pending reservations - don't leave students waiting"));
-        tipsSection.getChildren().add(createTipBullet("Update inventory levels after each restock to prevent overselling"));
-        tipsSection.getChildren().add(createTipBullet("Use stock logs monthly to audit and reconcile inventory"));
-        tipsSection.getChildren().add(createTipBullet("Set reasonable reservation approval windows for better planning"));
-        tipsSection.getChildren().add(createTipBullet("Document any manual inventory adjustments with clear reasons"));
-        tipsSection.getChildren().add(createTipBullet("Backup system data regularly to prevent data loss"));
-        
-        // ====== TROUBLESHOOTING ======
-        VBox troubleshootSection = createHelpCard(
-            "🔧 Troubleshooting",
-            "Common Issues & Solutions",
-            ""
+        javafx.scene.control.TitledPane troubleshootPane = createAccordionPane("🔧 Troubleshooting", troubleshootContent);
+
+        // Shortcuts
+        VBox shortcutsContent = new VBox(6);
+        shortcutsContent.setPadding(new Insets(12));
+        shortcutsContent.getChildren().addAll(
+            createBulletPoint("Tab - Navigate between fields"),
+            createBulletPoint("Enter - Confirm actions"),
+            createBulletPoint("Esc - Cancel current operation or close dialog"),
+            createBulletPoint("Ctrl+S - Save changes (in applicable sections)")
         );
-        troubleshootSection.getChildren().add(createFAQItem("Q: Student says reservation is lost?", "A: Check Stock Logs to see if it was manually cancelled. Reapprove if necessary."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Item code already exists?", "A: Each item needs a unique code (1000-9999). Choose a different code."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Can't approve a reservation?", "A: Verify sufficient stock, valid sizes selected, and student payment."));
-        troubleshootSection.getChildren().add(createFAQItem("Q: Price update not working?", "A: Ensure price is between ₱0-₱10,000. Try again after confirmation."));
-        
-        // ====== KEYBOARD SHORTCUTS ======
-        VBox shortcutsSection = createHelpCard(
-            "⌨️ Keyboard Shortcuts",
-            "Speed Up Your Work",
-            ""
+        javafx.scene.control.TitledPane shortcutsPane = createAccordionPane("⌨️ Keyboard Shortcuts", shortcutsContent);
+
+        // Support
+        VBox supportContent = new VBox(6);
+        supportContent.setPadding(new Insets(12));
+        supportContent.getChildren().addAll(
+            createBulletPoint("Email: admin-support@sti.edu.ph"),
+            createBulletPoint("Phone: 1-800-STI-HELP"),
+            createBulletPoint("Support Hours: Monday-Friday, 9 AM - 5 PM"),
+            createBulletPoint("Emergency: Contact IT department directly")
         );
-        shortcutsSection.getChildren().add(createBulletPoint("Tab - Navigate between fields"));
-        shortcutsSection.getChildren().add(createBulletPoint("Enter - Confirm actions"));
-        shortcutsSection.getChildren().add(createBulletPoint("Esc - Cancel current operation or close dialog"));
-        shortcutsSection.getChildren().add(createBulletPoint("Ctrl+S - Save changes (in applicable sections)"));
-        
-        // ====== CONTACT & SUPPORT ======
-        VBox supportSection = createHelpCard(
-            "📞 Contact & Support",
-            "Get Help When You Need It",
-            ""
+        javafx.scene.control.TitledPane supportPane = createAccordionPane("📞 Contact & Support", supportContent);
+
+        accordion.getPanes().addAll(
+            welcomePane, navPane, reservationPane, inventoryPane,
+            accountsPane, auditPane, settingsPane, tipsPane,
+            troubleshootPane, shortcutsPane, supportPane
         );
-        supportSection.getChildren().add(createBulletPoint("Email: admin-support@sti.edu.ph"));
-        supportSection.getChildren().add(createBulletPoint("Phone: 1-800-STI-HELP"));
-        supportSection.getChildren().add(createBulletPoint("Support Hours: Monday-Friday, 9 AM - 5 PM"));
-        supportSection.getChildren().add(createBulletPoint("Emergency: Contact IT department directly"));
-        
-        mainBox.getChildren().addAll(
-            welcomeSection, navSection, reservationSection, inventorySection, 
-            accountsSection, auditSection, settingsSection, tipsSection, 
-            troubleshootSection, shortcutsSection, supportSection
-        );
-        
+
+        // Restore previously-expanded pane if available, otherwise default to welcome
+        boolean restored = false;
+        if (helpExpandedTitle != null) {
+            for (javafx.scene.control.TitledPane p : accordion.getPanes()) {
+                if (helpExpandedTitle.equals(p.getText())) {
+                    accordion.setExpandedPane(p);
+                    restored = true;
+                    break;
+                }
+            }
+        }
+        if (!restored) {
+            accordion.setExpandedPane(welcomePane);
+        }
+
+        mainBox.getChildren().addAll(accordion);
         scrollPane.setContent(mainBox);
         contentArea.getChildren().add(scrollPane);
     }
@@ -694,15 +725,44 @@ public class AdminDashboard {
             );
         }
         
-        // Refresh Help content if currently displayed
+        // Refresh Help content if currently displayed, preserving expanded pane
         if (contentArea.lookup("#help-content") != null) {
+            helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
         }
-        
+
         // Reapply active button styling for current theme
         if (activeButton != null) {
             setActiveButton(activeButton);
         }
+    }
+
+    // Helper: find currently-expanded titled pane's title inside the help accordion
+    private String getCurrentHelpExpandedTitle() {
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                javafx.scene.Node content = sp.getContent();
+                if (content instanceof VBox) {
+                    for (javafx.scene.Node child : ((VBox) content).getChildren()) {
+                        if (child instanceof javafx.scene.control.Accordion) {
+                            javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) child;
+                            javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                            if (expanded != null) return expanded.getText();
+                        }
+                    }
+                } else if (content instanceof javafx.scene.control.Accordion) {
+                    javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) content;
+                    javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                    if (expanded != null) return expanded.getText();
+                }
+            } else if (node instanceof javafx.scene.control.Accordion) {
+                javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) node;
+                javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                if (expanded != null) return expanded.getText();
+            }
+        }
+        return null;
     }
     
     /**
@@ -761,13 +821,14 @@ public class AdminDashboard {
     
     // ===== HELP SECTION HELPER METHODS =====
     
+    @SuppressWarnings("unused")
     private VBox createHelpCard(String title, String subtitle, String description) {
         VBox card = new VBox(8);
         card.setPadding(new Insets(16));
         card.setStyle(
-            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#2a2a3e" : "#f5f5f5") + ";" +
+            "-fx-background-color: " + (ThemeManager.isDarkMode() ? "#1f2a3a" : "#f5f5f5") + ";" +
             "-fx-background-radius: 8px;" +
-            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#404054" : "#e0e0e0") + ";" +
+            "-fx-border-color: " + (ThemeManager.isDarkMode() ? "#24364f" : "#e0e0e0") + ";" +
             "-fx-border-width: 1px;" +
             "-fx-border-radius: 8px;" +
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0, 0, 1);"
@@ -775,20 +836,20 @@ public class AdminDashboard {
         
         Label titleLabel = new Label(title);
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72") + ";");
+        titleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72") + ";");
         card.getChildren().add(titleLabel);
         
         if (subtitle != null && !subtitle.isEmpty()) {
             Label subtitleLabel = new Label(subtitle);
             subtitleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
-            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#a0a0c0" : "#4a5f8f") + ";");
+            subtitleLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#8fb6d6" : "#4a5f8f") + ";");
             card.getChildren().add(subtitleLabel);
         }
         
         if (description != null && !description.isEmpty()) {
             Label descLabel = new Label(description);
             descLabel.setWrapText(true);
-            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + ";");
+            descLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#bcd6ee" : "#555555") + ";");
             card.getChildren().add(descLabel);
         }
         
@@ -800,7 +861,7 @@ public class AdminDashboard {
         box.setPadding(new Insets(4, 0, 4, 20));
         Label bullet = new Label("• " + text);
         bullet.setWrapText(true);
-        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 11px;");
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#d0d0e0" : "#333333") + "; -fx-font-size: 14px; -fx-line-spacing: 2px;");
         box.getChildren().add(bullet);
         return box;
     }
@@ -810,7 +871,7 @@ public class AdminDashboard {
         box.setPadding(new Insets(2, 0, 2, 40));
         Label bullet = new Label("  ◦ " + text);
         bullet.setWrapText(true);
-        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 10px;");
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#444444") + "; -fx-font-size: 12px;");
         box.getChildren().add(bullet);
         return box;
     }
@@ -820,7 +881,7 @@ public class AdminDashboard {
         box.setPadding(new Insets(4, 0, 4, 20));
         Label bullet = new Label("✓ " + text);
         bullet.setWrapText(true);
-        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 11px;");
+        bullet.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#90ee90" : "#2d6a2d") + "; -fx-font-size: 14px; -fx-font-weight: 600;");
         box.getChildren().add(bullet);
         return box;
     }
@@ -831,12 +892,12 @@ public class AdminDashboard {
         
         VBox qnaBox = new VBox(4);
         Label qLabel = new Label(question);
-        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
-        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + ";");
+        qLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
+        qLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#b0d0ff" : "#1e3c72") + "; -fx-font-size: 14px;");
         qLabel.setWrapText(true);
         
         Label aLabel = new Label(answer);
-        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 10px;");
+        aLabel.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 13px;");
         aLabel.setWrapText(true);
         
         qnaBox.getChildren().addAll(qLabel, aLabel);
@@ -844,6 +905,25 @@ public class AdminDashboard {
         HBox.setHgrow(qnaBox, Priority.ALWAYS);
         
         return faqBox;
+    }
+
+    /**
+     * Create a styled TitledPane for accordions
+     */
+    private javafx.scene.control.TitledPane createAccordionPane(String title, VBox content) {
+        javafx.scene.control.TitledPane pane = new javafx.scene.control.TitledPane(title, content);
+        pane.setAnimated(false);
+        pane.setCollapsible(true);
+
+        String textColor = ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72";
+        pane.setStyle(
+            "-fx-font-weight: bold; " +
+            "-fx-font-size: 15px; " +
+            "-fx-text-fill: " + textColor + ";"
+        );
+
+        content.setStyle("-fx-background-color: transparent;");
+        return pane;
     }
 }
 

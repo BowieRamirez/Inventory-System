@@ -67,6 +67,8 @@ public class StudentDashboard {
     private Runnable currentViewRefresher;
     // Track active tab name so recreating the top bar preserves selection
     private String activeTabName;
+    // Preserve help expanded pane title across theme toggles
+    private String helpExpandedTitle;
     
     public StudentDashboard(Student student) {
         this.student = student;
@@ -469,10 +471,10 @@ public class StudentDashboard {
         // Header
         Label headerTitle = new Label("📚 Help & User Guide");
         headerTitle.setFont(Font.font("System", FontWeight.BOLD, 22));
-        headerTitle.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72") + ";");
+        headerTitle.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72") + ";");
         
         Label headerSubtitle = new Label("Click on any section below to expand and view details");
-        headerSubtitle.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#a0a0c0" : "#666666") + "; -fx-font-size: 12px;");
+        headerSubtitle.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#8fb6d6" : "#666666") + "; -fx-font-size: 12px;");
         
         VBox headerBox = new VBox(4, headerTitle, headerSubtitle);
         headerBox.setPadding(new Insets(0, 0, 10, 0));
@@ -649,14 +651,54 @@ public class StudentDashboard {
             faqPane, policiesPane, supportPane
         );
         
-        // Expand the first pane by default
-        accordion.setExpandedPane(welcomePane);
+        // Restore previously-expanded pane if available, otherwise default to welcome
+        boolean restored = false;
+        if (helpExpandedTitle != null) {
+            for (javafx.scene.control.TitledPane p : accordion.getPanes()) {
+                if (helpExpandedTitle.equals(p.getText())) {
+                    accordion.setExpandedPane(p);
+                    restored = true;
+                    break;
+                }
+            }
+        }
+        if (!restored) {
+            accordion.setExpandedPane(welcomePane);
+        }
         
         mainBox.getChildren().addAll(headerBox, accordion);
         
         scrollPane.setContent(mainBox);
         contentArea.getChildren().add(scrollPane);
         currentViewRefresher = this::showHelp;
+    }
+
+    // Helper: find currently-expanded titled pane's title inside the help accordion
+    private String getCurrentHelpExpandedTitle() {
+        for (javafx.scene.Node node : contentArea.getChildren()) {
+            if (node instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) node;
+                javafx.scene.Node content = sp.getContent();
+                if (content instanceof VBox) {
+                    for (javafx.scene.Node child : ((VBox) content).getChildren()) {
+                        if (child instanceof javafx.scene.control.Accordion) {
+                            javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) child;
+                            javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                            if (expanded != null) return expanded.getText();
+                        }
+                    }
+                } else if (content instanceof javafx.scene.control.Accordion) {
+                    javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) content;
+                    javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                    if (expanded != null) return expanded.getText();
+                }
+            } else if (node instanceof javafx.scene.control.Accordion) {
+                javafx.scene.control.Accordion acc = (javafx.scene.control.Accordion) node;
+                javafx.scene.control.TitledPane expanded = acc.getExpandedPane();
+                if (expanded != null) return expanded.getText();
+            }
+        }
+        return null;
     }
     
     /**
@@ -668,7 +710,7 @@ public class StudentDashboard {
         pane.setCollapsible(true);
         
         // Style the titled pane header - larger font
-        String textColor = ThemeManager.isDarkMode() ? "#e0e0ff" : "#1e3c72";
+        String textColor = ThemeManager.isDarkMode() ? "#9fc5ff" : "#1e3c72";
         
         pane.setStyle(
             "-fx-font-weight: bold; " +
@@ -688,7 +730,7 @@ public class StudentDashboard {
     private Label createHelpDescription(String text) {
         Label label = new Label(text);
         label.setWrapText(true);
-        label.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#c0c0d0" : "#555555") + "; -fx-font-size: 14px;");
+        label.setStyle("-fx-text-fill: " + (ThemeManager.isDarkMode() ? "#bcd6ee" : "#555555") + "; -fx-font-size: 14px;");
         return label;
     }
     
@@ -850,8 +892,9 @@ public class StudentDashboard {
         // Re-apply notification badge after recreating top bar
         updateNotificationBadge();
         
-        // Refresh help if displayed, or re-apply current view
+        // Refresh help if displayed, preserving expanded pane, or re-apply current view
         if (contentArea.lookup("#help-content") != null) {
+            helpExpandedTitle = getCurrentHelpExpandedTitle();
             showHelp();
         } else if (currentViewRefresher != null) {
             currentViewRefresher.run();

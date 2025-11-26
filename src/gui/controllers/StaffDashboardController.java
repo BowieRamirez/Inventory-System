@@ -394,7 +394,8 @@ public class StaffDashboardController {
         table.setStyle("-fx-background-color: -color-bg-subtle;");
         // Use constrained resize policy so columns behave predictably, then
         // pin a reasonable width for the actions column so both buttons fit.
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // Use the newer flex-last-column policy to avoid deprecated API warnings.
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         TableColumn<Reservation, String> idCol = new TableColumn<>("Order ID");
         idCol.setCellValueFactory(data -> {
