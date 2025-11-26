@@ -11,20 +11,23 @@ import java.util.stream.Collectors;
 import gui.utils.AlertHelper;
 import gui.utils.ControllerUtils;
 import gui.utils.SceneManager;
+import gui.utils.ThemeManager;
 import gui.views.LoginView;
 import inventory.InventoryManager;
 import inventory.Item;
 import inventory.ReceiptManager;
 import inventory.Reservation;
 import inventory.ReservationManager;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
@@ -34,8 +37,6 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -1228,8 +1229,9 @@ public class StudentDashboardController {
         filterSidebar.setStyle(
             "-fx-background-color: -color-bg-subtle;" +
             "-fx-border-color: -color-border-default;" +
-            "-fx-border-width: 0 1 0 0;" +
-            "-fx-border-radius: 0;"
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 6;" +
+            "-fx-background-radius: 6;"
         );
         
         // Get items for student's course (uniforms) and STI Special items ONLY
@@ -1317,10 +1319,14 @@ public class StudentDashboardController {
         itemsGrid.setPrefWrapLength(1200);
         itemsGrid.setAlignment(Pos.TOP_LEFT);
         
-        // Display all items (including out-of-stock) for transparency
-        // Group by code to show all available item types
+        // Display only in-stock items to avoid confusion
+        // Group by code and filter out groups where all sizes are out of stock
         java.util.Map<Integer, java.util.List<Item>> groupedAll = new java.util.LinkedHashMap<>();
         for (Item it : allItems) groupedAll.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+
+        // Filter out groups that are completely out of stock
+        groupedAll.entrySet().removeIf(entry -> 
+            entry.getValue().stream().allMatch(item -> item.getQuantity() <= 0));
 
         if (groupedAll.isEmpty()) {
             Label noItems = new Label("No items available for your course yet.");
@@ -1411,6 +1417,11 @@ public class StudentDashboardController {
             itemsGrid.getChildren().clear();
             java.util.Map<Integer, java.util.List<Item>> groupedFiltered = new java.util.LinkedHashMap<>();
             for (Item it : filteredItems) groupedFiltered.computeIfAbsent(it.getCode(), k -> new java.util.ArrayList<>()).add(it);
+            
+            // Filter out groups that are completely out of stock
+            groupedFiltered.entrySet().removeIf(entry -> 
+                entry.getValue().stream().allMatch(item -> item.getQuantity() <= 0));
+            
             if (groupedFiltered.isEmpty()) {
                 Label noItems = new Label("No items found matching your filters.");
                 noItems.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
@@ -2983,8 +2994,8 @@ public class StudentDashboardController {
             VBox controlsBox = createReservationFilterControls(deduplicatedReservations, reservationsList, 
                 currentReservationPage, workingFilteredReservations, updateReservationPagination, "ALL");
             
-            // Display all reservations initially (filtered by "COMPLETED" as default)
-            displayFilteredReservationsWithPagination(deduplicatedReservations, "COMPLETED", "", null, null, 
+            // Display reservations initially (match the controls' default selection)
+            displayFilteredReservationsWithPagination(deduplicatedReservations, "ALL", "", null, null, 
                 currentReservationPage, workingFilteredReservations, updateReservationPagination);
             
             container.getChildren().addAll(titleLabel, controlsBox, scrollPane, reservationPaginationWrapper);
@@ -3000,10 +3011,12 @@ public class StudentDashboardController {
             int[] currentPage, List<Reservation>[] workingFiltered, Runnable updatePagination, String defaultStatus) {
         VBox mainControlsBox = new VBox(10);
         mainControlsBox.setPadding(new Insets(10));
-        mainControlsBox.setStyle("-fx-border-color: -color-bg-tertiary; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: -color-bg-secondary;");
+        // Ensure border and background radii and insets match so the full border renders
+        mainControlsBox.setStyle("-fx-border-color: -color-bg-tertiary; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: -color-bg-secondary; -fx-background-radius: 5; -fx-border-insets: 0; -fx-background-insets: 0;");
         
         // Search TextField
         HBox searchBox = new HBox(10);
+        searchBox.setAlignment(Pos.CENTER_LEFT);
         TextField searchField = new TextField();
         searchField.setPromptText("🔍 Search by ID, item name, or student...");
         searchField.setPrefWidth(300);
@@ -3013,6 +3026,7 @@ public class StudentDashboardController {
         
         // Date filter section
         HBox dateFilterBox = new HBox(10);
+        dateFilterBox.setAlignment(Pos.CENTER_LEFT);
         Label dateLabel = new Label("Date Range:");
         dateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
         
@@ -3037,71 +3051,105 @@ public class StudentDashboardController {
         searchBox.getChildren().addAll(new Separator(), dateFilterBox);
         HBox.setHgrow(dateFilterBox, Priority.ALWAYS);
         
-        // Status filter section
-        HBox statusFilterBox = new HBox(8);
-        statusFilterBox.setStyle("-fx-alignment: center-left;");
+        // Status filter section with ComboBox dropdown
+        HBox statusFilterBox = new HBox(12);
+        statusFilterBox.setAlignment(Pos.CENTER_LEFT);
+        // Keep padding/alignment but remove the background so the control blends with the page
+        statusFilterBox.setPadding(new Insets(8, 0, 8, 0));
+        statusFilterBox.setStyle("-fx-padding: 0; -fx-alignment: center-left;");
         
         Label filterLabel = new Label("Filter by Status:");
-        filterLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
-        statusFilterBox.getChildren().add(filterLabel);
+        filterLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
         
-        // Filter buttons (status filters)
-        String[] statuses = {
-            "ALL",
-            "BUNDLE",
-            "COMPLETED",
-            "REPLACED", 
-            "REPLACEMENT REQUESTED",
-            "APPROVED - WAITING FOR PAYMENT",
-            "CANCELLED",
-            "PENDING"
-        };
+        // Status filter dropdown
+        ComboBox<String> statusFilterCombo = new ComboBox<>(FXCollections.observableArrayList(
+            "📋 All",
+            "📦 Bundle",
+            "✅ Completed",
+            "🔄 Replaced",
+            "⏳ Replacement Req..",
+            "💳 Waiting for Paym..",
+            "❌ Cancelled",
+            "⏳ Pending"
+        ));
         
-        // Create ToggleGroup for status filters (only one can be selected at a time)
-        ToggleGroup statusToggleGroup = new ToggleGroup();
+        // Map display labels to actual status values
+        Map<String, String> statusLabelMap = new LinkedHashMap<>();
+        statusLabelMap.put("📋 All", "ALL");
+        statusLabelMap.put("📦 Bundle", "BUNDLE");
+        statusLabelMap.put("✅ Completed", "COMPLETED");
+        statusLabelMap.put("🔄 Replaced", "REPLACED");
+        statusLabelMap.put("⏳ Replacement Req..", "REPLACEMENT REQUESTED");
+        statusLabelMap.put("💳 Waiting for Paym..", "APPROVED - WAITING FOR PAYMENT");
+        statusLabelMap.put("❌ Cancelled", "CANCELLED");
+        statusLabelMap.put("⏳ Pending", "PENDING");
         
-        // Map to track button status mapping
-        Map<ToggleButton, String> buttonStatusMap = new HashMap<>();
+        // Reverse map for setting default value
+        Map<String, String> reverseStatusMap = new LinkedHashMap<>();
+        statusLabelMap.forEach((label, status) -> reverseStatusMap.put(status, label));
         
-            // Runnable to update filters
+        // Set default selection
+        String defaultLabel = reverseStatusMap.getOrDefault(
+            (defaultStatus != null && !defaultStatus.isEmpty()) ? defaultStatus.toUpperCase() : "COMPLETED",
+            "✅ Completed"
+        );
+        statusFilterCombo.setValue(defaultLabel);
+        statusFilterCombo.setPrefWidth(200);
+        statusFilterCombo.setPrefHeight(40);
+        
+        // Theme-aware styling
+        String fieldBg = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+        String fieldText = ThemeManager.isDarkMode() ? "white" : "#111827";
+        String baseComboStyle =
+            "-fx-font-size: 13px;" +
+            "-fx-background-color: " + fieldBg + ";" +
+            "-fx-control-inner-background: " + fieldBg + ";" +
+            "-fx-text-fill: " + fieldText + ";" +
+            "-fx-border-color: -color-accent-emphasis;" +
+            "-fx-border-width: 2px;" +
+            "-fx-border-radius: 4px;" +
+            "-fx-background-radius: 4px;" +
+            "-fx-padding: 0px 8px;" +
+            "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+        statusFilterCombo.setStyle(baseComboStyle);
+        statusFilterCombo.getStyleClass().add("dialog-combo");
+        if (ThemeManager.isDarkMode()) statusFilterCombo.getStyleClass().add("dark");
+        
+        // Listen for theme changes
+        ThemeManager.addThemeChangeListener(() -> Platform.runLater(() -> {
+            String fb = ThemeManager.isDarkMode() ? "rgba(255,255,255,0.12)" : "#f6f7f8";
+            String ftext = ThemeManager.isDarkMode() ? "white" : "#111827";
+            String updatedStyle =
+                "-fx-font-size: 13px;" +
+                "-fx-background-color: " + fb + ";" +
+                "-fx-control-inner-background: " + fb + ";" +
+                "-fx-text-fill: " + ftext + ";" +
+                "-fx-border-color: -color-accent-emphasis;" +
+                "-fx-border-width: 2px;" +
+                "-fx-border-radius: 4px;" +
+                "-fx-background-radius: 4px;" +
+                "-fx-padding: 0px 8px;" +
+                "-fx-prompt-text-fill: rgba(0,0,0,0.45);" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 4, 0, 0, 1);";
+            statusFilterCombo.setStyle(updatedStyle);
+            statusFilterCombo.getStyleClass().remove("dark");
+            if (ThemeManager.isDarkMode()) statusFilterCombo.getStyleClass().add("dark");
+        }));
+        
+        // Runnable to update filters
         Runnable updateFilters = () -> {
-            // Find the currently selected filter
-            String selectedStatus = (defaultStatus != null && !defaultStatus.isEmpty()) ? defaultStatus : "COMPLETED";
-            ToggleButton selectedBtn = (ToggleButton) statusToggleGroup.getSelectedToggle();
-            if (selectedBtn != null) {
-                selectedStatus = buttonStatusMap.get(selectedBtn);
-            }
+            String selectedLabel = statusFilterCombo.getValue();
+            String selectedStatus = statusLabelMap.getOrDefault(selectedLabel, "COMPLETED");
             
             displayFilteredReservationsWithPagination(allReservations, selectedStatus, searchField.getText(), 
                 startDatePicker.getValue(), endDatePicker.getValue(), currentPage, workingFiltered, updatePagination);
         };
         
-        // Create toggle buttons for status filters
-        for (String status : statuses) {
-            ToggleButton btn = new ToggleButton(getStatusLabel(status));
-            btn.setPrefWidth(120);
-            btn.setStyle("-fx-font-size: 11px; -fx-padding: 6px;");
-            btn.setToggleGroup(statusToggleGroup);
-            
-            // Store the mapping
-            buttonStatusMap.put(btn, status);
-            
-            // Set default selected based on provided defaultStatus (fallback to COMPLETED)
-            if ((defaultStatus != null && status.equalsIgnoreCase(defaultStatus)) || (defaultStatus == null && "COMPLETED".equalsIgnoreCase(status))) {
-                btn.setSelected(true);
-                btn.setStyle(btn.getStyle() + "; -fx-base: #10b981;");
-            }
-            
-            btn.setOnAction(e -> updateFilters.run());
-            
-            statusFilterBox.getChildren().add(btn);
-        }
+        // ComboBox selection listener
+        statusFilterCombo.setOnAction(e -> updateFilters.run());
         
-        // Wrap status filter buttons in scrollable container
-        ScrollPane filterScroll = new ScrollPane(statusFilterBox);
-        filterScroll.setFitToHeight(true);
-        filterScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
-        HBox.setHgrow(filterScroll, Priority.ALWAYS);
+        statusFilterBox.getChildren().addAll(filterLabel, statusFilterCombo);
         
         // Search field listener
         searchField.textProperty().addListener((obs, oldVal, newVal) -> updateFilters.run());
@@ -3111,7 +3159,7 @@ public class StudentDashboardController {
         
         endDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> updateFilters.run());
         
-        mainControlsBox.getChildren().addAll(searchBox, filterScroll);
+        mainControlsBox.getChildren().addAll(searchBox, statusFilterBox);
         return mainControlsBox;
     }
     

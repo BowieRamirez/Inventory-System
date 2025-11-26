@@ -49,3 +49,4 @@ Timestamp|PerformedBy|Code|ItemName|Size|StockChange|Action|Details
 2025-11-27 10:51:57|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|+1/1|USER_RETURN|Student Ramirez, Bowie (02000284710) returned - Reason: Replaced with: IT/Eng RTW Pants (Male) (Size: S)
 2025-11-27 12:18:31|Ramirez, Bowie|1054|IT/Eng RTW Pants (Male)|S|-2/154|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
 2025-11-27 12:35:26|Ramirez, Bowie|1056|IT/Eng RTW Skirt (Female)|S|-1/1|USER_PICKUP|Student Ramirez, Bowie (02000284710) picked up item
+2025-11-27 16:27:38|raslu, hashim|1033|SHS White Blouse (Female)|S|-1/0|USER_PICKUP|Student raslu, hashim (02000288888) picked up item

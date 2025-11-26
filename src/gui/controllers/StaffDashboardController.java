@@ -1894,6 +1894,8 @@ public class StaffDashboardController {
         Map<Reservation, List<Item>> variantsMap = new java.util.HashMap<>();
         // Keep optional notes per reservation when staff choose a different size
         Map<Reservation, javafx.scene.control.TextArea> notesMap = new java.util.HashMap<>();
+        // Track items with no replacement stock available
+        List<String> itemsWithNoStock = new ArrayList<>();
 
         for (Reservation it : itemsToReturn) {
             VBox itemRow = new VBox(8);
@@ -2028,9 +2030,57 @@ public class StaffDashboardController {
             javafx.scene.control.ToggleGroup tg = new javafx.scene.control.ToggleGroup();
 
             if (candidates.isEmpty()) {
-                Label none = new Label("No replacement available");
-                none.setStyle("-fx-font-size:12px; -fx-text-fill:#999999;");
-                sizesBox.getChildren().add(none);
+                // Track this item as having no stock
+                itemsWithNoStock.add(it.getItemName());
+                
+                // Show ON HOLD badge with out of stock info for all sizes
+                HBox onHoldBadge = new HBox(6);
+                onHoldBadge.setAlignment(Pos.CENTER_LEFT);
+                Label holdIcon = new Label("⏸");
+                holdIcon.setStyle("-fx-font-size: 14px;");
+                Label holdLabel = new Label("ON HOLD");
+                holdLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #FFA500; -fx-padding: 4 10; -fx-background-radius: 4;");
+                onHoldBadge.getChildren().addAll(holdIcon, holdLabel);
+                
+                // Show all sizes with their stock (all 0)
+                VBox stockInfoBox = new VBox(4);
+                stockInfoBox.setPadding(new Insets(6, 0, 0, 0));
+                Label stockTitle = new Label("Stock Status (All Sizes):");
+                stockTitle.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #666666;");
+                stockInfoBox.getChildren().add(stockTitle);
+                
+                // Get all matching items to show their sizes and stock (even if 0)
+                List<Item> allMatchingItems = inventoryManager.getAllItems().stream()
+                    .filter(item -> item.getName().equals(it.getItemName()))
+                    .filter(item -> {
+                        String courseRes = it.getCourse() != null ? it.getCourse().trim().toUpperCase() : "";
+                        String itemCourse = item.getCourse() != null ? item.getCourse().trim().toUpperCase() : "";
+                        boolean isSHSItem = "SHS".equals(itemCourse);
+                        boolean isSHSReservation = !courseRes.isEmpty() && (
+                            courseRes.startsWith("SHS") || courseRes.startsWith("STEM") ||
+                            courseRes.startsWith("HUMSS") || courseRes.startsWith("ABM") ||
+                            courseRes.startsWith("GAS") || courseRes.startsWith("TVL") ||
+                            courseRes.startsWith("CUL"));
+                        if (isSHSItem && isSHSReservation) return true;
+                        return it.getCourse() != null && item.getCourse() != null && (
+                            it.getCourse().equals("STI Special") || item.getCourse().equals("STI Special") ||
+                            it.getCourse().equalsIgnoreCase(item.getCourse()));
+                    })
+                    .collect(Collectors.toList());
+                
+                for (Item matchItem : allMatchingItems) {
+                    Label sizeStockLabel = new Label("  • " + matchItem.getSize() + ": " + matchItem.getQuantity() + " available");
+                    sizeStockLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + (matchItem.getQuantity() == 0 ? "#CF222E" : "#333333") + ";");
+                    stockInfoBox.getChildren().add(sizeStockLabel);
+                }
+                
+                if (allMatchingItems.isEmpty()) {
+                    Label noItemsLabel = new Label("  No items found in inventory");
+                    noItemsLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #CF222E;");
+                    stockInfoBox.getChildren().add(noItemsLabel);
+                }
+                
+                sizesBox.getChildren().addAll(onHoldBadge, stockInfoBox);
             } else {
                 // Create a radio button per available size. Preselect same-size when possible.
                 for (Item cand : candidates) {
@@ -2086,6 +2136,31 @@ public class StaffDashboardController {
         // Instruction and actions row
         Label confirmNote = new Label("Selected replacements will be applied when you click Approve Replacement.");
         confirmNote.setStyle("-fx-font-size: 12px; -fx-text-fill: #555555;");
+        
+        // If any item has no stock, show warning and update instruction
+        VBox onHoldWarningBox = null;
+        if (!itemsWithNoStock.isEmpty()) {
+            onHoldWarningBox = new VBox(6);
+            onHoldWarningBox.setPadding(new Insets(10));
+            onHoldWarningBox.setStyle("-fx-background-color: #FFF4E5; -fx-border-color: #FFA500; -fx-border-width: 2; -fx-border-radius: 8; -fx-background-radius: 8;");
+            
+            HBox warningHeader = new HBox(8);
+            warningHeader.setAlignment(Pos.CENTER_LEFT);
+            Label warningIcon = new Label("⚠");
+            warningIcon.setStyle("-fx-font-size: 18px;");
+            Label warningTitle = new Label("REPLACEMENT ON HOLD");
+            warningTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #C86900;");
+            warningHeader.getChildren().addAll(warningIcon, warningTitle);
+            
+            Label warningMsg = new Label("Cannot approve replacement - no stock available for:\n• " + String.join("\n• ", itemsWithNoStock));
+            warningMsg.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
+            warningMsg.setWrapText(true);
+            
+            onHoldWarningBox.getChildren().addAll(warningHeader, warningMsg);
+            
+            confirmNote.setText("Approval is disabled until stock becomes available.");
+            confirmNote.setStyle("-fx-font-size: 12px; -fx-text-fill: #CF222E; -fx-font-weight: bold;");
+        }
 
         Button viewOrderBtn = new Button("View Full Order");
         viewOrderBtn.setOnAction(evt -> showOrderDetailsDialog(reservation));
@@ -2141,7 +2216,7 @@ public class StaffDashboardController {
         });
 
         javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory minuteFactory =
-            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 59, 0, 1);
         javafx.scene.control.Spinner<Integer> minuteSpinner = new javafx.scene.control.Spinner<>();
         minuteSpinner.setValueFactory(minuteFactory);
         minuteSpinner.setEditable(true);
@@ -2157,9 +2232,7 @@ public class StaffDashboardController {
                 if (string == null) return minuteFactory.getValue();
                 try {
                     int parsed = Integer.parseInt(string.trim());
-                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
-                    if (snapped == 60) snapped = 45;
-                    return snapped;
+                    return Math.max(0, Math.min(59, parsed));
                 } catch (NumberFormatException ignored) {
                     return minuteFactory.getValue();
                 }
@@ -2209,7 +2282,7 @@ public class StaffDashboardController {
         endHourSpinner.setPrefWidth(70);
 
         javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory endMinuteFactory =
-            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 59, 0, 1);
         javafx.scene.control.Spinner<Integer> endMinuteSpinner = new javafx.scene.control.Spinner<>();
         endMinuteSpinner.setValueFactory(endMinuteFactory);
         endMinuteSpinner.setEditable(true);
@@ -2223,9 +2296,7 @@ public class StaffDashboardController {
                 if (string == null) return endMinuteFactory.getValue();
                 try {
                     int parsed = Integer.parseInt(string.trim());
-                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
-                    if (snapped == 60) snapped = 45;
-                    return snapped;
+                    return Math.max(0, Math.min(59, parsed));
                 } catch (NumberFormatException ignored) {
                     return endMinuteFactory.getValue();
                 }
@@ -2341,6 +2412,10 @@ public class StaffDashboardController {
 
         VBox contentBox = new VBox(16);
         // Add selectors and the notes/date into the single middle scroll area
+        // Add ON HOLD warning if any items have no stock
+        if (onHoldWarningBox != null) {
+            middleContent.getChildren().add(onHoldWarningBox);
+        }
         middleContent.getChildren().addAll(selectors, notesAndDateBox, confirmNote, viewOrderBtn);
         ScrollPane middleScroll = new ScrollPane(middleContent);
         middleScroll.setFitToWidth(true);
@@ -2354,6 +2429,20 @@ public class StaffDashboardController {
         contentBox.setPadding(new Insets(12));
 
         confirmDialog.getDialogPane().setContent(contentBox);
+        
+        // Disable approve button if any item has no stock
+        final boolean hasNoStockItems = !itemsWithNoStock.isEmpty();
+        if (hasNoStockItems) {
+            Node approveButton = confirmDialog.getDialogPane().lookupButton(approveType);
+            if (approveButton != null) {
+                approveButton.setDisable(true);
+                // Change button text to show ON HOLD status
+                if (approveButton instanceof javafx.scene.control.Button) {
+                    ((javafx.scene.control.Button) approveButton).setText("⏸ ON HOLD");
+                    approveButton.setStyle("-fx-background-color: #FFA500; -fx-text-fill: white;");
+                }
+            }
+        }
 
         // Show dialog and process selection
         Optional<ButtonType> result = confirmDialog.showAndWait();
@@ -2396,12 +2485,6 @@ public class StaffDashboardController {
                 return;
             }
 
-            java.time.LocalDateTime scheduledStart = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(selHour24, selMinute));
-            if (scheduledStart.isBefore(java.time.LocalDateTime.now())) {
-                AlertHelper.showError("Invalid Time", "Selected start date/time is in the past.");
-                return;
-            }
-            
             // Read end time controls and validate
             int endHour12 = endHourSpinner.getValue();
             int endMinuteVal = endMinuteSpinner.getValue();
@@ -2413,7 +2496,15 @@ public class StaffDashboardController {
                 return;
             }
 
+            java.time.LocalDateTime scheduledStart = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(selHour24, selMinute));
             java.time.LocalDateTime scheduledEnd = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(endHour24, endMinuteVal));
+            
+            // Check if end time is in the past (start time can be in past for time ranges like 8AM-5PM set at 9AM)
+            if (scheduledEnd.isBefore(java.time.LocalDateTime.now())) {
+                AlertHelper.showError("Invalid Time", "The pickup time range has already passed. Please select a future end time.");
+                return;
+            }
+            
             if (!scheduledEnd.isAfter(scheduledStart)) {
                 AlertHelper.showError("Invalid Time Range", "End time must be after start time.");
                 return;
@@ -2793,11 +2884,11 @@ public class StaffDashboardController {
         hourSpinner.setPrefWidth(70);
 
         javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory minuteFactory =
-            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 59, 0, 1);
         javafx.scene.control.Spinner<Integer> minuteSpinner = new javafx.scene.control.Spinner<>();
         minuteSpinner.setValueFactory(minuteFactory);
         minuteSpinner.setEditable(true);
-        // Converter to safely parse typed input into a minute value (0,15,30,45)
+        // Converter to safely parse typed input into a minute value (0-59)
         minuteSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
             @Override
             public String toString(Integer object) {
@@ -2809,10 +2900,7 @@ public class StaffDashboardController {
                 if (string == null) return minuteFactory.getValue();
                 try {
                     int parsed = Integer.parseInt(string.trim());
-                    // snap to nearest 15-minute increment within 0-45
-                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
-                    if (snapped == 60) snapped = 45;
-                    return snapped;
+                    return Math.max(0, Math.min(59, parsed));
                 } catch (NumberFormatException ignored) {
                     return minuteFactory.getValue();
                 }
@@ -3083,9 +3171,10 @@ public class StaffDashboardController {
                     return;
                 }
                 
-                java.time.LocalDateTime scheduledStart = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(startHour24, startMinute));
-                if (scheduledStart.isBefore(java.time.LocalDateTime.now())) {
-                    AlertHelper.showError("Invalid Time", "Selected date/time is in the past.");
+                // Check if end time is in the past (start time can be in past for time ranges like 8AM-5PM set at 9AM)
+                java.time.LocalDateTime scheduledEnd = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(endHour24, endMinute));
+                if (scheduledEnd.isBefore(java.time.LocalDateTime.now())) {
+                    AlertHelper.showError("Invalid Time", "The pickup time range has already passed. Please select a future end time.");
                     return;
                 }
             } catch (Exception ex) {
