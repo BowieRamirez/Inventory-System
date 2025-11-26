@@ -676,7 +676,7 @@ public class FileStorage {
     
     /**
      * Parse reservation from file format
-    * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline|scheduledPickup|replacementItemCode|replacementItemName|replacementSize|replacementNote
+    * Format: reservationId|studentName|studentId|course|itemCode|itemName|quantity|totalPrice|size|status|isPaid|paymentMethod|reservationTime|completedDate|reason|bundleId|paymentDeadline|scheduledPickup|replacementItemCode|replacementItemName|replacementSize|replacementNote|claimProofImagePath|scheduledPickupEnd
      */
     private static Reservation parseReservation(String line) {
         String[] parts = line.split("\\|", -1); // -1 to keep empty trailing fields
@@ -709,6 +709,7 @@ public class FileStorage {
             String replacementSize = (parts.length > 20 && !parts[20].isEmpty()) ? parts[20] : "";
             String replacementNote = (parts.length > 21 && !parts[21].isEmpty()) ? parts[21] : "";
             String claimProofImagePath = (parts.length > 22 && !parts[22].isEmpty()) ? parts[22] : "";
+            String scheduledPickupEndStr = (parts.length > 23 && !parts[23].isEmpty()) ? parts[23] : "";
 
             // Create reservation with bundleId
             Reservation reservation = new Reservation(reservationId, studentName, studentId, course,
@@ -740,6 +741,13 @@ public class FileStorage {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 LocalDateTime scheduled = LocalDateTime.parse(scheduledPickupStr, formatter);
                 reservation.setScheduledPickupDateTime(scheduled);
+            }
+            
+            // Set scheduled pickup end time if exists
+            if (!scheduledPickupEndStr.isEmpty()) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime scheduledEnd = LocalDateTime.parse(scheduledPickupEndStr, formatter);
+                reservation.setScheduledPickupEndDateTime(scheduledEnd);
             }
 
             // Set payment deadline if exists
@@ -822,6 +830,7 @@ public class FileStorage {
                          reservation.getReplacementSize() : "";
          String replacementNote = reservation.getReplacementNote() != null ? reservation.getReplacementNote() : "";
          String scheduledPickup = reservation.getScheduledPickupDateTime() != null ? reservation.getScheduledPickupDateTime().format(formatter) : "";
+         String scheduledPickupEnd = reservation.getScheduledPickupEndDateTime() != null ? reservation.getScheduledPickupEndDateTime().format(formatter) : "";
          String claimProofImagePath = reservation.getClaimProofImagePath() != null ? reservation.getClaimProofImagePath() : "";
         
          return reservation.getReservationId() + "|" +
@@ -846,7 +855,8 @@ public class FileStorage {
                          replacementItemName + "|" +
                          replacementSize + "|" +
                          replacementNote + "|" +
-                         claimProofImagePath;
+                         claimProofImagePath + "|" +
+                         scheduledPickupEnd;
     }
     
     /**

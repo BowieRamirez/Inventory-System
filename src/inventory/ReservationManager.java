@@ -210,11 +210,20 @@ public class ReservationManager {
      * Changes status from "PICKUP REQUESTED - AWAITING STAFF APPROVAL" to "APPROVED FOR PICKUP"
      */
     public boolean approvePickupRequest(int reservationId, java.time.LocalDateTime scheduledPickup) {
+        return approvePickupRequest(reservationId, scheduledPickup, null);
+    }
+    
+    /**
+     * Staff approves pickup request with time range
+     * Changes status from "PICKUP REQUESTED - AWAITING STAFF APPROVAL" to "APPROVED FOR PICKUP"
+     */
+    public boolean approvePickupRequest(int reservationId, java.time.LocalDateTime scheduledPickupStart, java.time.LocalDateTime scheduledPickupEnd) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "PICKUP REQUESTED - AWAITING STAFF APPROVAL".equals(r.getStatus())) {
-            // Mark as approved for pickup and store scheduled pickup datetime
+            // Mark as approved for pickup and store scheduled pickup datetime range
             r.setStatus("APPROVED FOR PICKUP");
-            r.setScheduledPickupDateTime(scheduledPickup);
+            r.setScheduledPickupDateTime(scheduledPickupStart);
+            r.setScheduledPickupEndDateTime(scheduledPickupEnd);
             saveReservations();
 
             // Do NOT auto-complete here — the student must still claim the item,
@@ -409,6 +418,13 @@ public class ReservationManager {
      * Approve replacement with specific replacement item (does NOT restock - item is replaced with new one)
      */
     public boolean approveReplacementWithItem(int reservationId, int replacementItemCode, String replacementItemName, String replacementSize, String replacementNote) {
+        return approveReplacementWithItem(reservationId, replacementItemCode, replacementItemName, replacementSize, replacementNote, null, null);
+    }
+    
+    /**
+     * Approve replacement with specific replacement item and scheduled pickup time range
+     */
+    public boolean approveReplacementWithItem(int reservationId, int replacementItemCode, String replacementItemName, String replacementSize, String replacementNote, java.time.LocalDateTime scheduledPickupStart, java.time.LocalDateTime scheduledPickupEnd) {
         Reservation r = findReservationById(reservationId);
         if (r != null && "REPLACEMENT REQUESTED".equals(r.getStatus())) {
             // Restock the original item
@@ -429,6 +445,15 @@ public class ReservationManager {
             if (replacementNote != null && !replacementNote.trim().isEmpty()) {
                 r.setReplacementNote(replacementNote.trim());
             }
+            
+            // Set scheduled pickup time range if provided
+            if (scheduledPickupStart != null) {
+                r.setScheduledPickupDateTime(scheduledPickupStart);
+            }
+            if (scheduledPickupEnd != null) {
+                r.setScheduledPickupEndDateTime(scheduledPickupEnd);
+            }
+            
             r.setStatus("REPLACED");
             r.setReason(r.getReason() != null ? r.getReason() : "Item replaced with new one");
             saveReservations();

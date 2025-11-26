@@ -14,7 +14,8 @@ public class Reservation {
     private int quantity;
     private LocalDateTime reservationTime;
     private LocalDateTime completedDate;
-    private LocalDateTime scheduledPickupDateTime; // When staff schedules the pickup
+    private LocalDateTime scheduledPickupDateTime; // When staff schedules the pickup (start time)
+    private LocalDateTime scheduledPickupEndDateTime; // End time of pickup window
     private LocalDateTime paymentDeadline; // Deadline for payment (48 hours after approval)
     private String status;
     private String reason;
@@ -77,6 +78,8 @@ public class Reservation {
     public void setCompletedDate(LocalDateTime completedDate) { this.completedDate = completedDate; }
     public LocalDateTime getScheduledPickupDateTime() { return scheduledPickupDateTime; }
     public void setScheduledPickupDateTime(LocalDateTime scheduledPickupDateTime) { this.scheduledPickupDateTime = scheduledPickupDateTime; }
+    public LocalDateTime getScheduledPickupEndDateTime() { return scheduledPickupEndDateTime; }
+    public void setScheduledPickupEndDateTime(LocalDateTime scheduledPickupEndDateTime) { this.scheduledPickupEndDateTime = scheduledPickupEndDateTime; }
     public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }
     public void setBundleId(String bundleId) { this.bundleId = bundleId; }
     

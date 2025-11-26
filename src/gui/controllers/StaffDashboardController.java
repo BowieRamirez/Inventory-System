@@ -2009,15 +2009,7 @@ public class StaffDashboardController {
         middleContent.setPadding(new Insets(4, 0, 4, 0));
         // we'll add selectors and the notes/date controls into middleContent below
 
-        // --- Global notes + pickup date controls (placed after replacement selectors) ---
-        Label globalNotesLabel = new Label("Notes (optional):");
-        globalNotesLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #333333;");
-        javafx.scene.control.TextArea globalNotesArea = new javafx.scene.control.TextArea();
-        globalNotesArea.setPromptText("Add a note for this replacement approval (optional)");
-        globalNotesArea.setWrapText(true);
-        globalNotesArea.setPrefRowCount(3);
-        globalNotesArea.setPrefWidth(Double.MAX_VALUE);
-
+        // --- Pickup date controls (placed after replacement selectors) ---
         // Pickup Date (global) - allowed: today .. today + N days
         final int N = 3; // configurable window (default 3 days)
         java.time.LocalDate minDate = java.time.LocalDate.now();
@@ -2098,6 +2090,73 @@ public class StaffDashboardController {
         HBox timeBox = new HBox(6, hourSpinner, colonLabel, minuteSpinner, amPmPicker);
         timeBox.setAlignment(Pos.CENTER_LEFT);
 
+        // === END TIME PICKER FOR REPLACEMENT ===
+        Label endTimeLabel = new Label("Pickup Time (Until):");
+        endTimeLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #333333;");
+        
+        // End time spinners - default to 5 PM (closing time)
+        javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<Integer> endHourFactory =
+            new javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<>(FXCollections.observableArrayList(8,9,10,11,12,1,2,3,4,5));
+        endHourFactory.setValue(5); // Default to 5 PM
+        javafx.scene.control.Spinner<Integer> endHourSpinner = new javafx.scene.control.Spinner<>();
+        endHourSpinner.setValueFactory(endHourFactory);
+        endHourSpinner.setEditable(true);
+        endHourSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.valueOf(object);
+            }
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return endHourFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    if (allowedHours.contains(parsed)) return parsed;
+                    if (parsed >= 8 && parsed <= 17) {
+                        int mapped = parsed > 12 ? parsed - 12 : parsed;
+                        if (allowedHours.contains(mapped)) return mapped;
+                    }
+                } catch (NumberFormatException ignored) {}
+                return endHourFactory.getValue();
+            }
+        });
+        endHourSpinner.setPrefWidth(70);
+
+        javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory endMinuteFactory =
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+        javafx.scene.control.Spinner<Integer> endMinuteSpinner = new javafx.scene.control.Spinner<>();
+        endMinuteSpinner.setValueFactory(endMinuteFactory);
+        endMinuteSpinner.setEditable(true);
+        endMinuteSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.format("%02d", object);
+            }
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return endMinuteFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
+                    if (snapped == 60) snapped = 45;
+                    return snapped;
+                } catch (NumberFormatException ignored) {
+                    return endMinuteFactory.getValue();
+                }
+            }
+        });
+        endMinuteSpinner.setPrefWidth(70);
+
+        ComboBox<String> endAmPmPicker = new ComboBox<>(FXCollections.observableArrayList("AM", "PM"));
+        endAmPmPicker.setEditable(true);
+        endAmPmPicker.setValue("PM"); // Default to PM for end time
+
+        Label endColonLabel = new Label(":");
+        endColonLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+
+        HBox endTimeBox = new HBox(6, endHourSpinner, endColonLabel, endMinuteSpinner, endAmPmPicker);
+        endTimeBox.setAlignment(Pos.CENTER_LEFT);
+
         // Auto-adjust AM/PM based on selected hour so resulting 24-hour time falls within 08:00-17:00
         hourSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == null) return;
@@ -2132,6 +2191,41 @@ public class StaffDashboardController {
             }
         });
 
+        // End time listeners - auto-adjust AM/PM based on hour
+        endHourSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            int h = newVal;
+            if (h >= 8 && h <= 11) {
+                endAmPmPicker.setValue("AM");
+            } else {
+                endAmPmPicker.setValue("PM");
+            }
+        });
+        endMinuteSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            try {
+                Integer m = newVal;
+                Integer h = endHourSpinner.getValue();
+                String ap = endAmPmPicker.getValue();
+                if (h != null && ap != null && h == 5 && "PM".equalsIgnoreCase(ap) && m != null && m > 0) {
+                    endMinuteSpinner.getValueFactory().setValue(0);
+                }
+            } catch (Exception ignored) {}
+        });
+        endAmPmPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            String ap = newVal.trim().toUpperCase();
+            int h = endHourSpinner.getValue();
+            if (ap.equals("AM") && (h < 8 || h > 11)) {
+                endAmPmPicker.setValue("PM");
+            } else if (ap.equals("PM") && !(h == 12 || (h >= 1 && h <= 5))) {
+                if (h >= 8 && h <= 11) endAmPmPicker.setValue("AM");
+            }
+        });
+
+        // Store hours label
+        Label hoursInfoLabel = new Label("⏰ Store Hours: 8:00 AM - 5:00 PM");
+        hoursInfoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
+
         // Helper text under date picker
         Label dateHelper = new Label("Allowed: Today - " + maxDate.format(dateFmt));
         dateHelper.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
@@ -2155,7 +2249,8 @@ public class StaffDashboardController {
             }
         });
 
-        VBox notesAndDateBox = new VBox(8, globalNotesLabel, globalNotesArea, pickupLabel, pickupDatePicker, timeBox, dateHelper, dateErrorLabel);
+        VBox notesAndDateBox = new VBox(8, pickupLabel, pickupDatePicker, 
+            timeLabel, timeBox, endTimeLabel, endTimeBox, hoursInfoLabel, dateHelper, dateErrorLabel);
         notesAndDateBox.setPadding(new Insets(8, 0, 8, 0));
 
         VBox contentBox = new VBox(16);
@@ -2211,15 +2306,33 @@ public class StaffDashboardController {
             int selHour24 = "AM".equals(selAp) ? (selHour12 == 12 ? 0 : selHour12) : (selHour12 == 12 ? 12 : selHour12 + 12);
 
             if (selHour24 < 8 || selHour24 > 17 || (selHour24 == 17 && selMinute > 0)) {
-                AlertHelper.showError("Invalid Time", "Selected time is outside business hours (8:00 AM - 5:00 PM). Please choose 5:00 PM or earlier.");
+                AlertHelper.showError("Invalid Time", "Start time is outside business hours (8:00 AM - 5:00 PM). Please choose 5:00 PM or earlier.");
                 return;
             }
 
-            java.time.LocalDateTime scheduled = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(selHour24, selMinute));
-            if (scheduled.isBefore(java.time.LocalDateTime.now())) {
-                AlertHelper.showError("Invalid Time", "Selected date/time is in the past.");
+            java.time.LocalDateTime scheduledStart = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(selHour24, selMinute));
+            if (scheduledStart.isBefore(java.time.LocalDateTime.now())) {
+                AlertHelper.showError("Invalid Time", "Selected start date/time is in the past.");
                 return;
             }
+            
+            // Read end time controls and validate
+            int endHour12 = endHourSpinner.getValue();
+            int endMinuteVal = endMinuteSpinner.getValue();
+            String endAp = endAmPmPicker.getValue() == null ? "PM" : endAmPmPicker.getValue().trim().toUpperCase();
+            int endHour24 = "AM".equals(endAp) ? (endHour12 == 12 ? 0 : endHour12) : (endHour12 == 12 ? 12 : endHour12 + 12);
+
+            if (endHour24 < 8 || endHour24 > 17 || (endHour24 == 17 && endMinuteVal > 0)) {
+                AlertHelper.showError("Invalid Time", "End time is outside business hours (8:00 AM - 5:00 PM). Please choose 5:00 PM or earlier.");
+                return;
+            }
+
+            java.time.LocalDateTime scheduledEnd = java.time.LocalDateTime.of(selectedDate, java.time.LocalTime.of(endHour24, endMinuteVal));
+            if (!scheduledEnd.isAfter(scheduledStart)) {
+                AlertHelper.showError("Invalid Time Range", "End time must be after start time.");
+                return;
+            }
+            
             // If any selected replacement changes size and no note was provided, ask for confirmation
             List<Reservation> mismatchesNoNote = new ArrayList<>();
             for (Map.Entry<Reservation, javafx.scene.control.ToggleGroup> entry : selectionMap.entrySet()) {
@@ -2266,7 +2379,9 @@ public class StaffDashboardController {
                         selectedReplacement.getCode(),
                         selectedReplacement.getName(),
                         selectedReplacement.getSize(),
-                        noteTxt
+                        noteTxt,
+                        scheduledStart,
+                        scheduledEnd
                     );
                     if (success) successCount++; else allSuccess = false;
                 } else {
@@ -2282,10 +2397,12 @@ public class StaffDashboardController {
                 successAlert.setHeaderText(reservation.isPartOfBundle() ? 
                     "Replacement approved for all " + successCount + " items!" : 
                     "Replacement approved!");
-                DateTimeFormatter dateTimeFmt = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
+                DateTimeFormatter dateTimeFmt = DateTimeFormatter.ofPattern("MMM d, yyyy");
+                DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("h:mm a");
                 successAlert.setContentText(
                     "Pickup scheduled for:\n" +
-                    scheduled.format(dateTimeFmt) + "\n\n" +
+                    scheduledStart.format(dateTimeFmt) + "\n" +
+                    "From " + scheduledStart.format(timeFmt) + " to " + scheduledEnd.format(timeFmt) + "\n\n" +
                     "Items have been replaced successfully.\n" +
                     "Previous items are back in inventory.\n\n" +
                     "The student has been notified and will see this in their notification bell (🔔)."
@@ -2378,7 +2495,7 @@ public class StaffDashboardController {
         });
         datePicker.setPrefWidth(200);
         
-        Label timeLabel = new Label("Pickup Time:");
+        Label timeLabel = new Label("Pickup Time (Start):");
         timeLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
         
         // Time picker: editable Spinners for hour (1-12) and minute (00,15,30,45), plus editable AM/PM ComboBox
@@ -2451,6 +2568,77 @@ public class StaffDashboardController {
         HBox timeBox = new HBox(5, hourSpinner, colonLabel, minuteSpinner, amPmPicker);
         timeBox.setAlignment(Pos.CENTER_LEFT);
 
+        // === END TIME PICKER ===
+        Label endTimeLabel = new Label("Pickup Time (Until):");
+        endTimeLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
+        
+        // End time spinners - default to 5 PM (closing time)
+        javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<Integer> endHourFactory =
+            new javafx.scene.control.SpinnerValueFactory.ListSpinnerValueFactory<>(FXCollections.observableArrayList(8,9,10,11,12,1,2,3,4,5));
+        endHourFactory.setValue(5); // Default to 5 PM
+        javafx.scene.control.Spinner<Integer> endHourSpinner = new javafx.scene.control.Spinner<>();
+        endHourSpinner.setValueFactory(endHourFactory);
+        endHourSpinner.setEditable(true);
+        endHourSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.valueOf(object);
+            }
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return endHourFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    if (allowedHours.contains(parsed)) return parsed;
+                    if (parsed >= 8 && parsed <= 17) {
+                        int mapped = parsed > 12 ? parsed - 12 : parsed;
+                        if (allowedHours.contains(mapped)) return mapped;
+                    }
+                } catch (NumberFormatException ignored) {}
+                return endHourFactory.getValue();
+            }
+        });
+        endHourSpinner.setPrefWidth(70);
+
+        javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory endMinuteFactory =
+            new javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory(0, 45, 0, 15);
+        javafx.scene.control.Spinner<Integer> endMinuteSpinner = new javafx.scene.control.Spinner<>();
+        endMinuteSpinner.setValueFactory(endMinuteFactory);
+        endMinuteSpinner.setEditable(true);
+        endMinuteSpinner.getValueFactory().setConverter(new javafx.util.StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.format("%02d", object);
+            }
+            @Override
+            public Integer fromString(String string) {
+                if (string == null) return endMinuteFactory.getValue();
+                try {
+                    int parsed = Integer.parseInt(string.trim());
+                    int snapped = Math.max(0, Math.min(45, ((parsed + 7) / 15) * 15));
+                    if (snapped == 60) snapped = 45;
+                    return snapped;
+                } catch (NumberFormatException ignored) {
+                    return endMinuteFactory.getValue();
+                }
+            }
+        });
+        endMinuteSpinner.setPrefWidth(70);
+
+        ComboBox<String> endAmPmPicker = new ComboBox<>(FXCollections.observableArrayList("AM", "PM"));
+        endAmPmPicker.setEditable(true);
+        endAmPmPicker.setValue("PM"); // Default to PM for end time
+
+        Label endColonLabel = new Label(":");
+        endColonLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        HBox endTimeBox = new HBox(5, endHourSpinner, endColonLabel, endMinuteSpinner, endAmPmPicker);
+        endTimeBox.setAlignment(Pos.CENTER_LEFT);
+
+        // Store hours label to display business hours info
+        Label hoursInfoLabel = new Label("⏰ Store Hours: 8:00 AM - 5:00 PM");
+        hoursInfoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: -color-fg-muted;");
+        
         // Auto-adjust AM/PM based on selected hour so resulting 24-hour time falls within 08:00-17:00
         hourSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == null) return;
@@ -2460,16 +2648,20 @@ public class StaffDashboardController {
             } else {
                 amPmPicker.setValue("PM");
             }
+            // If hour is 5 PM, ensure minutes are 0 (store closes at 5:00 PM sharp)
+            if (h == 5 && "PM".equalsIgnoreCase(amPmPicker.getValue())) {
+                minuteSpinner.getValueFactory().setValue(0);
+            }
         });
-        // If the hour is 5 PM, clamp minutes to 00 to enforce the 5:00 PM cutoff
+        // If the hour is 5 PM, clamp minutes to 00 to enforce the 5:00 PM cutoff (store closes at 5:00 PM)
         minuteSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
             try {
                 Integer m = newVal;
                 Integer h = hourSpinner.getValue();
                 String ap = amPmPicker.getValue();
                 if (h != null && ap != null && h == 5 && "PM".equalsIgnoreCase(ap) && m != null && m > 0) {
-                    // Snap down to 00 minutes when user attempts to pick 5:15/5:30/5:45
-                    minuteSpinner.getValueFactory().setValue(0);
+                    // Store closes at 5:00 PM - snap back to 00 minutes
+                    Platform.runLater(() -> minuteSpinner.getValueFactory().setValue(0));
                 }
             } catch (Exception ignored) {
             }
@@ -2484,6 +2676,49 @@ public class StaffDashboardController {
             } else if (ap.equals("PM") && !(h == 12 || (h >= 1 && h <= 5))) {
                 if (h >= 8 && h <= 11) amPmPicker.setValue("AM");
             }
+            // If switching to PM with hour 5, ensure minutes are 0
+            if (ap.equals("PM") && h == 5) {
+                minuteSpinner.getValueFactory().setValue(0);
+            }
+        });
+        
+        // End time listeners - auto-adjust AM/PM based on hour
+        endHourSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            int h = newVal;
+            if (h >= 8 && h <= 11) {
+                endAmPmPicker.setValue("AM");
+            } else {
+                endAmPmPicker.setValue("PM");
+            }
+            // If hour is 5 PM, ensure minutes are 0 (store closes at 5:00 PM sharp)
+            if (h == 5 && "PM".equalsIgnoreCase(endAmPmPicker.getValue())) {
+                endMinuteSpinner.getValueFactory().setValue(0);
+            }
+        });
+        endMinuteSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            try {
+                Integer m = newVal;
+                Integer h = endHourSpinner.getValue();
+                String ap = endAmPmPicker.getValue();
+                if (h != null && ap != null && h == 5 && "PM".equalsIgnoreCase(ap) && m != null && m > 0) {
+                    Platform.runLater(() -> endMinuteSpinner.getValueFactory().setValue(0));
+                }
+            } catch (Exception ignored) {
+            }
+        });
+        endAmPmPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            String ap = newVal.trim().toUpperCase();
+            int h = endHourSpinner.getValue();
+            if (ap.equals("AM") && (h < 8 || h > 11)) {
+                endAmPmPicker.setValue("PM");
+            } else if (ap.equals("PM") && !(h == 12 || (h >= 1 && h <= 5))) {
+                if (h >= 8 && h <= 11) endAmPmPicker.setValue("AM");
+            }
+            if (ap.equals("PM") && h == 5) {
+                endMinuteSpinner.getValueFactory().setValue(0);
+            }
         });
         
         grid.add(infoLabel, 0, 0, 2, 1);
@@ -2492,39 +2727,73 @@ public class StaffDashboardController {
         grid.add(datePicker, 1, 2);
         grid.add(timeLabel, 0, 3);
         grid.add(timeBox, 1, 3);
+        grid.add(endTimeLabel, 0, 4);
+        grid.add(endTimeBox, 1, 4);
+        grid.add(hoursInfoLabel, 0, 5, 2, 1);
         
         dateDialog.getDialogPane().setContent(grid);
         
         final String[] selectedTime = new String[1];
+        final String[] selectedEndTime = new String[1];
         dateDialog.setResultConverter(dialogButton -> {
             if (dialogButton == confirmButtonType) {
                 String h = String.valueOf(hourSpinner.getValue());
                 String m = String.format("%02d", minuteSpinner.getValue());
                 String ap = amPmPicker.getValue();
                 selectedTime[0] = h + ":" + m + " " + ap;
+                
+                String eh = String.valueOf(endHourSpinner.getValue());
+                String em = String.format("%02d", endMinuteSpinner.getValue());
+                String eap = endAmPmPicker.getValue();
+                selectedEndTime[0] = eh + ":" + em + " " + eap;
                 return datePicker.getValue();
             }
             return null;
         });
 
         dateDialog.showAndWait().ifPresent(pickupDate -> {
-            // Validate selected time is within business hours and not in the past
-            if (selectedTime[0] == null) {
-                AlertHelper.showError("Invalid Time", "Please select a valid time.");
+            // Validate selected times are within business hours and not in the past
+            if (selectedTime[0] == null || selectedEndTime[0] == null) {
+                AlertHelper.showError("Invalid Time", "Please select valid start and end times.");
                 return;
             }
+            
+            int startHour24, startMinute, endHour24, endMinute;
             try {
+                // Parse start time
                 String[] parts = selectedTime[0].split("[: ]"); // [HH, mm, AM/PM]
                 int hour12 = Integer.parseInt(parts[0]);
-                int minute = Integer.parseInt(parts[1]);
+                startMinute = Integer.parseInt(parts[1]);
                 String ampm = parts[2];
-                int hour24 = "AM".equals(ampm) ? (hour12 == 12 ? 0 : hour12) : (hour12 == 12 ? 12 : hour12 + 12);
-                if (hour24 < 8 || hour24 > 17) {
-                    AlertHelper.showError("Invalid Time", "Selected time is outside business hours (8:00 AM - 5:00 PM).");
+                startHour24 = "AM".equals(ampm) ? (hour12 == 12 ? 0 : hour12) : (hour12 == 12 ? 12 : hour12 + 12);
+                
+                // Parse end time
+                String[] endParts = selectedEndTime[0].split("[: ]");
+                int endHour12 = Integer.parseInt(endParts[0]);
+                endMinute = Integer.parseInt(endParts[1]);
+                String endAmpm = endParts[2];
+                endHour24 = "AM".equals(endAmpm) ? (endHour12 == 12 ? 0 : endHour12) : (endHour12 == 12 ? 12 : endHour12 + 12);
+                
+                // Business hours: 8:00 AM to 5:00 PM
+                if (startHour24 < 8 || startHour24 > 17 || (startHour24 == 17 && startMinute > 0)) {
+                    AlertHelper.showError("Invalid Start Time", "Start time is outside store hours.\n\n⏰ Store Hours: 8:00 AM - 5:00 PM");
                     return;
                 }
-                java.time.LocalDateTime scheduled = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(hour24, minute));
-                if (scheduled.isBefore(java.time.LocalDateTime.now())) {
+                if (endHour24 < 8 || endHour24 > 17 || (endHour24 == 17 && endMinute > 0)) {
+                    AlertHelper.showError("Invalid End Time", "End time is outside store hours.\n\n⏰ Store Hours: 8:00 AM - 5:00 PM");
+                    return;
+                }
+                
+                // Validate end time is after start time
+                int startTotalMinutes = startHour24 * 60 + startMinute;
+                int endTotalMinutes = endHour24 * 60 + endMinute;
+                if (endTotalMinutes <= startTotalMinutes) {
+                    AlertHelper.showError("Invalid Time Range", "End time must be after start time.");
+                    return;
+                }
+                
+                java.time.LocalDateTime scheduledStart = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(startHour24, startMinute));
+                if (scheduledStart.isBefore(java.time.LocalDateTime.now())) {
                     AlertHelper.showError("Invalid Time", "Selected date/time is in the past.");
                     return;
                 }
@@ -2534,17 +2803,28 @@ public class StaffDashboardController {
             }
             boolean allSuccess = true;
             
-            java.time.LocalDateTime scheduled = null;
+            java.time.LocalDateTime scheduledStart = null;
+            java.time.LocalDateTime scheduledEnd = null;
             try {
-                String[] parts = selectedTime[0].split("[: ]"); // [HH, mm, AM/PM]
-                int hour12 = Integer.parseInt(parts[0]);
-                int minute = Integer.parseInt(parts[1]);
-                String ampm = parts[2];
-                int hour24 = "AM".equals(ampm) ? (hour12 == 12 ? 0 : hour12) : (hour12 == 12 ? 12 : hour12 + 12);
-                scheduled = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(hour24, minute));
+                // Parse start time
+                String[] startParts = selectedTime[0].split("[: ]"); // [HH, mm, AM/PM]
+                int startHr12 = Integer.parseInt(startParts[0]);
+                int startMin = Integer.parseInt(startParts[1]);
+                String startAmpm = startParts[2];
+                int startHr24 = "AM".equals(startAmpm) ? (startHr12 == 12 ? 0 : startHr12) : (startHr12 == 12 ? 12 : startHr12 + 12);
+                scheduledStart = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(startHr24, startMin));
+                
+                // Parse end time
+                String[] endPts = selectedEndTime[0].split("[: ]");
+                int endHr12 = Integer.parseInt(endPts[0]);
+                int endMin = Integer.parseInt(endPts[1]);
+                String endAp = endPts[2];
+                int endHr24 = "AM".equals(endAp) ? (endHr12 == 12 ? 0 : endHr12) : (endHr12 == 12 ? 12 : endHr12 + 12);
+                scheduledEnd = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(endHr24, endMin));
             } catch (Exception ex) {
-                // fallback: use midnight of selected date if parsing failed
-                scheduled = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(9, 0));
+                // fallback: use 9 AM - 5 PM if parsing failed
+                scheduledStart = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(9, 0));
+                scheduledEnd = java.time.LocalDateTime.of(pickupDate, java.time.LocalTime.of(17, 0));
             }
 
             if (reservation.isPartOfBundle()) {
@@ -2556,13 +2836,13 @@ public class StaffDashboardController {
                     .collect(java.util.stream.Collectors.toList());
 
                 for (Reservation item : bundleItems) {
-                    boolean success = reservationManager.approvePickupRequest(item.getReservationId(), scheduled);
+                    boolean success = reservationManager.approvePickupRequest(item.getReservationId(), scheduledStart, scheduledEnd);
                     if (!success) {
                         allSuccess = false;
                     }
                 }
             } else {
-                allSuccess = reservationManager.approvePickupRequest(reservation.getReservationId(), scheduled);
+                allSuccess = reservationManager.approvePickupRequest(reservation.getReservationId(), scheduledStart, scheduledEnd);
             }
             
             if (allSuccess) {
@@ -2576,7 +2856,8 @@ public class StaffDashboardController {
                 successAlert.setHeaderText(reservation.isPartOfBundle() ? "Bundle pickup approved!" : "Pickup approved!");
                 successAlert.setContentText(
                     "Pickup scheduled for:\n" +
-                    pickupDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) + " at " + selectedTime[0] + "\n\n" +
+                    pickupDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) + "\n" +
+                    "⏰ " + selectedTime[0] + " - " + selectedEndTime[0] + "\n\n" +
                     "The student has been notified and can now claim the item.\n" +
                     "They will see this in their notification bell (🔔)."
                 );
