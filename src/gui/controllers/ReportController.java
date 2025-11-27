@@ -5,17 +5,12 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import gui.utils.ThemeManager;
 import inventory.InventoryManager;
 import inventory.ReceiptManager;
 import inventory.ReservationManager;
-import utils.DamagedStockTracker;
-import utils.DamagedStockTracker.DamagedStockRecord;
-import utils.ReplacementTracker;
-import utils.ReplacementTracker.ReplacementReason;
-import utils.ReplacementTracker.ReplacementRecord;
-import utils.ReplacementTracker.ReplacementSummary;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
@@ -33,6 +28,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import utils.DamagedStockTracker;
+import utils.DamagedStockTracker.DamagedStockRecord;
+import utils.ReplacementTracker;
+import utils.ReplacementTracker.ReplacementReason;
+import utils.ReplacementTracker.ReplacementRecord;
+import utils.ReplacementTracker.ReplacementSummary;
 import utils.ReportGenerator;
 import utils.ReportGenerator.ReservationReport;
 import utils.ReportGenerator.SalesSummaryReport;
@@ -85,6 +86,8 @@ public class ReportController {
     private String getButtonBgColor() {
         return "#1e3c72";
     }
+
+    
     
     @SuppressWarnings("unused")
     private String getButtonHoverBgColor() {
@@ -295,26 +298,36 @@ public class ReportController {
     private VBox createOutOfStockTab() {
         VBox box = new VBox(10);
         box.setPadding(new Insets(15));
-        
-        List<StockReport> outOfStockItems = reportGenerator.getOutOfStockItems();
-        
-        TableView<StockReport> table = new TableView<>();
-        table.setPrefHeight(300);
-        
-        TableColumn<StockReport, String> itemCol = new TableColumn<>("Item Name");
-        itemCol.setCellValueFactory(new PropertyValueFactory<>("category"));
-        itemCol.setPrefWidth(300);
-        itemCol.setStyle("-fx-alignment: CENTER;");
-        
-        table.getColumns().add(itemCol);
-        table.setItems(FXCollections.observableArrayList(outOfStockItems));
-        
-        Label countLabel = new Label("Out of Stock Items: " + outOfStockItems.size());
-        countLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #d32f2f;");
-        
-        box.getChildren().addAll(countLabel, table);
-        
-        return box;
+            List<ReportGenerator.DetailedItemReport> detailed = reportGenerator.getAllDetailedItems();
+
+            // Per-variant out-of-stock rows (quantity == 0)
+            List<ReportGenerator.DetailedItemReport> oosVariants = detailed.stream()
+                    .filter(d -> d.getQuantity() == 0)
+                    .collect(Collectors.toList());
+
+            TableView<ReportGenerator.DetailedItemReport> table = new TableView<>();
+            table.setPrefHeight(360);
+
+            // Single descriptive column in the format: "ItemName Size x Qty OOS"
+            TableColumn<ReportGenerator.DetailedItemReport, String> descCol = new TableColumn<>("Out of Stock Items");
+            descCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(
+                String.format("%s %s x %d OOS",
+                    c.getValue().getItemName(),
+                    c.getValue().getSize() != null ? c.getValue().getSize() : "",
+                    c.getValue().getQuantity())
+            ));
+            descCol.setPrefWidth(820);
+            descCol.setStyle("-fx-alignment: CENTER-LEFT;");
+
+            table.getColumns().add(descCol);
+            table.setItems(FXCollections.observableArrayList(oosVariants));
+
+            Label countLabel = new Label("Out of Stock Rows: " + oosVariants.size());
+            countLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #d32f2f;");
+
+            box.getChildren().addAll(countLabel, table);
+
+            return box;
     }
     
     private VBox createStockValuationTab() {
