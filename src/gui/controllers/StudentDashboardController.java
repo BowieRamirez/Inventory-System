@@ -3355,18 +3355,17 @@ public class StudentDashboardController {
         // Reload reservations from file to ensure we have latest data
         List<Reservation> allReservations = FileStorage.loadReservations();
         
-        // Get student's reservations that are APPROVED FOR PICKUP only
+        // Get student's reservations that are APPROVED FOR PICKUP or APPROVED FOR REPLACEMENT
         List<Reservation> claimableItems = allReservations.stream()
             .filter(r -> r.getStudentId().equals(student.getStudentId()))
-            .filter(r -> "APPROVED FOR PICKUP".equals(r.getStatus()))
+            .filter(r -> "APPROVED FOR PICKUP".equals(r.getStatus()) || "APPROVED FOR REPLACEMENT".equals(r.getStatus()))
             .filter(r -> {
-                // For bundles, verify all items in the bundle have the same status
+                // For bundles, verify all items in the bundle have a claimable status
                 if (r.isPartOfBundle()) {
                     String bundleId = r.getBundleId();
-                    String expectedStatus = r.getStatus();
                     return allReservations.stream()
                         .filter(res -> bundleId.equals(res.getBundleId()))
-                        .allMatch(res -> expectedStatus.equals(res.getStatus()));
+                        .allMatch(res -> "APPROVED FOR PICKUP".equals(res.getStatus()) || "APPROVED FOR REPLACEMENT".equals(res.getStatus()));
                 }
                 return true;
             })
@@ -3412,7 +3411,7 @@ public class StudentDashboardController {
             emptyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
             emptyLabel.setStyle("-fx-text-fill: -color-fg-muted;");
             
-            Label hintLabel = new Label("Request pickup first, then after staff approval, items will appear here.");
+            Label hintLabel = new Label("Request pickup first, then after staff approval, items will appear here.\nReplacement approvals will also appear here for claiming.");
             hintLabel.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 14px;");
             hintLabel.setWrapText(true);
             
@@ -3638,9 +3637,10 @@ public class StudentDashboardController {
             
             actionBox.getChildren().addAll(pendingLabel, pendingBtn, pendingNote);
             
-        } else if ("APPROVED FOR PICKUP".equals(status)) {
-            // Approved - student can claim
-            Label approvedLabel = new Label("✅ Status: Approved for Pickup");
+        } else if ("APPROVED FOR PICKUP".equals(status) || "APPROVED FOR REPLACEMENT".equals(status)) {
+            // Approved - student can claim (works for both regular pickup and replacement)
+            boolean isReplacement = "APPROVED FOR REPLACEMENT".equals(status);
+            Label approvedLabel = new Label(isReplacement ? "🔄 Status: Replacement Approved" : "✅ Status: Approved for Pickup");
             approvedLabel.setStyle("-fx-text-fill: #1A7F37; -fx-font-size: 12px; -fx-font-weight: bold;");
             
             // Check if we're within the pickup time window
@@ -3752,7 +3752,7 @@ public class StudentDashboardController {
                 actionBox.getChildren().addAll(approvedLabel, waitBtn, waitNote);
             } else {
                 // Within pickup window - can claim
-                Button claimBtn = new Button("✓ Claim Item");
+                Button claimBtn = new Button(isReplacement ? "✓ Claim Replacement" : "✓ Claim Item");
                 claimBtn.setMaxWidth(Double.MAX_VALUE);
                 claimBtn.setPrefHeight(40);
                 claimBtn.setStyle(
@@ -3765,7 +3765,7 @@ public class StudentDashboardController {
                 );
                 claimBtn.setOnAction(e -> handleClaimItem(r, group));
                 
-                Label approvedNote = new Label("💡 Confirm you've received the item from Staff");
+                Label approvedNote = new Label(isReplacement ? "💡 Confirm you've received the replacement from Staff" : "💡 Confirm you've received the item from Staff");
                 approvedNote.setStyle("-fx-text-fill: -color-fg-muted; -fx-font-size: 11px; -fx-font-style: italic;");
                 approvedNote.setWrapText(true);
                 

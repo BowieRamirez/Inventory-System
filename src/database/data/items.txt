@@ -9,7 +9,7 @@ ItemCode,ItemName,Course,Size,Quantity,DamagedStock,Price
 1031,Tourism Trousers (Male),BSTM,S,40,0,M,50,0,L,45,0,XL,35,0,520.00
 1032,Tourism Necktie,BSTM,One Size,20,0,100.00
 1033,SHS White Blouse (Female),SHS,S,0,0,M,0,0,L,0,0,XL,0,0,420.00
-1034,SHS Vest (Female),SHS,S,299,0,M,420,0,L,360,0,XL,273,0,300.00
+1034,SHS Vest (Female),SHS,S,298,0,M,420,0,L,360,0,XL,273,0,300.00
 1035,SHS Checkered Skirt,SHS,S,295,0,M,420,0,L,360,0,XL,267,0,450.00
 1036,SHS White Polo (Male),SHS,S,330,0,M,480,0,L,387,0,XL,297,0,420.00
 1037,SHS Vest (Male),SHS,S,300,0,M,420,0,L,360,0,XL,270,0,300.00
